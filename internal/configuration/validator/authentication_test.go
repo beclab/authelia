@@ -42,7 +42,7 @@ func TestShouldRaiseErrorWhenBothBackendsProvided(t *testing.T) {
 
 // 	require.Len(t, validator.Errors(), 0)
 // 	assert.EqualError(t, validator.Errors()[0], "authentication_backend: you must ensure either the 'file' or 'ldap' authentication backend is configured")
-// }
+// }.
 
 type FileBasedAuthenticationBackend struct {
 	suite.Suite

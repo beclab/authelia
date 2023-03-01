@@ -17,10 +17,6 @@ import (
 
 // ValidateAuthenticationBackend validates and updates the authentication backend configuration.
 func ValidateAuthenticationBackend(config *schema.AuthenticationBackend, validator *schema.StructValidator) {
-	if config.LDAP == nil && config.File == nil {
-		validator.Push(fmt.Errorf(errFmtAuthBackendNotConfigured))
-	}
-
 	if config.RefreshInterval == "" {
 		config.RefreshInterval = schema.RefreshIntervalDefault
 	} else {
