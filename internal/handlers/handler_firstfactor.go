@@ -49,7 +49,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			return
 		}
 
-		userPasswordOk, err := ctx.Providers.UserProvider.CheckUserPassword(bodyJSON.Username, bodyJSON.Password)
+		userPasswordOk, validRes, err := ctx.Providers.UserProvider.CheckUserPassword(bodyJSON.Username, bodyJSON.Password)
 		if err != nil {
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
 
@@ -141,6 +141,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 
 		if refresh, refreshInterval := getProfileRefreshSettings(ctx.Configuration.AuthenticationBackend); refresh {
 			userSession.RefreshTTL = ctx.Clock.Now().Add(refreshInterval)
+		}
+
+		if validRes != nil {
+			userSession.AccessToken = validRes.AccessToken
+			userSession.RefreshToken = validRes.RefreshToken
 		}
 
 		if err = ctx.SaveSession(userSession); err != nil {

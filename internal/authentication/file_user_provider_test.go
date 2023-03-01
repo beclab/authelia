@@ -60,7 +60,7 @@ func TestShouldCheckUserArgon2idPasswordIsCorrect(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "password")
+		ok, _, err := provider.CheckUserPassword("john", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -76,7 +76,7 @@ func TestShouldCheckUserSHA512PasswordIsCorrect(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("harry", "password")
+		ok, _, err := provider.CheckUserPassword("harry", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -92,7 +92,7 @@ func TestShouldCheckUserPasswordIsWrong(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "wrong_password")
+		ok, _, err := provider.CheckUserPassword("john", "wrong_password")
 
 		assert.NoError(t, err)
 		assert.False(t, ok)
@@ -108,7 +108,7 @@ func TestShouldCheckUserPasswordIsWrongForEnumerationCompare(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("enumeration", "wrong_password")
+		ok, _, err := provider.CheckUserPassword("enumeration", "wrong_password")
 		assert.NoError(t, err)
 		assert.False(t, ok)
 	})
@@ -123,7 +123,7 @@ func TestShouldCheckUserPasswordOfUserThatDoesNotExist(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("fake", "password")
+		ok, _, err := provider.CheckUserPassword("fake", "password")
 		assert.Error(t, err)
 		assert.Equal(t, false, ok)
 		assert.EqualError(t, err, "user not found")
@@ -164,7 +164,7 @@ func TestShouldUpdatePassword(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("harry", "newpassword")
+		ok, _, err := provider.CheckUserPassword("harry", "newpassword")
 		assert.NoError(t, err)
 		assert.True(t, ok)
 	})
@@ -189,7 +189,7 @@ func TestShouldUpdatePasswordHashingAlgorithmToArgon2id(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("harry", "newpassword")
+		ok, _, err := provider.CheckUserPassword("harry", "newpassword")
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		assert.True(t, strings.HasPrefix(provider.database.Users["harry"].Digest.Encode(), "$argon2id$"))
@@ -216,7 +216,7 @@ func TestShouldUpdatePasswordHashingAlgorithmToSHA512(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "newpassword")
+		ok, _, err := provider.CheckUserPassword("john", "newpassword")
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		assert.True(t, strings.HasPrefix(provider.database.Users["john"].Digest.Encode(), "$6$"))
@@ -298,7 +298,7 @@ func TestShouldSupportHashPasswordWithoutCRYPT(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "password")
+		ok, _, err := provider.CheckUserPassword("john", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -314,7 +314,7 @@ func TestShouldNotAllowLoginOfDisabledUsers(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("dis", "password")
+		ok, _, err := provider.CheckUserPassword("dis", "password")
 
 		assert.False(t, ok)
 		assert.EqualError(t, err, "user not found")
@@ -397,17 +397,17 @@ func TestShouldAllowLookupByEmail(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "password")
+		ok, _, err := provider.CheckUserPassword("john", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
-		ok, err = provider.CheckUserPassword("john.doe@authelia.com", "password")
+		ok, _, err = provider.CheckUserPassword("john.doe@authelia.com", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
-		ok, err = provider.CheckUserPassword("JOHN.doe@authelia.com", "password")
+		ok, _, err = provider.CheckUserPassword("JOHN.doe@authelia.com", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -424,12 +424,12 @@ func TestShouldAllowLookupCI(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		ok, err := provider.CheckUserPassword("john", "password")
+		ok, _, err := provider.CheckUserPassword("john", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
-		ok, err = provider.CheckUserPassword("John", "password")
+		ok, _, err = provider.CheckUserPassword("John", "password")
 
 		assert.NoError(t, err)
 		assert.True(t, ok)

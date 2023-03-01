@@ -36,12 +36,12 @@ func (m *MockUserProvider) EXPECT() *MockUserProviderMockRecorder {
 }
 
 // CheckUserPassword mocks base method.
-func (m *MockUserProvider) CheckUserPassword(arg0, arg1 string) (bool, error) {
+func (m *MockUserProvider) CheckUserPassword(arg0, arg1 string) (bool, *authentication.ValidResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckUserPassword", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0, nil, ret1
 }
 
 // CheckUserPassword indicates an expected call of CheckUserPassword.

@@ -64,18 +64,20 @@ func (p *FileUserProvider) Reload() (reloaded bool, err error) {
 }
 
 // CheckUserPassword checks if provided password matches for the given user.
-func (p *FileUserProvider) CheckUserPassword(username string, password string) (match bool, err error) {
+func (p *FileUserProvider) CheckUserPassword(username string, password string) (match bool, res *ValidResult, err error) {
 	var details DatabaseUserDetails
 
 	if details, err = p.database.GetUserDetails(username); err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	if details.Disabled {
-		return false, ErrUserNotFound
+		return false, nil, ErrUserNotFound
 	}
 
-	return details.Digest.MatchAdvanced(password)
+	match, err = details.Digest.MatchAdvanced(password)
+
+	return match, nil, err
 }
 
 // GetDetails retrieve the groups a user belongs to.

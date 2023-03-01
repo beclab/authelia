@@ -185,7 +185,7 @@ func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Sessi
 		details *authentication.UserDetails
 	)
 
-	if valid, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
+	if valid, _, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
 		return authn, fmt.Errorf("failed to validate parsed credentials of %s header for user '%s': %w", s.headerAuthorize, username, err)
 	}
 
@@ -270,7 +270,7 @@ func (s *HeaderLegacyAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session
 		details *authentication.UserDetails
 	)
 
-	if valid, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
+	if valid, _, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
 		return authn, fmt.Errorf("failed to validate parsed credentials of %s header for user '%s': %w", header, username, err)
 	}
 

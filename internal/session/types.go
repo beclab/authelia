@@ -43,6 +43,10 @@ type UserSession struct {
 	PasswordResetUsername *string
 
 	RefreshTTL time.Time
+
+	// kubesphere tokens.
+	AccessToken  string
+	RefreshToken string
 }
 
 // Identity identity of the user who is being verified.

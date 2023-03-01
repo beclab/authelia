@@ -91,29 +91,29 @@ func NewLDAPUserProviderWithFactory(config schema.LDAPAuthenticationBackend, dis
 }
 
 // CheckUserPassword checks if provided password matches for the given user.
-func (p *LDAPUserProvider) CheckUserPassword(username string, password string) (valid bool, err error) {
+func (p *LDAPUserProvider) CheckUserPassword(username string, password string) (valid bool, res *ValidResult, err error) {
 	var (
 		client, clientUser LDAPClient
 		profile            *ldapUserProfile
 	)
 
 	if client, err = p.connect(); err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	defer client.Close()
 
 	if profile, err = p.getUserProfile(client, username); err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	if clientUser, err = p.connectCustom(p.config.URL, profile.DN, password, p.config.StartTLS, p.dialOpts...); err != nil {
-		return false, fmt.Errorf("authentication failed. Cause: %w", err)
+		return false, nil, fmt.Errorf("authentication failed. Cause: %w", err)
 	}
 
 	defer clientUser.Close()
 
-	return true, nil
+	return true, nil, nil
 }
 
 // GetDetails retrieve the groups a user belongs to.

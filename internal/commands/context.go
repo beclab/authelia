@@ -149,6 +149,8 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 		ctx.providers.UserProvider = authentication.NewFileUserProvider(ctx.config.AuthenticationBackend.File)
 	case ctx.config.AuthenticationBackend.LDAP != nil:
 		ctx.providers.UserProvider = authentication.NewLDAPUserProvider(ctx.config.AuthenticationBackend, ctx.trusted)
+	default:
+		ctx.providers.UserProvider = authentication.NewKubesphereUserProvider()
 	}
 
 	if ctx.providers.Templates, err = templates.New(templates.Config{EmailTemplatesPath: ctx.config.Notifier.TemplatePath}); err != nil {

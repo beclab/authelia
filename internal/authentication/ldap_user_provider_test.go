@@ -3620,7 +3620,7 @@ func TestShouldCheckValidUserPassword(t *testing.T) {
 		mockClient.EXPECT().Close().Times(2),
 	)
 
-	valid, err := provider.CheckUserPassword("john", "password")
+	valid, _, err := provider.CheckUserPassword("john", "password")
 
 	assert.True(t, valid)
 	require.NoError(t, err)
@@ -3659,7 +3659,7 @@ func TestShouldNotCheckValidUserPasswordWithConnectError(t *testing.T) {
 
 	gomock.InOrder(dialURL, bind, mockClient.EXPECT().Close())
 
-	valid, err := provider.CheckUserPassword("john", "password")
+	valid, _, err := provider.CheckUserPassword("john", "password")
 
 	assert.False(t, valid)
 	assert.EqualError(t, err, "bind failed with error: LDAP Result Code 49 \"Invalid Credentials\": invalid username or password")
@@ -3727,7 +3727,7 @@ func TestShouldCheckInvalidUserPassword(t *testing.T) {
 		mockClient.EXPECT().Close().Times(2),
 	)
 
-	valid, err := provider.CheckUserPassword("john", "password")
+	valid, _, err := provider.CheckUserPassword("john", "password")
 
 	assert.False(t, valid)
 	require.EqualError(t, err, "authentication failed. Cause: bind failed with error: invalid username or password")
