@@ -171,7 +171,7 @@ func loadPostgreSQLTLSConfig(config *schema.PostgreSQLStorageConfiguration, glob
 		case nil:
 			caCertPool = globalCACertPool
 		default:
-			caCertPool = globalCACertPool.Clone()
+			caCertPool = globalCACertPool // FIXME: clone to add.
 			caCertPool.AddCert(ca)
 		}
 

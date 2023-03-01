@@ -73,12 +73,12 @@ var (
 	// StandardTimeLayouts is the set of standard time layouts used with ParseTimeString.
 	StandardTimeLayouts = []string{
 		"Jan 2 15:04:05 2006",
-		time.DateTime,
+		"2006-01-02 15:04:05",
 		time.RFC3339,
 		time.RFC1123Z,
 		time.RubyDate,
 		time.ANSIC,
-		time.DateOnly,
+		"2006-01-02",
 	}
 
 	standardDurationUnits = []string{"ns", "us", "µs", "μs", "ms", "s", "m", "h"}
