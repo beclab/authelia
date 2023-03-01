@@ -128,7 +128,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
 		SetBody(reqBody).
-		SetResult(&Response{Data: TokenResponse{}}).
+		SetResult(&Response{Data: &TokenResponse{}}).
 		Post(loginUrl)
 
 	if err != nil {
@@ -145,7 +145,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 		return false, nil, errors.New(responseData.Message)
 	}
 
-	tokens := responseData.Data.(TokenResponse)
+	tokens := responseData.Data.(*TokenResponse)
 	res = &ValidResult{
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -162,7 +162,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 		userUrl := fmt.Sprintf("http://%s/bfl/backend/v1/user-info", BFL)
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-			SetResult(&Response{Data: UserInfo{}}).
+			SetResult(&Response{Data: &UserInfo{}}).
 			Get(userUrl)
 
 		if err != nil {
@@ -179,7 +179,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 			return nil, errors.New(responseData.Message)
 		}
 
-		info := responseData.Data.(UserInfo)
+		info := responseData.Data.(*UserInfo)
 
 		details := &UserDetails{
 			Username:    username,
@@ -194,7 +194,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 			SetHeader("X-Authorization", token.Value().token).
-			SetResult(&Response{Data: UserDetail{}}).
+			SetResult(&Response{Data: &UserDetail{}}).
 			Get(userUrl)
 
 		if err != nil {
@@ -211,7 +211,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 			return nil, errors.New(responseData.Message)
 		}
 
-		d := responseData.Data.(UserDetail)
+		d := responseData.Data.(*UserDetail)
 
 		details := &UserDetails{
 			Username:    username,
