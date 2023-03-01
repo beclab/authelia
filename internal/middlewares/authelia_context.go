@@ -140,6 +140,11 @@ func (ctx *AutheliaCtx) XForwardedProto() (proto []byte) {
 	proto = ctx.Request.Header.PeekBytes(headerXForwardedProto)
 
 	if proto == nil {
+		scheme := ctx.Request.Header.PeekBytes(headerXForwardedScheme)
+		if scheme != nil {
+			return scheme
+		}
+
 		if ctx.IsTLS() {
 			return protoHTTPS
 		}
