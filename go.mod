@@ -54,6 +54,7 @@ require (
 	golang.org/x/text v0.7.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/klog/v2 v2.90.1
 )
 
 require (
@@ -74,6 +75,7 @@ require (
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
 	github.com/go-crypt/x v0.1.13 // indirect
+	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-webauthn/revoke v0.1.9 // indirect
 	github.com/golang/glog v1.0.0 // indirect

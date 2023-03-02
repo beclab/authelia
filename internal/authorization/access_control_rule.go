@@ -5,6 +5,7 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"k8s.io/klog/v2"
 )
 
 // NewAccessControlRules converts a schema.AccessControlConfiguration into an AccessControlRule slice.
@@ -57,26 +58,32 @@ type AccessControlRule struct {
 // IsMatch returns true if all elements of an AccessControlRule match the object and subject.
 func (acr *AccessControlRule) IsMatch(subject Subject, object Object) (match bool) {
 	if !acr.MatchesDomains(subject, object) {
+		klog.Infof("Not matching domain for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
 	if !acr.MatchesResources(subject, object) {
+		klog.Infof("Not matching resource for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
 	if !acr.MatchesQuery(object) {
+		klog.Infof("Not matching query for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
 	if !acr.MatchesMethods(object) {
+		klog.Infof("Not matching methods for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
 	if !acr.MatchesNetworks(subject) {
+		klog.Infof("Not matching networks for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
 	if !acr.MatchesSubjects(subject) {
+		klog.Infof("Not matching subjects for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 		return false
 	}
 
