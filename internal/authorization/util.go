@@ -1,9 +1,13 @@
 package authorization
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
 	"regexp"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
@@ -220,4 +224,16 @@ func IsAuthLevelSufficient(authenticationLevel authentication.Level, authorizati
 	}
 
 	return true
+}
+
+func PrettyJSON(v any) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(v); err != nil {
+		klog.Error("cannot encode json", err)
+	}
+
+	return buf.String()
 }

@@ -3,9 +3,10 @@ package authorization
 import (
 	"net"
 
+	"k8s.io/klog/v2"
+
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/utils"
-	"k8s.io/klog/v2"
 )
 
 // NewAccessControlRules converts a schema.AccessControlConfiguration into an AccessControlRule slice.
@@ -92,6 +93,8 @@ func (acr *AccessControlRule) IsMatch(subject Subject, object Object) (match boo
 
 // MatchesDomains returns true if the rule matches the domains.
 func (acr *AccessControlRule) MatchesDomains(subject Subject, object Object) (matches bool) {
+	klog.Info(acr.Domains)
+
 	// If there are no domains in this rule then the domain condition is a match.
 	if len(acr.Domains) == 0 {
 		return true
