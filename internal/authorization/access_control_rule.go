@@ -93,7 +93,7 @@ func (acr *AccessControlRule) IsMatch(subject Subject, object Object) (match boo
 
 // MatchesDomains returns true if the rule matches the domains.
 func (acr *AccessControlRule) MatchesDomains(subject Subject, object Object) (matches bool) {
-	klog.Info(acr.Domains)
+	klog.Info(PrettyJSON(acr.Domains))
 
 	// If there are no domains in this rule then the domain condition is a match.
 	if len(acr.Domains) == 0 {

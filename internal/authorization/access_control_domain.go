@@ -63,9 +63,9 @@ type AccessControlDomainMatcher struct {
 
 // IsMatch returns true if this rule matches.
 func (m AccessControlDomainMatcher) IsMatch(domain string, subject Subject) (match bool) {
-	klog.Info(m)
+	klog.Info(PrettyJSON(m))
 	klog.Info(domain)
-	klog.Info(subject)
+	klog.Info(PrettyJSON(subject))
 
 	switch {
 	case m.Wildcard:
