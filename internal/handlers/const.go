@@ -32,11 +32,13 @@ var (
 )
 
 var (
-	headerSessionUsername = []byte("Session-Username")
-	headerRemoteUser      = []byte("Remote-User")
-	headerRemoteGroups    = []byte("Remote-Groups")
-	headerRemoteName      = []byte("Remote-Name")
-	headerRemoteEmail     = []byte("Remote-Email")
+	headerSessionUsername    = []byte("Session-Username")
+	headerRemoteUser         = []byte("Remote-User")
+	headerRemoteGroups       = []byte("Remote-Groups")
+	headerRemoteName         = []byte("Remote-Name")
+	headerRemoteEmail        = []byte("Remote-Email")
+	headerRemoteAccessToken  = []byte("Remote-Accesstoken")
+	headerRemoteRefreshToken = []byte("Remote-Refreshtoken")
 )
 
 const (

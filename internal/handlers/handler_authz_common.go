@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/valyala/fasthttp"
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/utils"
@@ -71,6 +72,29 @@ func handleAuthzAuthorizedStandard(ctx *middlewares.AutheliaCtx, authn *Authn) {
 			ctx.Response.Header.SetBytesK(headerRemoteEmail, "")
 		default:
 			ctx.Response.Header.SetBytesK(headerRemoteEmail, authn.Details.Emails[0])
+		}
+
+		if authn.Token.AccessToken != "" {
+			klog.Infof("set access token in cookie and header for user %s", authn.Details.Username)
+
+			cookie := &fasthttp.Cookie{}
+			cookie.SetKey("auth_token")
+			cookie.SetValue(authn.Token.AccessToken)
+			cookie.SetDomain(ctx.Configuration.Session.Cookies[0].Domain)
+			cookie.SetPath("/")
+			cookie.SetMaxAge(int(ctx.Configuration.Session.Cookies[0].Expiration.Seconds()))
+
+			ctx.Response.Header.SetCookie(cookie)
+
+			refreshCookie := &fasthttp.Cookie{}
+			refreshCookie.CopyTo(cookie)
+			refreshCookie.SetKey("auth_refresh_token")
+			refreshCookie.SetValue(authn.Token.RefreshToken)
+
+			ctx.Response.Header.SetCookie(refreshCookie)
+
+			ctx.Response.Header.SetBytesK(headerRemoteAccessToken, authn.Token.AccessToken)
+			ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, authn.Token.RefreshToken)
 		}
 	}
 }

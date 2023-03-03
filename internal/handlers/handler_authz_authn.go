@@ -135,6 +135,10 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 		},
 		Level: userSession.AuthenticationLevel,
 		Type:  AuthnTypeCookie,
+		Token: authentication.ValidResult{
+			AccessToken:  userSession.AccessToken,
+			RefreshToken: userSession.RefreshToken,
+		},
 	}, nil
 }
 
@@ -183,9 +187,10 @@ func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Sessi
 	var (
 		valid   bool
 		details *authentication.UserDetails
+		res     *authentication.ValidResult
 	)
 
-	if valid, _, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
+	if valid, res, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
 		return authn, fmt.Errorf("failed to validate parsed credentials of %s header for user '%s': %w", s.headerAuthorize, username, err)
 	}
 
@@ -206,6 +211,7 @@ func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Sessi
 	authn.Username = friendlyUsername(details.Username)
 	authn.Details = *details
 	authn.Level = authentication.OneFactor
+	authn.Token = *res
 
 	return authn, nil
 }

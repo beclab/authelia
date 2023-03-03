@@ -70,6 +70,8 @@ type Authn struct {
 	Level   authentication.Level
 	Object  authorization.Object
 	Type    AuthnType
+
+	Token authentication.ValidResult
 }
 
 // AuthzConfig represents the configuration elements of the Authz type.
