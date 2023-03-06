@@ -51,7 +51,7 @@ WORKDIR /app
 ENV PATH="/app:${PATH}" \
     PUID=0 \
     PGID=0 \
-    X_AUTHELIA_CONFIG="/config/configuration.yml"
+    X_AUTHELIA_CONFIG="/app/configuration.yml"
 
 RUN \
 	apk --no-cache add ca-certificates su-exec tzdata

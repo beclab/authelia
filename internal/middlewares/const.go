@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	headerXAutheliaURL = []byte("X-Authelia-URL")
+	headerXAutheliaURL = []byte("X-Authelia-Url")
 
 	headerAccept        = []byte(fasthttp.HeaderAccept)
 	headerContentLength = []byte(fasthttp.HeaderContentLength)
@@ -18,8 +18,8 @@ var (
 	headerXForwardedFor   = []byte(fasthttp.HeaderXForwardedFor)
 	headerXRequestedWith  = []byte(fasthttp.HeaderXRequestedWith)
 
-	headerXForwardedURI    = []byte("X-Forwarded-URI")
-	headerXOriginalURL     = []byte("X-Original-URL")
+	headerXForwardedURI    = []byte("X-Forwarded-Uri")
+	headerXOriginalURL     = []byte("X-Original-Url")
 	headerXOriginalMethod  = []byte("X-Original-Method")
 	headerXForwardedMethod = []byte("X-Forwarded-Method")
 	headerXForwardedScheme = []byte("X-Forwarded-Scheme")
@@ -36,9 +36,9 @@ var (
 	headerAccessControlRequestHeaders   = []byte(fasthttp.HeaderAccessControlRequestHeaders)
 	headerAccessControlRequestMethod    = []byte(fasthttp.HeaderAccessControlRequestMethod)
 
-	headerXContentTypeOptions   = []byte(fasthttp.HeaderXContentTypeOptions)
-	headerReferrerPolicy        = []byte(fasthttp.HeaderReferrerPolicy)
-	headerXFrameOptions         = []byte(fasthttp.HeaderXFrameOptions)
+	headerXContentTypeOptions = []byte(fasthttp.HeaderXContentTypeOptions)
+	headerReferrerPolicy      = []byte(fasthttp.HeaderReferrerPolicy)
+	//headerXFrameOptions         = []byte(fasthttp.HeaderXFrameOptions)
 	headerPragma                = []byte(fasthttp.HeaderPragma)
 	headerCacheControl          = []byte(fasthttp.HeaderCacheControl)
 	headerXXSSProtection        = []byte(fasthttp.HeaderXXSSProtection)
@@ -60,11 +60,11 @@ var (
 
 	headerValueNoSniff                 = []byte("nosniff")
 	headerValueStrictOriginCrossOrigin = []byte("strict-origin-when-cross-origin")
-	headerValueSameOrigin              = []byte("SAMEORIGIN")
-	headerValueNoCache                 = []byte("no-cache")
-	headerValueNoStore                 = []byte("no-store")
-	headerValueXSSModeBlock            = []byte("1; mode=block")
-	headerValueCohort                  = []byte("interest-cohort=()")
+	//headerValueSameOrigin              = []byte("SAMEORIGIN")
+	headerValueNoCache      = []byte("no-cache")
+	headerValueNoStore      = []byte("no-store")
+	headerValueXSSModeBlock = []byte("1; mode=block")
+	headerValueCohort       = []byte("interest-cohort=()")
 )
 
 const (

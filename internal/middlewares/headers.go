@@ -10,7 +10,7 @@ func SecurityHeaders(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		ctx.Response.Header.SetBytesKV(headerXContentTypeOptions, headerValueNoSniff)
 		ctx.Response.Header.SetBytesKV(headerReferrerPolicy, headerValueStrictOriginCrossOrigin)
 		ctx.Response.Header.SetBytesKV(headerPermissionsPolicy, headerValueCohort)
-		ctx.Response.Header.SetBytesKV(headerXFrameOptions, headerValueSameOrigin)
+
 		ctx.Response.Header.SetBytesKV(headerXXSSProtection, headerValueXSSModeBlock)
 
 		next(ctx)

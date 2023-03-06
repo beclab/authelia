@@ -20,6 +20,8 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		err         error
 	)
 
+	ctx.Logger.Debug("******************* start to auth ******************")
+
 	if object, err = authz.handleGetObject(ctx); err != nil {
 		ctx.Logger.Errorf("Error getting original request object: %v", err)
 
