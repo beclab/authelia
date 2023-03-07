@@ -201,7 +201,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 				Trace("Registering Authz Endpoint")
 
 			r.ANY(pathAuthzLegacy, handler)
-			r.ANY(pathAuthzLegacy+pathParamAuthzEnvoy, handler)
+			r.ANY(path.Join(pathAuthzLegacy, pathParamAuthzEnvoy), handler)
 		default:
 			switch endpoint.Implementation {
 			case handlers.AuthzImplLegacy.String(), handlers.AuthzImplExtAuthz.String():
