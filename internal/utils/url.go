@@ -2,9 +2,21 @@ package utils
 
 import (
 	"net/url"
+	"os"
 	"path"
 	"strings"
 )
+
+var (
+	BFL = "bfl"
+)
+
+func init() {
+	envBfl := os.Getenv("BFL")
+	if envBfl != "" {
+		BFL = envBfl
+	}
+}
 
 // URLPathFullClean returns a URL path with the query parameters appended (full path) with the path portion parsed
 // through path.Clean given a *url.URL.

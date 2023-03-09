@@ -224,7 +224,7 @@ func (s *AuthRequestAuthzSuite) TestShouldHandleInvalidURLForCVE202132637() {
 					defer mock.Close()
 
 					mock.Ctx.Configuration.AccessControl.DefaultPolicy = testBypass
-					mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&mock.Ctx.Configuration)
+					mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&mock.Ctx.Configuration)
 
 					mock.Ctx.Request.Header.Set(testXOriginalMethod, method)
 					mock.Ctx.Request.Header.SetBytesKV([]byte(testXOriginalUrl), tc.uri)

@@ -18,84 +18,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-resty/resty/v2"
 	"github.com/jellydator/ttlcache/v3"
-)
 
-var (
-	BFL = "bfl"
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 const (
 	TokenCacheTTL      = 2 * time.Hour
 	TokenCacheCapacity = 1000
 )
-
-func init() {
-	envBfl := os.Getenv("BFL")
-	if envBfl != "" {
-		BFL = envBfl
-	}
-}
-
-// BFL user types.
-type UserPassword struct {
-	UserName string `json:"username,omitempty"`
-	Password string `json:"password"`
-}
-
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	ExpiresAt    int64  `json:"expires_at,omitempty"`
-}
-
-type UserInfo struct {
-	Name        string `json:"name"`
-	OwnerRole   string `json:"owner_role"`
-	DID         string `json:"did"`
-	IsEphemeral bool   `json:"is_ephemeral"`
-	Zone        string `json:"zone"`
-}
-
-type UserDetail struct {
-	UID               string `json:"uid"`
-	Name              string `json:"name"`
-	DisplayName       string `json:"display_name"`
-	Description       string `json:"description"`
-	Email             string `json:"email"`
-	State             string `json:"state"`
-	LastLoginTime     *int64 `json:"last_login_time"`
-	CreationTimestamp int64  `json:"creation_timestamp"`
-
-	DID            string `json:"did"`
-	WizardComplete bool   `json:"wizard_complete"`
-
-	Roles []string `json:"roles"`
-}
-
-type PasswordReset struct {
-	CurrentPassword string `json:"current_password"`
-	Password        string `json:"password"`
-}
-
-// BFL http types.
-type Header struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-type Response struct {
-	Header
-
-	Data any `json:"data,omitempty"` // data field, optional, object or list.
-}
 
 type UserCache struct {
 	token string
@@ -118,9 +53,9 @@ func NewKubesphereUserProvider() *KubesphereUserProvider {
 }
 
 func (p *KubesphereUserProvider) CheckUserPassword(username string, password string) (match bool, res *ValidResult, err error) {
-	loginUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/login", BFL)
+	loginUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/login", utils.BFL)
 
-	reqBody := UserPassword{
+	reqBody := utils.UserPassword{
 		UserName: username,
 		Password: password,
 	}
@@ -128,7 +63,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
 		SetBody(reqBody).
-		SetResult(&Response{Data: &TokenResponse{}}).
+		SetResult(&utils.Response{Data: &utils.TokenResponse{}}).
 		Post(loginUrl)
 
 	if err != nil {
@@ -139,13 +74,13 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 		return false, nil, errors.New(string(resp.Body()))
 	}
 
-	responseData := resp.Result().(*Response)
+	responseData := resp.Result().(*utils.Response)
 
 	if responseData.Code != 0 {
 		return false, nil, errors.New(responseData.Message)
 	}
 
-	tokens := responseData.Data.(*TokenResponse)
+	tokens := responseData.Data.(*utils.TokenResponse)
 	res = &ValidResult{
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -159,27 +94,10 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetails, err error) {
 	token := p.cache.Get(username)
 	if token == nil {
-		userUrl := fmt.Sprintf("http://%s/bfl/backend/v1/user-info", BFL)
-		resp, err := p.client.R().
-			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-			SetResult(&Response{Data: &UserInfo{}}).
-			Get(userUrl)
-
+		info, err := utils.GetUserInfoFromBFL(p.client)
 		if err != nil {
 			return nil, err
 		}
-
-		if resp.StatusCode() != http.StatusOK {
-			return nil, errors.New(string(resp.Body()))
-		}
-
-		responseData := resp.Result().(*Response)
-
-		if responseData.Code != 0 {
-			return nil, errors.New(responseData.Message)
-		}
-
-		info := responseData.Data.(*UserInfo)
 
 		details := &UserDetails{
 			Username:    username,
@@ -189,12 +107,12 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 
 		return details, nil
 	} else {
-		userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s", BFL, username)
+		userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s", utils.BFL, username)
 
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 			SetHeader("X-Authorization", token.Value().token).
-			SetResult(&Response{Data: &UserDetail{}}).
+			SetResult(&utils.Response{Data: &utils.UserDetail{}}).
 			Get(userUrl)
 
 		if err != nil {
@@ -205,13 +123,13 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 			return nil, errors.New(string(resp.Body()))
 		}
 
-		responseData := resp.Result().(*Response)
+		responseData := resp.Result().(*utils.Response)
 
 		if responseData.Code != 0 {
 			return nil, errors.New(responseData.Message)
 		}
 
-		d := responseData.Data.(*UserDetail)
+		d := responseData.Data.(*utils.UserDetail)
 
 		details := &UserDetails{
 			Username:    username,
@@ -231,8 +149,8 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 		return ErrUserNotFound
 	}
 
-	userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s/password", BFL, username)
-	reset := PasswordReset{
+	userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s/password", utils.BFL, username)
+	reset := utils.PasswordReset{
 		CurrentPassword: cache.Value().pwd,
 		Password:        newPassword,
 	}
@@ -240,7 +158,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 		SetHeader("X-Authorization", cache.Value().token).
-		SetResult(&Response{}).
+		SetResult(&utils.Response{}).
 		SetBody(reset).
 		Put(userUrl)
 	if err != nil {
@@ -251,7 +169,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 		return errors.New(string(resp.Body()))
 	}
 
-	responseData := resp.Result().(*Response)
+	responseData := resp.Result().(*utils.Response)
 
 	if responseData.Code != 0 {
 		return errors.New(responseData.Message)

@@ -322,7 +322,7 @@ func (s *FirstFactorRedirectionSuite) SetupTest() {
 			Policy:  "one_factor",
 		},
 	}
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	s.mock.UserProviderMock.
 		EXPECT().
@@ -402,7 +402,7 @@ func (s *FirstFactorRedirectionSuite) TestShouldRedirectToDefaultURLWhenURLIsUns
 //
 //	the user should receive 200 without redirection URL.
 func (s *FirstFactorRedirectionSuite) TestShouldReply200WhenNoTargetURLProvidedAndTwoFactorEnabled() {
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&schema.Configuration{
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&schema.Configuration{
 		AccessControl: schema.AccessControlConfiguration{
 			DefaultPolicy: "two_factor",
 		},
@@ -428,7 +428,7 @@ func (s *FirstFactorRedirectionSuite) TestShouldReply200WhenNoTargetURLProvidedA
 //
 //	the user should receive 200 without redirection URL.
 func (s *FirstFactorRedirectionSuite) TestShouldReply200WhenUnsafeTargetURLProvidedAndTwoFactorEnabled() {
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&schema.Configuration{
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&schema.Configuration{
 		AccessControl: schema.AccessControlConfiguration{
 			DefaultPolicy: "one_factor",
 			Rules: []schema.ACLRule{

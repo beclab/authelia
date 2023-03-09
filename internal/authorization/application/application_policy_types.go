@@ -12,10 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authorization
+package application
 
-type Authorizer interface {
-	IsSecondFactorEnabled() bool
-	GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level)
-	GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult)
+type ApplicationSettingsSubPolicy struct {
+	URI    string `json:"uri"`
+	Policy string `json:"policy"`
 }
+
+type ApplicationSettingsPolicy struct {
+	DefaultPolicy string                          `json:"default_policy"`
+	SubPolicies   []*ApplicationSettingsSubPolicy `json:"sub_policies"`
+}
+
+const ApplicationSettingsPolicyKey = "policy"

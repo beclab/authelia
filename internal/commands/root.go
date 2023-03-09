@@ -1,11 +1,15 @@
 package commands
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/model"
@@ -52,6 +56,14 @@ func NewRootCmd() (cmd *cobra.Command) {
 		newHelpTopic("filters", "help topic for the config filters", helpTopicConfigFilters),
 		newHelpTopic("time-layouts", "help topic for the various time layouts", helpTopicTimeLayouts),
 	)
+
+	var klogFlagSet flag.FlagSet
+
+	klog.InitFlags(&klogFlagSet)
+	pflag.CommandLine.AddGoFlagSet(&klogFlagSet)
+	pflag.Parse()
+
+	ctrl.SetLogger(klog.NewKlogr())
 
 	return cmd
 }

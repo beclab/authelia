@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
@@ -16,14 +17,41 @@ import (
 	"github.com/authelia/authelia/v4/internal/session"
 )
 
+func setTokenToCookie(ctx *middlewares.AutheliaCtx, userSession *session.UserSession) {
+	if userSession.AccessToken != "" {
+		klog.Infof("set access token in cookie and header for user %s", userSession.Username)
+
+		cookie := &fasthttp.Cookie{}
+		cookie.SetKey("auth_token")
+		cookie.SetValue(userSession.AccessToken)
+		cookie.SetDomain(ctx.Configuration.Session.Cookies[0].Domain)
+		cookie.SetPath("/")
+		cookie.SetMaxAge(int(ctx.Configuration.Session.Cookies[0].Expiration.Seconds()))
+
+		ctx.Response.Header.SetCookie(cookie)
+
+		refreshCookie := &fasthttp.Cookie{}
+		refreshCookie.CopyTo(cookie)
+		refreshCookie.SetKey("auth_refresh_token")
+		refreshCookie.SetValue(userSession.RefreshToken)
+
+		ctx.Response.Header.SetCookie(refreshCookie)
+
+		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, userSession.AccessToken)
+		ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, userSession.RefreshToken)
+	}
+}
+
 // Handle1FAResponse handle the redirection upon 1FA authentication.
-func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod string, username string, groups []string) {
+func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod string, username string, groups []string, session *session.UserSession) {
 	var err error
 
 	if len(targetURI) == 0 {
 		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
 			if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
 				ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
+			} else {
+				setTokenToCookie(ctx, session)
 			}
 		} else {
 			ctx.ReplyOK()
@@ -63,6 +91,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod st
 		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
 			if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
 				ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
+			} else {
+				setTokenToCookie(ctx, session)
 			}
 
 			return
@@ -77,11 +107,13 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod st
 
 	if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
 		ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
+	} else {
+		setTokenToCookie(ctx, session)
 	}
 }
 
 // Handle2FAResponse handle the redirection upon 2FA authentication.
-func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string) {
+func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *session.UserSession) {
 	var err error
 
 	if len(targetURI) == 0 {
@@ -93,6 +125,8 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string) {
 
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
 			ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
+		} else {
+			setTokenToCookie(ctx, session)
 		}
 
 		return
@@ -115,6 +149,8 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string) {
 
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
+		} else {
+			setTokenToCookie(ctx, session)
 		}
 
 		return

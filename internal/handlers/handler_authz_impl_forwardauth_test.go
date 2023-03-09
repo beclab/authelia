@@ -411,7 +411,7 @@ func (s *ForwardAuthAuthzSuite) TestShouldHandleInvalidURLForCVE202132637() {
 					defer mock.Close()
 
 					mock.Ctx.Configuration.AccessControl.DefaultPolicy = testBypass
-					mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&mock.Ctx.Configuration)
+					mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&mock.Ctx.Configuration)
 
 					for i, cookie := range mock.Ctx.Configuration.Session.Cookies {
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))

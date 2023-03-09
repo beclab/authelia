@@ -61,7 +61,13 @@ func (ctx *CmdCtx) AccessControlCheckRunE(cmd *cobra.Command, _ []string) (err e
 		return errors.New("your configuration has errors")
 	}
 
-	authorizer := authorization.NewAuthorizer(ctx.config)
+	var authorizer authorization.Authorizer
+	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
+		authorizer = authorization.NewFileAuthorizer(ctx.config)
+	} else {
+		authorizer = authorization.NewTsAuthorizer()
+		defer (authorizer.(*authorization.TsAuthorizer)).Stop()
+	}
 
 	subject, object, err := getSubjectAndObjectFromFlags(cmd)
 	if err != nil {

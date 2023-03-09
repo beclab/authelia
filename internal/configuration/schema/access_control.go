@@ -6,6 +6,7 @@ import (
 
 // AccessControlConfiguration represents the configuration related to ACLs.
 type AccessControlConfiguration struct {
+	ConfigType    string       `koanf:"config_type"`
 	DefaultPolicy string       `koanf:"default_policy"`
 	Networks      []ACLNetwork `koanf:"networks"`
 	Rules         []ACLRule    `koanf:"rules"`

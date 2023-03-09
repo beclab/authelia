@@ -17,7 +17,7 @@ type SecondFactorAvailableMethodsFixture struct {
 
 func (s *SecondFactorAvailableMethodsFixture) SetupTest() {
 	s.mock = mocks.NewMockAutheliaCtx(s.T())
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&schema.Configuration{
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&schema.Configuration{
 		AccessControl: schema.AccessControlConfiguration{
 			DefaultPolicy: "deny",
 			Rules:         []schema.ACLRule{},
@@ -49,7 +49,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldHaveAllConfiguredMethods
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 
@@ -79,7 +79,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldRemoveTOTPFromAvailableM
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 
@@ -109,7 +109,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldRemoveWebauthnFromAvaila
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 
@@ -139,7 +139,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldRemoveDuoFromAvailableMe
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 
@@ -169,7 +169,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldRemoveAllMethodsWhenNoTw
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 
@@ -199,7 +199,7 @@ func (s *SecondFactorAvailableMethodsFixture) TestShouldRemoveAllMethodsWhenAllD
 			},
 		}}
 
-	s.mock.Ctx.Providers.Authorizer = authorization.NewAuthorizer(&s.mock.Ctx.Configuration)
+	s.mock.Ctx.Providers.Authorizer = authorization.NewFileAuthorizer(&s.mock.Ctx.Configuration)
 
 	ConfigurationGET(s.mock.Ctx)
 

@@ -4,7 +4,7 @@
 FROM node:19-alpine AS builder-frontend
 
 WORKDIR /node/src/app
-
+RUN  ls /
 COPY web ./
 
 # Install the dependencies and build

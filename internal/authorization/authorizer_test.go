@@ -18,7 +18,7 @@ type AuthorizerSuite struct {
 }
 
 type AuthorizerTester struct {
-	*Authorizer
+	*FileAuthorizer
 }
 
 func NewAuthorizerTester(config schema.AccessControlConfiguration) *AuthorizerTester {
@@ -27,7 +27,7 @@ func NewAuthorizerTester(config schema.AccessControlConfiguration) *AuthorizerTe
 	}
 
 	return &AuthorizerTester{
-		NewAuthorizer(fullConfig),
+		FileAuthorizer: NewFileAuthorizer(fullConfig).(*FileAuthorizer),
 	}
 }
 
@@ -46,7 +46,7 @@ func (s *AuthorizerTester) GetRuleMatchResults(subject Subject, requestURI, meth
 
 	object := NewObject(targetURL, method)
 
-	return s.Authorizer.GetRuleMatchResults(subject, object)
+	return s.FileAuthorizer.GetRuleMatchResults(subject, object)
 }
 
 type AuthorizerTesterBuilder struct {
@@ -1022,7 +1022,7 @@ func TestNewAuthorizer(t *testing.T) {
 		},
 	}
 
-	authorizer := NewAuthorizer(config)
+	authorizer := NewFileAuthorizer(config).(*FileAuthorizer)
 
 	assert.Equal(t, Denied, authorizer.defaultPolicy)
 	assert.Equal(t, TwoFactor, authorizer.rules[0].Policy)
@@ -1049,11 +1049,11 @@ func TestAuthorizerIsSecondFactorEnabledRuleWithNoOIDC(t *testing.T) {
 		},
 	}
 
-	authorizer := NewAuthorizer(config)
+	authorizer := NewFileAuthorizer(config)
 	assert.False(t, authorizer.IsSecondFactorEnabled())
 
 	config.AccessControl.Rules[0].Policy = twoFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.True(t, authorizer.IsSecondFactorEnabled())
 }
 
@@ -1079,27 +1079,27 @@ func TestAuthorizerIsSecondFactorEnabledRuleWithOIDC(t *testing.T) {
 		},
 	}
 
-	authorizer := NewAuthorizer(config)
+	authorizer := NewFileAuthorizer(config)
 	assert.False(t, authorizer.IsSecondFactorEnabled())
 
 	config.AccessControl.Rules[0].Policy = twoFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.True(t, authorizer.IsSecondFactorEnabled())
 
 	config.AccessControl.Rules[0].Policy = oneFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.False(t, authorizer.IsSecondFactorEnabled())
 
 	config.IdentityProviders.OIDC.Clients[0].Policy = twoFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.True(t, authorizer.IsSecondFactorEnabled())
 
 	config.AccessControl.Rules[0].Policy = oneFactor
 	config.IdentityProviders.OIDC.Clients[0].Policy = oneFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.False(t, authorizer.IsSecondFactorEnabled())
 
 	config.AccessControl.DefaultPolicy = twoFactor
-	authorizer = NewAuthorizer(config)
+	authorizer = NewFileAuthorizer(config)
 	assert.True(t, authorizer.IsSecondFactorEnabled())
 }

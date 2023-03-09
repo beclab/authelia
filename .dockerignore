@@ -1,9 +1,0 @@
-# Ignore All
-*
-
-# Overrides
-!authelia-linux-*
-!LICENSE
-!entrypoint.sh
-!healthcheck.sh
-!.healthcheck.env

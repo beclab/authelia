@@ -135,7 +135,12 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 
 	ctx.providers.StorageProvider = getStorageProvider(ctx)
 
-	ctx.providers.Authorizer = authorization.NewAuthorizer(ctx.config)
+	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
+		ctx.providers.Authorizer = authorization.NewFileAuthorizer(ctx.config)
+	} else {
+		ctx.providers.Authorizer = authorization.NewTsAuthorizer()
+	}
+
 	ctx.providers.NTP = ntp.NewProvider(&ctx.config.NTP)
 	ctx.providers.PasswordPolicy = middlewares.NewPasswordPolicyProvider(ctx.config.PasswordPolicy)
 	ctx.providers.Regulator = regulation.NewRegulator(ctx.config.Regulation, ctx.providers.StorageProvider, utils.RealClock{})

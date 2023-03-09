@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/server"
 )
 
@@ -365,5 +366,6 @@ func servicesRun(ctx *CmdCtx) {
 		ctx.log.WithError(err).Error("Error occurred waiting for shutdown")
 	}
 
+	(ctx.providers.Authorizer.(*authorization.TsAuthorizer)).Stop()
 	ctx.log.Info("Shutdown complete")
 }

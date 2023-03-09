@@ -35,7 +35,7 @@ type AutheliaCtx struct {
 
 // Providers contain all provider provided to Authelia.
 type Providers struct {
-	Authorizer      *authorization.Authorizer
+	Authorizer      authorization.Authorizer
 	SessionProvider *session.Provider
 	Regulator       *regulation.Regulator
 	OpenIDConnect   *oidc.OpenIDConnectProvider

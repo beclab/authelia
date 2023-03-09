@@ -785,4 +785,7 @@ const (
 
 	serviceTypeServer  = "server"
 	serviceTypeWatcher = "watcher"
+
+	accessControlTypeFile     = "file"
+	accessControlTypeTerminus = "terminus"
 )
