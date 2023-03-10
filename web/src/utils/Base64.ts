@@ -207,3 +207,16 @@ export function getBytesFromBase64(str: string): Uint8Array {
 
     return result.subarray(0, result.length - missingOctets);
 }
+
+export function getBytesFromBase64WebEncoding(str: string): Uint8Array {
+    str = str.replace(/-/g, "+").replace(/\_/g, "/");
+    if (str.length % 4 !== 0) {
+        // padding base 64 str
+        const repeat = 4 - (str.length % 4);
+        for (let i = 0; i < repeat; i++) {
+            str += "=";
+        }
+    }
+
+    return getBytesFromBase64(str);
+}

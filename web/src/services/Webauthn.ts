@@ -25,7 +25,7 @@ import {
     WebauthnIdentityFinishPath,
 } from "@services/Api";
 import { SignInResponse } from "@services/SignIn";
-import { getBase64WebEncodingFromBytes, getBytesFromBase64 } from "@utils/Base64";
+import { getBase64WebEncodingFromBytes, getBytesFromBase64WebEncoding } from "@utils/Base64";
 
 export function isWebauthnSecure(): boolean {
     if (window.isSecureContext) {
@@ -52,7 +52,7 @@ function arrayBufferEncode(value: ArrayBuffer): string {
 }
 
 function arrayBufferDecode(value: string): ArrayBuffer {
-    return getBytesFromBase64(value);
+    return getBytesFromBase64WebEncoding(value);
 }
 
 function decodePublicKeyCredentialDescriptor(

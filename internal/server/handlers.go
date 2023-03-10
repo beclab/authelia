@@ -285,6 +285,12 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		r.POST("/api/secondfactor/duo_device", middleware1FA(handlers.DuoDevicePOST))
 	}
 
+	// Configure Terminus Pass api endpoint only if configuration exists.
+	if !config.TerminusPass.Disable {
+		r.POST("/api/secondfactor/terminus_pass/send", middleware1FA(handlers.TerminusPassSendPOST))
+		r.POST("/api/secondfactor/terminus_pass", middleware1FA(handlers.TerminusPassPOST))
+	}
+
 	if config.Server.Endpoints.EnablePprof {
 		r.GET("/debug/pprof/{name?}", pprofhandler.PprofHandler)
 	}

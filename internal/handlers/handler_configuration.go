@@ -7,7 +7,7 @@ import (
 // ConfigurationGET get the configuration accessible to authenticated users.
 func ConfigurationGET(ctx *middlewares.AutheliaCtx) {
 	body := configurationBody{
-		AvailableMethods: make(MethodList, 0, 3),
+		AvailableMethods: make(MethodList, 0, 4),
 	}
 
 	if ctx.Providers.Authorizer.IsSecondFactorEnabled() {

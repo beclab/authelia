@@ -155,6 +155,7 @@ var Keys = []string{
 	"duo_api.integration_key",
 	"duo_api.secret_key",
 	"duo_api.enable_self_enrollment",
+	"terminus_pass.disable",
 	"access_control.config_type",
 	"access_control.default_policy",
 	"access_control.networks",

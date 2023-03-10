@@ -14,6 +14,7 @@ type Configuration struct {
 	Session               SessionConfiguration           `koanf:"session"`
 	TOTP                  TOTPConfiguration              `koanf:"totp"`
 	DuoAPI                DuoAPIConfiguration            `koanf:"duo_api"`
+	TerminusPass          TerminusPassConfiguration      `koanf:"terminus_pass"`
 	AccessControl         AccessControlConfiguration     `koanf:"access_control"`
 	NTP                   NTPConfiguration               `koanf:"ntp"`
 	Regulation            RegulationConfiguration        `koanf:"regulation"`

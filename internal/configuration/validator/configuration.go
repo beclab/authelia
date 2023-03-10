@@ -41,6 +41,8 @@ func ValidateConfiguration(config *schema.Configuration, validator *schema.Struc
 
 	ValidateDuo(config, validator)
 
+	ValidateTerminus(config, validator)
+
 	ValidateTOTP(config, validator)
 
 	ValidateWebauthn(config, validator)
@@ -95,6 +97,10 @@ func validateDefault2FAMethod(config *schema.Configuration, validator *schema.St
 
 	if !config.DuoAPI.Disable {
 		enabledMethods = append(enabledMethods, "mobile_push")
+	}
+
+	if !config.TerminusPass.Disable {
+		enabledMethods = append(enabledMethods, "terminus_pass")
 	}
 
 	if !utils.IsStringInSlice(config.Default2FAMethod, enabledMethods) {

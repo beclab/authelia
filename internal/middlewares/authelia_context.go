@@ -57,6 +57,10 @@ func (ctx *AutheliaCtx) AvailableSecondFactorMethods() (methods []string) {
 		methods = append(methods, model.SecondFactorMethodDuo)
 	}
 
+	if !ctx.Configuration.TerminusPass.Disable {
+		methods = append(methods, model.SecondFactorMethodTerminusPass)
+	}
+
 	return methods
 }
 
