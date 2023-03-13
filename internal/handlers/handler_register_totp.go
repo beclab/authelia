@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/session"
@@ -75,3 +77,40 @@ var TOTPIdentityFinish = middlewares.IdentityVerificationFinish(
 		ActionClaim:          ActionTOTPRegistration,
 		IsTokenUserValidFunc: isTokenUserValidFor2FARegistration,
 	}, totpIdentityFinish)
+
+// TOTP All in one register api.
+func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
+	identity, err := identityRetrieverFromSession(ctx)
+	if err != nil {
+		// In that case we reply ok to avoid user enumeration.
+		ctx.Logger.Error(err)
+		ctx.ReplyOK()
+
+		return
+	}
+
+	var jti uuid.UUID
+
+	if jti, err = uuid.NewRandom(); err != nil {
+		ctx.Error(err, messageOperationFailed)
+		return
+	}
+
+	verification := model.NewIdentityVerification(jti, identity.Username, ActionTOTPRegistration, ctx.RemoteIP())
+
+	if err = ctx.Providers.StorageProvider.SaveIdentityVerification(ctx, verification); err != nil {
+		ctx.Error(err, messageOperationFailed)
+		return
+	}
+
+	err = ctx.Providers.StorageProvider.ConsumeIdentityVerification(
+		ctx,
+		verification.JTI.String(),
+		model.NewNullIP(ctx.RemoteIP()))
+	if err != nil {
+		ctx.Error(err, messageOperationFailed)
+		return
+	}
+
+	totpIdentityFinish(ctx, verification.Username)
+}

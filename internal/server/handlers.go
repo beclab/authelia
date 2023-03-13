@@ -252,6 +252,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		r.GET("/api/user/info/totp", middleware1FA(handlers.UserTOTPInfoGET))
 		r.POST("/api/secondfactor/totp/identity/start", middleware1FA(handlers.TOTPIdentityStart))
 		r.POST("/api/secondfactor/totp/identity/finish", middleware1FA(handlers.TOTPIdentityFinish))
+		r.POST("/api/secondfactor/totp/identity/bind", middleware1FA(handlers.TOTPIdentityVerificationAll))
 		r.POST("/api/secondfactor/totp", middleware1FA(handlers.TimeBasedOneTimePasswordPOST))
 	}
 

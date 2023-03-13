@@ -27,7 +27,7 @@ func GetUserInfoFromBFL(client *resty.Client) (*UserInfo, error) {
 	userUrl := fmt.Sprintf("http://%s/bfl/backend/v1/user-info", BFL)
 	resp, err := client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-		SetResult(&Response{Data: UserInfo{}}).
+		SetResult(&Response{Data: &UserInfo{}}).
 		Get(userUrl)
 
 	if err != nil {
