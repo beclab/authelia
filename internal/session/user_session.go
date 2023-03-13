@@ -65,6 +65,12 @@ func (s *UserSession) SetTwoFactorWebauthn(now time.Time, userPresence, userVeri
 	s.Webauthn = nil
 }
 
+// SetTwoFactorTerminusPass sets the relevant terminus pass AMR's and sets the factor to 2FA.
+func (s *UserSession) SetTwoFactorTerminusPass(now time.Time) {
+	s.setTwoFactor(now)
+	s.AuthenticationMethodRefs.TerminusPass = true
+}
+
 // AuthenticatedTime returns the unix timestamp this session authenticated successfully at the given level.
 func (s *UserSession) AuthenticatedTime(level authorization.Level) (authenticatedTime time.Time, err error) {
 	switch level {

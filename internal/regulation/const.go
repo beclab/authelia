@@ -17,4 +17,7 @@ const (
 
 	// AuthTypeDuo is the string representing an auth log for second-factor authentication via DUO.
 	AuthTypeDuo = "Duo"
+
+	// AuthTypeDuo is the string representing an auth log for second-factor authentication via Terminus Pass.
+	AuthTypeTerminus = "Terminus Pass"
 )

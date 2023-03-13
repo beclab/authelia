@@ -45,6 +45,14 @@ type bodySignDuoRequest struct {
 	WorkflowID string `json:"workflowID"`
 }
 
+// bodySignTerminusRequest is the  model of the request body of Terminus Pass 2FA authentication endpoint.
+type bodySignTerminusRequest struct {
+	Code       string `json:"code" valid:"required"`
+	TargetURL  string `json:"targetURL"`
+	Workflow   string `json:"workflow"`
+	WorkflowID string `json:"workflowID"`
+}
+
 // bodyPreferred2FAMethod the selected 2FA method.
 type bodyPreferred2FAMethod struct {
 	Method string `json:"method" valid:"required"`

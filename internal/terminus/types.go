@@ -14,5 +14,21 @@
 
 package terminus
 
+import (
+	"time"
+
+	"github.com/pquerna/otp"
+)
+
+const (
+	DefaultOtpTTL = 10 * time.Minute
+)
+
 type APIClient struct {
+}
+
+type TPOTPConfig struct {
+	key        *otp.Key
+	expireTime time.Time
+	counter    uint64
 }

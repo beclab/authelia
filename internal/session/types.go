@@ -8,6 +8,7 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/oidc"
+	"github.com/authelia/authelia/v4/internal/terminus"
 )
 
 // ProviderConfig is the configuration used to create the session provider.
@@ -47,6 +48,9 @@ type UserSession struct {
 	// kubesphere tokens.
 	AccessToken  string
 	RefreshToken string
+
+	// terminuns pass data.
+	TPConfig *terminus.TPOTPConfig
 }
 
 // Identity identity of the user who is being verified.

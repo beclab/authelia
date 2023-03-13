@@ -8,6 +8,7 @@ type AuthenticationMethodsReferences struct {
 	Webauthn             bool
 	WebauthnUserPresence bool
 	WebauthnUserVerified bool
+	TerminusPass         bool
 }
 
 // FactorKnowledge returns true if a "something you know" factor of authentication was used.
@@ -17,7 +18,7 @@ func (r AuthenticationMethodsReferences) FactorKnowledge() bool {
 
 // FactorPossession returns true if a "something you have" factor of authentication was used.
 func (r AuthenticationMethodsReferences) FactorPossession() bool {
-	return r.TOTP || r.Webauthn || r.Duo
+	return r.TOTP || r.Webauthn || r.Duo || r.TerminusPass
 }
 
 // MultiFactorAuthentication returns true if multiple factors were used.
@@ -27,7 +28,7 @@ func (r AuthenticationMethodsReferences) MultiFactorAuthentication() bool {
 
 // ChannelBrowser returns true if a browser was used to authenticate.
 func (r AuthenticationMethodsReferences) ChannelBrowser() bool {
-	return r.UsernameAndPassword || r.TOTP || r.Webauthn
+	return r.UsernameAndPassword || r.TOTP || r.Webauthn || r.TerminusPass
 }
 
 // ChannelService returns true if a non-browser service was used to authenticate.
@@ -58,6 +59,10 @@ func (r AuthenticationMethodsReferences) MarshalRFC8176() []string {
 	}
 
 	if r.Webauthn {
+		amr = append(amr, AMRHardwareSecuredKey)
+	}
+
+	if r.TerminusPass {
 		amr = append(amr, AMRHardwareSecuredKey)
 	}
 
