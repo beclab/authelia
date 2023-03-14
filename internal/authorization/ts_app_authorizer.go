@@ -17,13 +17,18 @@ package authorization
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	"k8s.io/kubectl/pkg/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-resty/resty/v2"
@@ -39,6 +44,7 @@ import (
 type TsAuthorizer struct {
 	client        client.Client
 	httpClient    *resty.Client
+	kubeConfig    *rest.Config
 	rules         []*AccessControlRule
 	defaultPolicy Level
 	initialized   bool
@@ -49,16 +55,17 @@ type TsAuthorizer struct {
 }
 
 func NewTsAuthorizer() Authorizer {
-	Kubeconfig := ctrl.GetConfigOrDie()
-	k8sClient, err := client.New(Kubeconfig, client.Options{Scheme: scheme.Scheme})
+	kubeconfig := ctrl.GetConfigOrDie()
+	k8sClient, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
 
 	if err != nil {
 		panic(err)
 	}
 
 	authorizer := &TsAuthorizer{
+		kubeConfig:    kubeconfig,
 		client:        k8sClient,
-		defaultPolicy: Bypass,
+		defaultPolicy: Denied,
 		httpClient:    resty.New().SetTimeout(2 * time.Second),
 		log:           logging.Logger(),
 		desktopPolicy: OneFactor,
@@ -143,7 +150,7 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 	return results
 }
 
-func (t *TsAuthorizer) getRules(userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
+func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
 		klog.Info("new user: ", userInfo.Name, "force default one_factor policy ")
@@ -172,7 +179,7 @@ func (t *TsAuthorizer) getRules(userInfo *utils.UserInfo) ([]*AccessControlRule,
 	var rules []*AccessControlRule
 
 	// desktop rule.
-	rules = t.addDesktopRules(userInfo.Zone)
+	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone)
 
 	// applications rule.
 	for _, a := range appList.Items {
@@ -189,15 +196,23 @@ func (t *TsAuthorizer) getRules(userInfo *utils.UserInfo) ([]*AccessControlRule,
 	return rules, nil
 }
 
-func (t *TsAuthorizer) addDesktopRules(domain string) (rules []*AccessControlRule) {
+func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string) (rules []*AccessControlRule) {
 	domains := []string{
 		domain,
 		"local." + domain,
 	}
 
+	var desktopPolicy = t.desktopPolicy
+
+	if policy, err := t.getUserAccessPolicy(ctx, username); err != nil {
+		klog.Error("get user access policy error, ", username, " ", err)
+	} else {
+		desktopPolicy = NewLevel(policy)
+	}
+
 	desktopRule := &AccessControlRule{
 		Position: 1,
-		Policy:   t.desktopPolicy, // TODO: user can setup policy himself.
+		Policy:   desktopPolicy,
 	}
 	ruleAddDomain(domains, desktopRule)
 
@@ -223,8 +238,8 @@ app settings:
 func (t *TsAuthorizer) getAppRules(position int, app *application.Application, userInfo *utils.UserInfo) (rules []*AccessControlRule, err error) {
 	policyData, ok := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
 	domains := []string{
-		fmt.Sprintf("%s.%s", app.Name, userInfo.Zone),
-		fmt.Sprintf("%s.local.%s", app.Name, userInfo.Zone),
+		fmt.Sprintf("%s.%s", app.Spec.Name, userInfo.Zone),
+		fmt.Sprintf("%s.local.%s", app.Spec.Name, userInfo.Zone),
 	}
 
 	if !ok {
@@ -232,7 +247,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 
 		rule := &AccessControlRule{
 			Position: position,
-			Policy:   t.desktopPolicy, // TODO: user can setup policy himself.
+			Policy:   t.desktopPolicy,
 		}
 		ruleAddDomain(domains, rule)
 
@@ -250,20 +265,6 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 
 	if policy.SubPolicies != nil {
 		for _, sp := range policy.SubPolicies {
-			var p Level
-
-			switch sp.Policy {
-			case deny:
-				p = Denied
-			case oneFactor:
-				p = OneFactor
-			case twoFactor:
-				p = TwoFactor
-			default:
-				t.log.Error("unknown resource sub policy ", app.Spec.Name, " ", sp.Policy)
-				return nil, fmt.Errorf("unknown resource sub policy: %s", sp.Policy)
-			}
-
 			t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
 
 			resExp, err := regexp.Compile(sp.URI)
@@ -276,10 +277,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 
 			rule := &AccessControlRule{
 				Position: position,
-				Policy:   p,
+				Policy:   NewLevel(sp.Policy),
 			}
-			ruleAddDomain(domains, rule)
 			ruleAddResources(resources, rule)
+			ruleAddDomain(domains, rule)
 
 			rules = append(rules, rule)
 
@@ -288,23 +289,9 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	} // end if.
 
 	// add app others resource to default policy.
-	var p Level
-
-	switch policy.DefaultPolicy {
-	case public:
-		p = Bypass
-	case oneFactor:
-		p = OneFactor
-	case twoFactor:
-		p = TwoFactor
-	default:
-		t.log.Error("unknown app default policy ", app.Spec.Name, " ", policy.DefaultPolicy)
-		return nil, fmt.Errorf("unknown app default policy: %s", policy.DefaultPolicy)
-	}
-
 	ruleOthers := &AccessControlRule{
 		Position: position,
-		Policy:   p,
+		Policy:   NewLevel(policy.DefaultPolicy),
 	}
 	ruleAddDomain(domains, ruleOthers)
 
@@ -320,7 +307,7 @@ func (t *TsAuthorizer) reloadRules() {
 		return
 	}
 
-	rules, err := t.getRules(info)
+	rules, err := t.getRules(context.Background(), info)
 	if err != nil {
 		klog.Error("reload apps auth rules error, ", err)
 		return
@@ -346,4 +333,30 @@ func (t *TsAuthorizer) autoRefreshRules() {
 			return
 		}
 	}
+}
+
+func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string) (string, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "iam.kubesphere.io",
+		Version:  "v1alpha2",
+		Resource: "users",
+	}
+	client, err := dynamic.NewForConfig(t.kubeConfig)
+
+	if err != nil {
+		return "", err
+	}
+
+	data, err := client.Resource(gvr).Get(ctx, username, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	policy, ok := data.GetAnnotations()[UserLauncherAuthPolicy]
+
+	if !ok {
+		return "", errors.New("user access policy not found")
+	}
+
+	return policy, nil
 }

@@ -181,3 +181,28 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 func (p *KubesphereUserProvider) StartupCheck() (err error) {
 	return nil
 }
+
+func (p *KubesphereUserProvider) Logout(token string) (err error) {
+	logoutUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/logout", utils.BFL)
+	resp, err := p.client.R().
+		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
+		SetHeader("X-Authorization", token).
+		SetResult(&utils.Response{}).
+		Post(logoutUrl)
+
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return errors.New(string(resp.Body()))
+	}
+
+	responseData := resp.Result().(*utils.Response)
+
+	if responseData.Code != 0 {
+		return errors.New(responseData.Message)
+	}
+
+	return nil
+}

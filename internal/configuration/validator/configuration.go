@@ -27,11 +27,11 @@ func ValidateConfiguration(config *schema.Configuration, validator *schema.Struc
 		validator.Push(fmt.Errorf("option 'jwt_secret' is required"))
 	}
 
-	if config.DefaultRedirectionURL != "" {
-		if err = utils.IsStringAbsURL(config.DefaultRedirectionURL); err != nil {
-			validator.Push(fmt.Errorf("option 'default_redirection_url' is invalid: %s", strings.ReplaceAll(err.Error(), "like 'http://' or 'https://'", "like 'ldap://' or 'ldaps://'")))
-		}
-	}
+	// if config.DefaultRedirectionURL != "" {
+	// 	if err = utils.IsStringAbsURL(config.DefaultRedirectionURL); err != nil {
+	// 		validator.Push(fmt.Errorf("option 'default_redirection_url' is invalid: %s", strings.ReplaceAll(err.Error(), "like 'http://' or 'https://'", "like 'ldap://' or 'ldaps://'")))
+	// 	}
+	// }.
 
 	validateDefault2FAMethod(config, validator)
 

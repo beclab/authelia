@@ -43,20 +43,50 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, userSession *session.UserSes
 }
 
 // Handle1FAResponse handle the redirection upon 1FA authentication.
-func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod string, username string, groups []string, session *session.UserSession) {
+func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
+	targetURI, requestMethod string,
+	session *session.UserSession) {
 	var err error
 
-	if len(targetURI) == 0 {
-		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
-			if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
-				ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
-			} else {
-				setTokenToCookie(ctx, session)
-			}
-		} else {
+	sessionId := getSessionId(ctx)
+
+	require2FaResp := func() {
+		if err = ctx.SetJSONBody(redirectResponse{
+			AccessToken:  session.AccessToken,
+			RefreshToken: session.RefreshToken,
+			FA2:          true,
+			SessionID:    string(sessionId),
+		}); err != nil {
+			ctx.Logger.Errorf("Unable to set token in body: %s", err)
+
 			ctx.ReplyOK()
 		}
+	}
 
+	redirectResp := func(targetURI string) {
+		if err = ctx.SetJSONBody(redirectResponse{
+			Redirect:     targetURI,
+			AccessToken:  session.AccessToken,
+			RefreshToken: session.RefreshToken,
+			FA2:          false,
+			SessionID:    string(sessionId),
+		}); err != nil {
+			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
+		} else {
+			setTokenToCookie(ctx, session)
+		}
+	}
+
+	defaultResp := func() {
+		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
+			redirectResp(ctx.Configuration.DefaultRedirectionURL)
+		} else {
+			require2FaResp()
+		}
+	}
+
+	if len(targetURI) == 0 {
+		defaultResp()
 		return
 	}
 
@@ -70,8 +100,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod st
 
 	_, requiredLevel := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
-			Username: username,
-			Groups:   groups,
+			Username: session.Username,
+			Groups:   session.Groups,
 			IP:       ctx.RemoteIP(),
 		},
 		authorization.NewObject(targetURL, requestMethod))
@@ -80,7 +110,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod st
 
 	if requiredLevel == authorization.TwoFactor {
 		ctx.Logger.Warnf("%s requires 2FA, cannot be redirected yet", targetURI)
-		ctx.ReplyOK()
+
+		require2FaResp()
 
 		return
 	}
@@ -88,28 +119,33 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx, targetURI, requestMethod st
 	if !ctx.IsSafeRedirectionTargetURI(targetURL) {
 		ctx.Logger.Debugf("Redirection URL %s is not safe", targetURI)
 
-		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
-			if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
-				ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
-			} else {
-				setTokenToCookie(ctx, session)
-			}
-
-			return
-		}
-
-		ctx.ReplyOK()
+		defaultResp()
 
 		return
 	}
 
 	ctx.Logger.Debugf("Redirection URL %s is safe", targetURI)
+	redirectResp(targetURI)
+}
 
-	if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
-		ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
+func getSessionId(ctx *middlewares.AutheliaCtx) []byte {
+	var sessionId []byte
+
+	provider, err := ctx.GetSessionProvider()
+
+	if err != nil {
+		ctx.Logger.Errorf("unable to save user session: %s", err)
 	} else {
-		setTokenToCookie(ctx, session)
+		sessionId = ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+		if len(sessionId) == 0 {
+			sessionId = ctx.Request.Header.Peek(middlewares.DefaultSessionKeyName)
+			if len(sessionId) == 0 {
+				ctx.Logger.Error("Unable to retrieve user cookie")
+			}
+		}
 	}
+
+	return sessionId
 }
 
 // Handle2FAResponse handle the redirection upon 2FA authentication.

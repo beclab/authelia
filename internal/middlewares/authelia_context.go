@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/model"
@@ -345,6 +346,18 @@ func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error
 		return userSession, err
 	}
 
+	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+	if len(cookie) == 0 {
+		// try to get cookie from token header.
+		token := ctx.RequestCtx.Request.Header.PeekBytes(headerAuthorization)
+		if len(token) == 0 {
+			ctx.Logger.Error("Unable to retrieve user token")
+		} else {
+			c := provider.GetSessionID(string(token))
+			ctx.RequestCtx.Request.Header.SetCookie(provider.Config.Name, c)
+		}
+	}
+
 	if userSession, err = provider.GetSession(ctx.RequestCtx); err != nil {
 		ctx.Logger.Error("Unable to retrieve user session")
 		return provider.NewDefaultUserSession(), nil
@@ -374,7 +387,25 @@ func (ctx *AutheliaCtx) SaveSession(userSession session.UserSession) error {
 		return fmt.Errorf("unable to save user session: %s", err)
 	}
 
-	return provider.SaveSession(ctx.RequestCtx, userSession)
+	err = provider.SaveSession(ctx.RequestCtx, userSession)
+	if err != nil {
+		return err
+	}
+
+	if userSession.AccessToken != "" {
+		cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+		if len(cookie) == 0 {
+			cookie = ctx.Request.Header.Peek(DefaultSessionKeyName)
+			if len(cookie) == 0 {
+				ctx.Logger.Error("Unable to retrieve user cookie")
+				return errors.New("unable to retrieve user cookie")
+			}
+		}
+
+		provider.SaveSessionID(userSession.AccessToken, string(cookie))
+	}
+
+	return nil
 }
 
 // RegenerateSession regenerates a user session.
@@ -392,6 +423,22 @@ func (ctx *AutheliaCtx) DestroySession() error {
 	provider, err := ctx.GetSessionProvider()
 	if err != nil {
 		return fmt.Errorf("unable to destroy user session: %s", err)
+	}
+
+	session, err := ctx.GetSession()
+	if err != nil {
+		return fmt.Errorf("unable to destroy user session: %s", err)
+	}
+
+	if session.AccessToken != "" {
+		switch p := ctx.Providers.UserProvider.(type) {
+		case *authentication.KubesphereUserProvider:
+			err = p.Logout(session.AccessToken)
+			if err != nil {
+				ctx.Logger.Error("cannot logout from kubesphere, ", err)
+			}
+		default:
+		}
 	}
 
 	return provider.DestroySession(ctx.RequestCtx)

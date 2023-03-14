@@ -20,6 +20,9 @@ type UserInfo struct {
 
 	// True if a duo device has been configured as the preferred.
 	HasDuo bool `db:"has_duo" json:"has_duo" valid:"required"`
+
+	// True if a duo device has been configured as the preferred.
+	HasTerminusPass bool `db:"has_terminus_pass" json:"has_terminus_pass" valid:"required"`
 }
 
 // SetDefaultPreferred2FAMethod configures the default method based on what is configured as available and the users available methods.

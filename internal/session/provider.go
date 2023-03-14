@@ -3,8 +3,10 @@ package session
 import (
 	"crypto/x509"
 	"fmt"
+	"time"
 
 	"github.com/fasthttp/session/v2"
+	"github.com/jellydator/ttlcache/v3"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
@@ -40,6 +42,10 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 		provider.sessions[dconfig.Domain] = &Session{
 			Config:        dconfig,
 			sessionHolder: holder,
+			sessionWithToken: ttlcache.New(
+				ttlcache.WithTTL[string, string](time.Hour*2),
+				ttlcache.WithCapacity[string, string](1000),
+			),
 		}
 	}
 

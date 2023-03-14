@@ -84,7 +84,11 @@ type checkURIWithinDomainResponseBody struct {
 // redirectResponse represent the response sent by the first factor endpoint
 // when a redirection URL has been provided.
 type redirectResponse struct {
-	Redirect string `json:"redirect"`
+	Redirect     string `json:"redirect"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	FA2          bool   `json:"fa2"`
+	SessionID    string `json:"session_id"`
 }
 
 // TOTPKeyResponse is the model of response that is sent to the client up successful identity verification.

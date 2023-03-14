@@ -1,6 +1,9 @@
 package authorization
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 // Level is the type representing an authorization level.
 type Level int
@@ -49,6 +52,9 @@ const (
 var (
 	// IdentitySubexpNames is a list of valid regex subexp names.
 	IdentitySubexpNames = []string{subexpNameUser, subexpNameGroup}
+
+	AnnotationGroup        = "bytetrade.io"
+	UserLauncherAuthPolicy = fmt.Sprintf("%s/launcher-auth-policy", AnnotationGroup)
 )
 
 const traceFmtACLHitMiss = "ACL %s Position %d for subject %s and object %s (method %s)"

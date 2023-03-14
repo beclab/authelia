@@ -16,7 +16,7 @@ import (
 // NewLevel converts a string policy to int authorization level.
 func NewLevel(policy string) Level {
 	switch policy {
-	case bypass:
+	case bypass, public:
 		return Bypass
 	case oneFactor:
 		return OneFactor

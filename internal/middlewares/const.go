@@ -65,7 +65,11 @@ var (
 	headerValueNoStore      = []byte("no-store")
 	headerValueXSSModeBlock = []byte("1; mode=block")
 	headerValueCohort       = []byte("interest-cohort=()")
+
+	headerAuthorization = []byte("X-Authorization")
 )
+
+const DefaultSessionKeyName = "sessionid"
 
 const (
 	strProtoHTTPS = "https"
