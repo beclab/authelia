@@ -52,6 +52,8 @@ type TsAuthorizer struct {
 	log           *logrus.Logger
 	desktopPolicy Level
 	exitCh        chan struct{}
+
+	LoginPortal string
 }
 
 func NewTsAuthorizer() Authorizer {
@@ -319,6 +321,7 @@ func (t *TsAuthorizer) reloadRules() {
 	t.initialized = true
 	t.defaultPolicy = Denied
 	t.rules = rules
+	t.LoginPortal = fmt.Sprintf("https://%s/login", info.Zone)
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {
