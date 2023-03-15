@@ -272,6 +272,8 @@ func (ctx *AutheliaCtx) GetTargetURICookieDomain(targetURI *url.URL) string {
 	hostname := targetURI.Hostname()
 
 	for _, domain := range ctx.Configuration.Session.Cookies {
+		ctx.Logger.Debug("cookie config domain: ", domain.Domain, " match suffix with, ", hostname)
+
 		if utils.HasDomainSuffix(hostname, domain.Domain) {
 			return domain.Domain
 		}
@@ -305,7 +307,7 @@ func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provi
 	domain := ctx.GetTargetURICookieDomain(targetURL)
 
 	if domain == "" {
-		return nil, fmt.Errorf("unable to retrieve domain session: %w", err)
+		return nil, fmt.Errorf("unable to retrieve domain session: %v", targetURL)
 	}
 
 	return ctx.Providers.SessionProvider.Get(domain)

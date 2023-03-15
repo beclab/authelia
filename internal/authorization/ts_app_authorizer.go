@@ -52,6 +52,7 @@ type TsAuthorizer struct {
 	log           *logrus.Logger
 	desktopPolicy Level
 	exitCh        chan struct{}
+	userIsInit    bool
 
 	LoginPortal string
 }
@@ -318,10 +319,16 @@ func (t *TsAuthorizer) reloadRules() {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	t.userIsInit = info.Zone == ""
 	t.initialized = true
-	t.defaultPolicy = Denied
 	t.rules = rules
 	t.LoginPortal = fmt.Sprintf("https://%s/login", info.Zone)
+
+	if t.userIsInit {
+		t.defaultPolicy = Bypass
+	} else {
+		t.defaultPolicy = Denied
+	}
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {

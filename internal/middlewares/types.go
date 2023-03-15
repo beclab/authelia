@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
@@ -65,6 +66,8 @@ type Bridge = func(RequestHandler) fasthttp.RequestHandler
 
 // BridgeBuilder is used to build a Bridge.
 type BridgeBuilder struct {
+	httpClient *resty.Client
+
 	config          schema.Configuration
 	providers       Providers
 	preMiddlewares  []Middleware

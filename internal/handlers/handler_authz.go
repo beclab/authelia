@@ -8,7 +8,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
-	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 // Handler is the middlewares.RequestHandler for Authz.
@@ -30,13 +29,13 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if !utils.IsURISecure(object.URL) {
-		ctx.Logger.Errorf("Target URL '%s' has an insecure scheme '%s', only the 'https' and 'wss' schemes are supported so session cookies can be transmitted securely", object.URL.String(), object.URL.Scheme)
+	// if !utils.IsURISecure(object.URL) {
+	// 	ctx.Logger.Errorf("Target URL '%s' has an insecure scheme '%s', only the 'https' and 'wss' schemes are supported so session cookies can be transmitted securely", object.URL.String(), object.URL.Scheme)
 
-		ctx.ReplyUnauthorized()
+	// 	ctx.ReplyUnauthorized()
 
-		return
-	}
+	// 	return
+	// }.
 
 	if provider, err = ctx.GetSessionProviderByTargetURL(object.URL); err != nil {
 		ctx.Logger.WithError(err).Errorf("Target URL '%s' does not appear to be configured as a session domain", object.URL.String())

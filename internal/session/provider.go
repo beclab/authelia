@@ -3,9 +3,9 @@ package session
 import (
 	"crypto/x509"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/fasthttp/session/v2"
 	"github.com/jellydator/ttlcache/v3"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
@@ -14,7 +14,9 @@ import (
 
 // Provider contains a list of domain sessions.
 type Provider struct {
-	sessions map[string]*Session
+	sessions       map[string]*Session
+	sessionCreator func(domain string) (*Session, error)
+	lock           sync.Mutex
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -30,24 +32,31 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 		sessions: map[string]*Session{},
 	}
 
-	var (
-		holder *session.Session
-	)
+	creator := func(domain string) (*Session, error) {
+		for _, dconfig := range config.Cookies {
+			if dconfig.Domain == domain {
+				_, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
+				if err != nil {
+					return nil, err
+				}
 
-	for _, dconfig := range config.Cookies {
-		if _, holder, err = NewProviderConfigAndSession(dconfig, name, s, p); err != nil {
-			log.Fatal(err)
-		}
+				provider.sessions[domain] = &Session{
+					Config:        dconfig,
+					sessionHolder: holder,
+					sessionWithToken: ttlcache.New(
+						ttlcache.WithTTL[string, string](time.Hour*2),
+						ttlcache.WithCapacity[string, string](1000),
+					),
+				}
 
-		provider.sessions[dconfig.Domain] = &Session{
-			Config:        dconfig,
-			sessionHolder: holder,
-			sessionWithToken: ttlcache.New(
-				ttlcache.WithTTL[string, string](time.Hour*2),
-				ttlcache.WithCapacity[string, string](1000),
-			),
-		}
+				return provider.sessions[domain], nil
+			} // end if.
+		} // end for.
+
+		return nil, fmt.Errorf("no session config found by domain, %s", domain)
 	}
+
+	provider.sessionCreator = creator
 
 	return provider
 }
@@ -58,10 +67,17 @@ func (p *Provider) Get(domain string) (*Session, error) {
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
 
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	s, found := p.sessions[domain]
 
 	if !found {
-		return nil, fmt.Errorf("no session found for domain '%s'", domain)
+		if s, err := p.sessionCreator(domain); err != nil {
+			return nil, err
+		} else {
+			return s, nil
+		}
 	}
 
 	return s, nil
