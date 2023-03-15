@@ -71,7 +71,7 @@ func NewTsAuthorizer() Authorizer {
 		defaultPolicy: Denied,
 		httpClient:    resty.New().SetTimeout(2 * time.Second),
 		log:           logging.Logger(),
-		desktopPolicy: OneFactor,
+		desktopPolicy: TwoFactor,
 		exitCh:        make(chan struct{}),
 	}
 
@@ -205,17 +205,39 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 		"local." + domain,
 	}
 
-	var desktopPolicy = t.desktopPolicy
-
 	if policy, err := t.getUserAccessPolicy(ctx, username); err != nil {
 		klog.Error("get user access policy error, ", username, " ", err)
 	} else {
-		desktopPolicy = NewLevel(policy)
+		t.desktopPolicy = NewLevel(policy)
+	}
+
+	position := 1
+
+	if !t.userIsIniting {
+		// add loginn portal to bypass.
+		resources := t.getResourceExps([]string{
+			"^/login",
+			"^/assets/.*",
+			"^/avatar/.*",
+			"^/icons/.*",
+			"^/bfl/backend/.*",
+			"^/api/.*",
+		})
+
+		portalRule := &AccessControlRule{
+			Position: position,
+			Policy:   Bypass,
+		}
+		ruleAddDomain(domains, portalRule)
+		ruleAddResources(resources, portalRule)
+
+		rules = append(rules, portalRule)
+		position++
 	}
 
 	desktopRule := &AccessControlRule{
-		Position: 1,
-		Policy:   desktopPolicy,
+		Position: position,
+		Policy:   t.desktopPolicy,
 	}
 	ruleAddDomain(domains, desktopRule)
 
@@ -246,7 +268,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	}
 
 	if !ok {
-		t.log.Debugf("app %s has not policy", app.Spec.Name)
+		t.log.Debugf("app %s has no policy", app.Spec.Name)
 
 		rule := &AccessControlRule{
 			Position: position,
@@ -358,6 +380,7 @@ func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string)
 	}
 
 	data, err := client.Resource(gvr).Get(ctx, username, metav1.GetOptions{})
+
 	if err != nil {
 		return "", err
 	}
@@ -369,4 +392,19 @@ func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string)
 	}
 
 	return policy, nil
+}
+
+func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
+	var ret []regexp.Regexp
+
+	for _, r := range res {
+		e, err := regexp.Compile(r)
+		if err != nil {
+			t.log.Error("resource compile error: ", err)
+		} else {
+			ret = append(ret, *e)
+		}
+	}
+
+	return ret
 }

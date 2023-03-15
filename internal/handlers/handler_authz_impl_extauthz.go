@@ -56,7 +56,7 @@ func handleAuthzUnauthorizedExtAuthz(ctx *middlewares.AutheliaCtx, authn *Authn,
 
 	switch string(mode) {
 	case "Non-Redirect":
-		ctx.Logger.Infof("Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
+		ctx.Logger.Infof("[ext_authz] Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
 		ctx.ReplyUnauthorized()
 	default:
 		ctx.SpecialRedirect(redirectionURL.String(), statusCode)

@@ -109,14 +109,6 @@ func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider *sessi
 		return nil, nil
 	}
 
-	if autheliaURL, err = authz.handleGetAutheliaURL(ctx); err != nil {
-		return nil, err
-	}
-
-	if autheliaURL != nil || authz.legacy {
-		return autheliaURL, nil
-	}
-
 	switch au := ctx.Providers.Authorizer.(type) {
 	case *authorization.TsAuthorizer:
 		if au.LoginPortal != "" {
@@ -127,6 +119,14 @@ func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider *sessi
 			}
 		}
 	default:
+	}
+
+	if autheliaURL, err = authz.handleGetAutheliaURL(ctx); err != nil {
+		return nil, err
+	}
+
+	if autheliaURL != nil || authz.legacy {
+		return autheliaURL, nil
 	}
 
 	if provider.Config.AutheliaURL != nil {
