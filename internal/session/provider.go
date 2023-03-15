@@ -25,11 +25,6 @@ type Provider struct {
 func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *Provider {
 	log := logging.Logger()
 
-	name, p, s, err := NewSessionProvider(config, certPool)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	provider := &Provider{
 		sessions: map[string]*Session{},
 		Config:   config,
@@ -39,8 +34,15 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
 
+			name, p, s, err := NewSessionProvider(provider.Config, certPool)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			if dconfig.Domain == domain {
 				_, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
+
 				if err != nil {
 					return nil, err
 				}

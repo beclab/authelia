@@ -34,7 +34,7 @@ func (p *Session) NewDefaultUserSession() (userSession UserSession) {
 func (p *Session) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
 	var store *session.Store
 
-	klog.Info("get ctx session cookie, ", string(ctx.Request.Header.Cookie("authelia_session")))
+	klog.Info("get ctx session cookie, ", string(ctx.Request.Header.Cookie("authelia_session")), " config domain: ", p.Config.Domain)
 
 	if store, err = p.sessionHolder.Get(ctx); err != nil {
 		return p.NewDefaultUserSession(), err
