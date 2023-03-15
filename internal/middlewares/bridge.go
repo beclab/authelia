@@ -15,11 +15,13 @@ import (
 
 // NewBridgeBuilder creates a new BridgeBuilder.
 func NewBridgeBuilder(config schema.Configuration, providers Providers) *BridgeBuilder {
-	return &BridgeBuilder{
+	b := &BridgeBuilder{
 		config:     config,
 		providers:  providers,
 		httpClient: resty.New().SetTimeout(2 * time.Second),
 	}
+
+	return b
 }
 
 // WithConfig sets the schema.Configuration used with this BridgeBuilder.
@@ -94,11 +96,23 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			klog.Info("find domain from user and request: ", domain)
 
-			for i := range b.config.Session.Cookies {
-				b.config.Session.Cookies[i].AutheliaURL = host
-				b.config.Session.Cookies[i].Domain = domain
+			var cconfig *schema.SessionCookieConfiguration
+
+			for i, c := range b.config.Session.Cookies {
+				if c.Domain == domain {
+					cconfig = &b.config.Session.Cookies[i]
+					break
+				}
 			}
 
+			if cconfig == nil && len(b.config.Session.Cookies) > 0 {
+				c := b.config.Session.Cookies[0]
+				c.Domain = domain
+				c.AutheliaURL = host
+				b.config.Session.Cookies = append(b.config.Session.Cookies, c)
+			}
+
+			b.providers.SessionProvider.Config = b.config.Session
 			next(NewAutheliaCtx(requestCtx, b.config, b.providers))
 		}
 

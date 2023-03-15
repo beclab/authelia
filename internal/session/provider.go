@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
@@ -17,6 +18,7 @@ type Provider struct {
 	sessions       map[string]*Session
 	sessionCreator func(domain string) (*Session, error)
 	lock           sync.Mutex
+	Config         schema.SessionConfiguration
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -30,10 +32,13 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 
 	provider := &Provider{
 		sessions: map[string]*Session{},
+		Config:   config,
 	}
 
 	creator := func(domain string) (*Session, error) {
-		for _, dconfig := range config.Cookies {
+		for _, dconfig := range provider.Config.Cookies {
+			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
+
 			if dconfig.Domain == domain {
 				_, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
 				if err != nil {
