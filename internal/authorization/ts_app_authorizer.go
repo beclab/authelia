@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,6 +120,13 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	}
 
 	t.log.Debugf("No matching rule for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
+
+	pathToken := strings.Split(object.Path, "/")
+
+	// FIXME:
+	if govalidator.IsIP(object.Domain) && pathToken[len(pathToken)-1] == "task-state" {
+		return false, Bypass
+	}
 
 	return false, t.defaultPolicy
 }
