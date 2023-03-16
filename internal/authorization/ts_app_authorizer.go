@@ -25,6 +25,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -167,23 +168,23 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 	return results
 }
 
-func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
+func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo, creatorZone string) ([]*AccessControlRule, error) {
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
 		klog.Info("new user: ", userInfo.Name, "force default one_factor policy ")
 
-		s, rule := NewAccessControlDomain("*." + defaultDomain)
-
-		rules := []*AccessControlRule{
-			{
-				Position:    0,
-				HasSubjects: s,
-				Domains: []AccessControlDomain{
-					rule,
-				},
-				Policy: t.desktopPolicy,
-			},
+		rule := &AccessControlRule{
+			Position: 0,
+			Policy:   OneFactor,
 		}
+		ruleAddDomain(
+			[]string{
+				fmt.Sprintf("*.%s", creatorZone),
+			},
+			rule,
+		)
+
+		rules := []*AccessControlRule{rule}
 
 		return rules, nil
 	}
@@ -366,7 +367,20 @@ func (t *TsAuthorizer) reloadRules() {
 		return
 	}
 
-	rules, err := t.getRules(context.Background(), info)
+	var creatorZone string
+
+	ctx := context.Background()
+
+	if info.IsEphemeral {
+		creatorZone, err = t.getUserZone(ctx, info.CreatedUser)
+
+		if err != nil {
+			klog.Error("load creator user info error, ", err)
+			return
+		}
+	}
+
+	rules, err := t.getRules(ctx, info, creatorZone)
 	if err != nil {
 		klog.Error("reload apps auth rules error, ", err)
 		return
@@ -378,7 +392,12 @@ func (t *TsAuthorizer) reloadRules() {
 	t.userIsIniting = info.Zone == ""
 	t.initialized = true
 	t.rules = rules
-	t.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
+
+	if info.IsEphemeral {
+		t.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, creatorZone)
+	} else {
+		t.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
+	}
 
 	if t.userIsIniting {
 		t.defaultPolicy = Bypass
@@ -402,21 +421,10 @@ func (t *TsAuthorizer) autoRefreshRules() {
 }
 
 func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string) (string, error) {
-	gvr := schema.GroupVersionResource{
-		Group:    "iam.kubesphere.io",
-		Version:  "v1alpha2",
-		Resource: "users",
-	}
-	client, err := dynamic.NewForConfig(t.kubeConfig)
+	data, err := t.getUserData(ctx, username)
 
 	if err != nil {
-		return "", err
-	}
-
-	data, err := client.Resource(gvr).Get(ctx, username, metav1.GetOptions{})
-
-	if err != nil {
-		return "", err
+		return "", nil
 	}
 
 	policy, ok := data.GetAnnotations()[UserLauncherAuthPolicy]
@@ -426,6 +434,43 @@ func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string)
 	}
 
 	return policy, nil
+}
+
+func (t *TsAuthorizer) getUserData(ctx context.Context, username string) (*unstructured.Unstructured, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "iam.kubesphere.io",
+		Version:  "v1alpha2",
+		Resource: "users",
+	}
+	client, err := dynamic.NewForConfig(t.kubeConfig)
+
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := client.Resource(gvr).Get(ctx, username, metav1.GetOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (t *TsAuthorizer) getUserZone(ctx context.Context, username string) (string, error) {
+	data, err := t.getUserData(ctx, username)
+
+	if err != nil {
+		return "", nil
+	}
+
+	zone, ok := data.GetAnnotations()[UserAnnotationZoneKey]
+
+	if !ok {
+		return "", errors.New("user zone not found")
+	}
+
+	return zone, nil
 }
 
 func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {

@@ -2,7 +2,6 @@ package authorization
 
 import (
 	"fmt"
-	"os"
 )
 
 // Level is the type representing an authorization level.
@@ -55,15 +54,16 @@ var (
 
 	AnnotationGroup        = "bytetrade.io"
 	UserLauncherAuthPolicy = fmt.Sprintf("%s/launcher-auth-policy", AnnotationGroup)
+	UserAnnotationZoneKey  = fmt.Sprintf("%s/zone", AnnotationGroup)
 )
 
 const traceFmtACLHitMiss = "ACL %s Position %d for subject %s and object %s (method %s)"
 
-var defaultDomain = "snowinning.com"
+// var defaultDomain = "snowinning.com"
 
-func init() {
-	envDomain := os.Getenv("DOMAIN")
-	if envDomain != "" {
-		defaultDomain = envDomain
-	}
-}
+// func init() {
+// 	envDomain := os.Getenv("DOMAIN")
+// 	if envDomain != "" {
+// 		defaultDomain = envDomain
+// 	}
+// }

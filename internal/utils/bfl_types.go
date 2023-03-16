@@ -34,6 +34,7 @@ type UserInfo struct {
 	DID         string `json:"did"`
 	IsEphemeral bool   `json:"is_ephemeral"`
 	Zone        string `json:"zone"`
+	CreatedUser string `json:"created_user"`
 }
 
 type UserDetail struct {
