@@ -123,8 +123,13 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 
 	pathToken := strings.Split(object.Path, "/")
 
-	// FIXME:
+	// FIXME:.
 	if govalidator.IsIP(object.Domain) && pathToken[len(pathToken)-1] == "task-state" {
+		return false, Bypass
+	}
+
+	// TESTING:.
+	if strings.HasPrefix(object.Path, "/bfl/backend") {
 		return false, Bypass
 	}
 
@@ -193,6 +198,9 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	// desktop rule.
 	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone)
 
+	// auth app rule.
+	rules = t.addAuthDomainRules(userInfo.Zone, rules)
+
 	// applications rule.
 	for _, a := range appList.Items {
 		if a.Spec.Owner == userInfo.Name {
@@ -210,8 +218,8 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 
 func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string) (rules []*AccessControlRule) {
 	domains := []string{
-		domain,
 		"local." + domain,
+		domain,
 	}
 
 	if policy, err := t.getUserAccessPolicy(ctx, username); err != nil {
@@ -255,6 +263,23 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 	return rules
 }
 
+func (t *TsAuthorizer) addAuthDomainRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
+	domains := []string{
+		"auth.local." + domain,
+		"auth." + domain,
+	}
+
+	authRule := &AccessControlRule{
+		Position: len(rules),
+		Policy:   t.desktopPolicy,
+	}
+	ruleAddDomain(domains, authRule)
+
+	rules = append(rules, authRule)
+
+	return rules
+}
+
 /*
 app settings:
 
@@ -272,8 +297,8 @@ app settings:
 func (t *TsAuthorizer) getAppRules(position int, app *application.Application, userInfo *utils.UserInfo) (rules []*AccessControlRule, err error) {
 	policyData, ok := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
 	domains := []string{
-		fmt.Sprintf("%s.%s", app.Spec.Name, userInfo.Zone),
 		fmt.Sprintf("%s.local.%s", app.Spec.Name, userInfo.Zone),
+		fmt.Sprintf("%s.%s", app.Spec.Name, userInfo.Zone),
 	}
 
 	if !ok {
@@ -353,7 +378,7 @@ func (t *TsAuthorizer) reloadRules() {
 	t.userIsIniting = info.Zone == ""
 	t.initialized = true
 	t.rules = rules
-	t.LoginPortal = fmt.Sprintf("https://%s/login", info.Zone)
+	t.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
 
 	if t.userIsIniting {
 		t.defaultPolicy = Bypass
