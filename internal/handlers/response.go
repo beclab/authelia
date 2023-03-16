@@ -17,28 +17,34 @@ import (
 	"github.com/authelia/authelia/v4/internal/session"
 )
 
-func setTokenToCookie(ctx *middlewares.AutheliaCtx, userSession *session.UserSession) {
-	if userSession.AccessToken != "" {
-		klog.Infof("set access token in cookie and header for user %s", userSession.Username)
+type AccessTokenCookieInfo struct {
+	AccessToken  string
+	RefreshToken string
+	Username     string
+}
+
+func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookieInfo) {
+	if tokenInfo.AccessToken != "" {
+		klog.Infof("set access token in cookie and header for user %s", tokenInfo.Username)
 
 		cookie := &fasthttp.Cookie{}
 		cookie.SetKey("auth_token")
-		cookie.SetValue(userSession.AccessToken)
-		cookie.SetDomain(ctx.Configuration.Session.Cookies[0].Domain)
+		cookie.SetValue(tokenInfo.AccessToken)
+		cookie.SetDomain(ctx.Providers.SessionProvider.Config.Domain)
 		cookie.SetPath("/")
-		cookie.SetMaxAge(int(ctx.Configuration.Session.Cookies[0].Expiration.Seconds()))
+		cookie.SetMaxAge(int(ctx.Providers.SessionProvider.Config.Expiration))
 
 		ctx.Response.Header.SetCookie(cookie)
 
 		refreshCookie := &fasthttp.Cookie{}
 		refreshCookie.CopyTo(cookie)
 		refreshCookie.SetKey("auth_refresh_token")
-		refreshCookie.SetValue(userSession.RefreshToken)
+		refreshCookie.SetValue(tokenInfo.RefreshToken)
 
 		ctx.Response.Header.SetCookie(refreshCookie)
 
-		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, userSession.AccessToken)
-		ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, userSession.RefreshToken)
+		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, tokenInfo.AccessToken)
+		ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, tokenInfo.RefreshToken)
 	}
 }
 
@@ -73,7 +79,11 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
-			setTokenToCookie(ctx, session)
+			setTokenToCookie(ctx, &AccessTokenCookieInfo{
+				AccessToken:  session.AccessToken,
+				RefreshToken: session.RefreshToken,
+				Username:     session.Username,
+			})
 		}
 	}
 
@@ -162,7 +172,11 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
 			ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
 		} else {
-			setTokenToCookie(ctx, session)
+			setTokenToCookie(ctx, &AccessTokenCookieInfo{
+				AccessToken:  session.AccessToken,
+				RefreshToken: session.RefreshToken,
+				Username:     session.Username,
+			})
 		}
 
 		return
@@ -186,7 +200,11 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
-			setTokenToCookie(ctx, session)
+			setTokenToCookie(ctx, &AccessTokenCookieInfo{
+				AccessToken:  session.AccessToken,
+				RefreshToken: session.RefreshToken,
+				Username:     session.Username,
+			})
 		}
 
 		return
