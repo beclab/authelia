@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"github.com/valyala/fasthttp"
+
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 var (
@@ -66,7 +68,7 @@ var (
 	headerValueXSSModeBlock = []byte("1; mode=block")
 	headerValueCohort       = []byte("interest-cohort=()")
 
-	headerAuthorization = []byte("X-Authorization")
+	headerAuthorization = utils.TerminusAuthTokenHeader
 )
 
 const DefaultSessionKeyName = "sessionid"

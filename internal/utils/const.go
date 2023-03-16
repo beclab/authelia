@@ -52,6 +52,10 @@ const (
 	EllipticCurveAltP521 = "P-521"
 )
 
+var (
+	TerminusAuthTokenHeader = []byte("X-Authorization")
+)
+
 const (
 	// Hour is an int based representation of the time unit.
 	Hour = time.Minute * 60

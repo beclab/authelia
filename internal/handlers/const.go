@@ -39,6 +39,7 @@ var (
 	headerRemoteEmail        = []byte("Remote-Email")
 	headerRemoteAccessToken  = []byte("Remote-Accesstoken")
 	headerRemoteRefreshToken = []byte("Remote-Refreshtoken")
+	headerUnauthError        = []byte("X-Unauth-Error")
 )
 
 const (
@@ -139,3 +140,7 @@ var ldapPasswordComplexityErrors = []string{
 	"LDAP Result Code 19 \"Constraint Violation\": Password fails quality checking policy",
 	"LDAP Result Code 19 \"Constraint Violation\": Password is too young to change",
 }
+
+const (
+	NonRedirectMode = "Non-Redirect"
+)

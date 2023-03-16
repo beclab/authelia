@@ -52,10 +52,10 @@ func handleAuthzUnauthorizedExtAuthz(ctx *middlewares.AutheliaCtx, authn *Authn,
 
 	ctx.Logger.Infof("Access to %s (method %s) is not authorized to user %s, responding with status code %d with location redirect to %s", authn.Object.String(), authn.Method, authn.Username, statusCode, redirectionURL)
 
-	mode := ctx.RequestCtx.Request.Header.PeekBytes([]byte("X-Unauth-Error"))
+	mode := ctx.RequestCtx.Request.Header.PeekBytes(headerUnauthError)
 
 	switch string(mode) {
-	case "Non-Redirect":
+	case NonRedirectMode:
 		ctx.Logger.Infof("[ext_authz] Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
 		ctx.ReplyUnauthorized()
 	default:

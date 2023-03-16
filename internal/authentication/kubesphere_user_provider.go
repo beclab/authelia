@@ -111,7 +111,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-			SetHeader("X-Authorization", token.Value().token).
+			SetHeader(string(utils.TerminusAuthTokenHeader), token.Value().token).
 			SetResult(&utils.Response{Data: &utils.UserDetail{}}).
 			Get(userUrl)
 
@@ -157,7 +157,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-		SetHeader("X-Authorization", cache.Value().token).
+		SetHeader(string(utils.TerminusAuthTokenHeader), cache.Value().token).
 		SetResult(&utils.Response{}).
 		SetBody(reset).
 		Put(userUrl)
@@ -186,7 +186,7 @@ func (p *KubesphereUserProvider) Logout(token string) (err error) {
 	logoutUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/logout", utils.BFL)
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
-		SetHeader("X-Authorization", token).
+		SetHeader(string(utils.TerminusAuthTokenHeader), token).
 		SetResult(&utils.Response{}).
 		Post(logoutUrl)
 
