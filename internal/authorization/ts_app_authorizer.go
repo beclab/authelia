@@ -171,15 +171,15 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
-		klog.Info("new user: ", userInfo.Name, " force default one_factor policy ")
+		klog.Info("new user: ", userInfo.Name, " just bypass launcher ")
 
 		rule := &AccessControlRule{
 			Position: 0,
-			Policy:   OneFactor,
+			Policy:   Bypass,
 		}
 		ruleAddDomain(
 			[]string{
-				fmt.Sprintf("*.%s", userInfo.Zone),
+				fmt.Sprintf("launcher-%s.%s", userInfo.Name, userInfo.Zone),
 			},
 			rule,
 		)
