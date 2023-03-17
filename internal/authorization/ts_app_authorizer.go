@@ -168,10 +168,10 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 	return results
 }
 
-func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo, creatorZone string) ([]*AccessControlRule, error) {
+func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
-		klog.Info("new user: ", userInfo.Name, "force default one_factor policy ")
+		klog.Info("new user: ", userInfo.Name, " force default one_factor policy ")
 
 		rule := &AccessControlRule{
 			Position: 0,
@@ -179,7 +179,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo, c
 		}
 		ruleAddDomain(
 			[]string{
-				fmt.Sprintf("*.%s", creatorZone),
+				fmt.Sprintf("*.%s", userInfo.Zone),
 			},
 			rule,
 		)
@@ -367,20 +367,9 @@ func (t *TsAuthorizer) reloadRules() {
 		return
 	}
 
-	var creatorZone string
-
 	ctx := context.Background()
 
-	if info.IsEphemeral {
-		creatorZone, err = t.getUserZone(ctx, info.CreatedUser)
-
-		if err != nil {
-			klog.Error("load creator user info error, ", err)
-			return
-		}
-	}
-
-	rules, err := t.getRules(ctx, info, creatorZone)
+	rules, err := t.getRules(ctx, info)
 	if err != nil {
 		klog.Error("reload apps auth rules error, ", err)
 		return
@@ -394,7 +383,7 @@ func (t *TsAuthorizer) reloadRules() {
 	t.rules = rules
 
 	if info.IsEphemeral {
-		t.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, creatorZone)
+		t.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
 	} else {
 		t.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
 	}
@@ -457,22 +446,21 @@ func (t *TsAuthorizer) getUserData(ctx context.Context, username string) (*unstr
 	return data, nil
 }
 
-func (t *TsAuthorizer) getUserZone(ctx context.Context, username string) (string, error) {
-	data, err := t.getUserData(ctx, username)
+// func (t *TsAuthorizer) getUserZone(ctx context.Context, username string) (string, error) {
+// 	data, err := t.getUserData(ctx, username)
 
-	if err != nil {
-		return "", nil
-	}
+// 	if err != nil {
+// 		return "", nil
+// 	}
 
-	zone, ok := data.GetAnnotations()[UserAnnotationZoneKey]
+// 	zone, ok := data.GetAnnotations()[UserAnnotationZoneKey]
 
-	if !ok {
-		return "", errors.New("user zone not found")
-	}
+// 	if !ok {
+// 		return "", errors.New("user zone not found")
+// 	}
 
-	return zone, nil
-}
-
+// 	return zone, nil
+// }.
 func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
 	var ret []regexp.Regexp
 

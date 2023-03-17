@@ -59,11 +59,11 @@ var (
 
 const traceFmtACLHitMiss = "ACL %s Position %d for subject %s and object %s (method %s)"
 
-// var defaultDomain = "snowinning.com"
+// var defaultDomain = "snowinning.com".
 
 // func init() {
 // 	envDomain := os.Getenv("DOMAIN")
 // 	if envDomain != "" {
 // 		defaultDomain = envDomain
 // 	}
-// }
+// }.
