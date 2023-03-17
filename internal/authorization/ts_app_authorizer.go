@@ -459,8 +459,8 @@ func (t *TsAuthorizer) getUserData(ctx context.Context, username string) (*unstr
 // 		return "", errors.New("user zone not found")
 // 	}
 
-// 	return zone, nil
-// }.
+//		return zone, nil
+//	}.
 func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
 	var ret []regexp.Regexp
 
