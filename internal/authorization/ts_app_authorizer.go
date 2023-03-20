@@ -45,17 +45,18 @@ import (
 
 // Terminus app service access control.
 type TsAuthorizer struct {
-	client        client.Client
-	httpClient    *resty.Client
-	kubeConfig    *rest.Config
-	rules         []*AccessControlRule
-	defaultPolicy Level
-	initialized   bool
-	mutex         sync.Mutex
-	log           *logrus.Logger
-	desktopPolicy Level
-	exitCh        chan struct{}
-	userIsIniting bool
+	client           client.Client
+	httpClient       *resty.Client
+	kubeConfig       *rest.Config
+	rules            []*AccessControlRule
+	defaultPolicy    Level
+	initialized      bool
+	mutex            sync.Mutex
+	log              *logrus.Logger
+	desktopPolicy    Level
+	exitCh           chan struct{}
+	userIsIniting    bool
+	appDefaultPolicy Level
 
 	LoginPortal string
 }
@@ -69,13 +70,14 @@ func NewTsAuthorizer() Authorizer {
 	}
 
 	authorizer := &TsAuthorizer{
-		kubeConfig:    kubeconfig,
-		client:        k8sClient,
-		defaultPolicy: Denied,
-		httpClient:    resty.New().SetTimeout(2 * time.Second),
-		log:           logging.Logger(),
-		desktopPolicy: TwoFactor,
-		exitCh:        make(chan struct{}),
+		kubeConfig:       kubeconfig,
+		client:           k8sClient,
+		defaultPolicy:    Denied,
+		httpClient:       resty.New().SetTimeout(2 * time.Second),
+		log:              logging.Logger(),
+		desktopPolicy:    TwoFactor,
+		exitCh:           make(chan struct{}),
+		appDefaultPolicy: OneFactor,
 	}
 
 	authorizer.reloadRules()
@@ -303,11 +305,9 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	}
 
 	if !ok {
-		t.log.Debugf("app %s has no policy", app.Spec.Name)
-
 		rule := &AccessControlRule{
 			Position: position,
-			Policy:   t.desktopPolicy,
+			Policy:   t.appDefaultPolicy,
 		}
 		ruleAddDomain(domains, rule)
 
@@ -336,8 +336,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 			resources := []regexp.Regexp{*resExp}
 
 			rule := &AccessControlRule{
-				Position: position,
-				Policy:   NewLevel(sp.Policy),
+				Position:      position,
+				Policy:        NewLevel(sp.Policy),
+				OneTimeValid:  sp.OneTime,
+				ValidDuration: sp.Duration,
 			}
 			ruleAddResources(resources, rule)
 			ruleAddDomain(domains, rule)
@@ -350,8 +352,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 
 	// add app others resource to default policy.
 	ruleOthers := &AccessControlRule{
-		Position: position,
-		Policy:   NewLevel(policy.DefaultPolicy),
+		Position:      position,
+		Policy:        NewLevel(policy.DefaultPolicy),
+		OneTimeValid:  policy.OneTime,
+		ValidDuration: policy.Duration,
 	}
 	ruleAddDomain(domains, ruleOthers)
 

@@ -91,7 +91,7 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 				mutatedResult = AuthzResultAuthorized
 			default:
 				if rule.Policy == authorization.TwoFactor {
-					if rule.ValidDuration <= time.Now().UTC().Sub(r.AuthTime) {
+					if rule.ValidDuration <= 0 || rule.ValidDuration <= time.Now().UTC().Sub(r.AuthTime) {
 						mutatedResult = AuthzResultAuthorized
 					}
 				}

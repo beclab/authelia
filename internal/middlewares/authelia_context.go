@@ -610,9 +610,9 @@ func (ctx *AutheliaCtx) IsXHR() (xhr bool) {
 func (ctx *AutheliaCtx) AcceptsMIME(mime string) (acceptsMime bool) {
 	accepts := strings.Split(string(ctx.Request.Header.PeekBytes(headerAccept)), ",")
 
-	for i, accept := range accepts {
+	for _, accept := range accepts {
 		mimeType := strings.Trim(strings.SplitN(accept, ";", 2)[0], " ")
-		if mimeType == mime || (i == 0 && mimeType == "*/*") {
+		if mimeType == mime || mimeType == "*/*" {
 			return true
 		}
 	}

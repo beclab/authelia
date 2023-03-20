@@ -16,7 +16,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/regulation"
-	"github.com/authelia/authelia/v4/internal/session"
 	sess "github.com/authelia/authelia/v4/internal/session"
 )
 
@@ -54,7 +53,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 // Handle1FAResponse handle the redirection upon 1FA authentication.
 func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	targetURI, requestMethod string,
-	session *session.UserSession) {
+	session *sess.UserSession) {
 	var err error
 
 	sessionId := getSessionId(ctx)
@@ -178,7 +177,7 @@ func getSessionId(ctx *middlewares.AutheliaCtx) []byte {
 }
 
 // Handle2FAResponse handle the redirection upon 2FA authentication.
-func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *session.UserSession) {
+func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *sess.UserSession) {
 	var err error
 
 	if len(targetURI) == 0 {
@@ -267,7 +266,7 @@ func handleOIDCWorkflowResponseWithTargetURL(ctx *middlewares.AutheliaCtx, targe
 		return
 	}
 
-	var userSession session.UserSession
+	var userSession sess.UserSession
 
 	if userSession, err = ctx.GetSession(); err != nil {
 		ctx.Error(fmt.Errorf("unable to redirect to '%s': failed to lookup session: %w", targetURL, err), messageAuthenticationFailed)
@@ -318,7 +317,7 @@ func handleOIDCWorkflowResponseWithID(ctx *middlewares.AutheliaCtx, id string) {
 		return
 	}
 
-	var userSession session.UserSession
+	var userSession sess.UserSession
 
 	if userSession, err = ctx.GetSession(); err != nil {
 		ctx.Error(fmt.Errorf("unable to redirect for authorization/consent for client with id '%s' with consent challenge id '%s': failed to lookup session: %w", client.ID, consent.ChallengeID, err), messageAuthenticationFailed)
@@ -418,7 +417,7 @@ func SetStatusCodeResponse(ctx *fasthttp.RequestCtx, statusCode int) {
 }
 
 // update resource auth level in session.
-func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, session *session.UserSession) {
+func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, session *sess.UserSession) {
 	getRule := func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule {
 		_, _, r := ctx.Providers.Authorizer.GetRequiredLevel(
 			subject,
@@ -436,7 +435,7 @@ func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, ses
 }
 
 func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *url.URL,
-	session *session.UserSession,
+	session *sess.UserSession,
 	requestMethod string,
 	getRule func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule,
 	level authentication.Level,
