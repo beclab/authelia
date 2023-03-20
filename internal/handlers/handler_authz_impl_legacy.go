@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/valyala/fasthttp"
 
@@ -64,19 +65,33 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 			mode = ctx.RequestCtx.Request.Header.Cookie(string(headerUnauthError))
 		}
 
+		provider, err := ctx.GetSessionProvider()
+
+		if err != nil {
+			ctx.Logger.Error("Unable to retrieve user session provider, ", err)
+		}
+
+		sessionId := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+
+		userSession, err := ctx.GetSession()
+
+		if err != nil {
+			ctx.Logger.Error("Unable to retrieve user session, ", err)
+		}
+
 		switch string(mode) {
 		case NonRedirectMode:
 			ctx.Logger.Infof("[legacy] Access to %s (method %s) is not authorized to user %s, responding in non-redirect mode", authn.Object.URL.String(), authn.Method, authn.Username)
 			ctx.ReplyUnauthorized()
 
-			userSession, err := ctx.GetSession()
-
 			// tell the client, it's unauthorized and need to 2fa verify or not.
-			if err != nil {
-				ctx.Logger.Error("Unable to retrieve user session, ", err)
-			} else {
+			qry := redirectionURL.Query()
+			if err == nil {
 				data := map[string]interface{}{
-					"fa2": userSession.AuthenticationLevel >= authentication.OneFactor,
+					"fa2":        userSession.AuthenticationLevel >= authentication.OneFactor,
+					"target_url": qry.Get(queryArgRD),
+					"method":     qry.Get(queryArgRM),
+					"session_id": string(sessionId),
 				}
 
 				jsonData, err := json.Marshal(data)
@@ -89,6 +104,12 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 			}
 
 		default:
+			if err == nil {
+				qry := redirectionURL.Query()
+				qry.Set("fa2", strconv.FormatBool(userSession.AuthenticationLevel >= authentication.OneFactor))
+				redirectionURL.RawQuery = qry.Encode()
+			}
+
 			ctx.SpecialRedirect(redirectionURL.String(), statusCode)
 		}
 	} else {
