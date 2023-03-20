@@ -76,7 +76,7 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	authn.Object = object
 	authn.Method = friendlyMethod(authn.Object.Method)
 
-	ruleHasSubject, required := ctx.Providers.Authorizer.GetRequiredLevel(
+	ruleHasSubject, required, rule := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
 			Username: authn.Details.Username,
 			Groups:   authn.Details.Groups,
@@ -85,7 +85,16 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		object,
 	)
 
-	switch isAuthzResult(authn.Level, required, ruleHasSubject) {
+	result := isAuthzResult(authn.Level, required, ruleHasSubject)
+	if authz.resultMutate != nil {
+		if newResult, err := authz.resultMutate(ctx, result, &authn, required, rule); err != nil {
+			ctx.Logger.Error("authz result mutating error, ", err)
+		} else {
+			result = newResult
+		}
+	}
+
+	switch result {
 	case AuthzResultForbidden:
 		ctx.Logger.Infof("Access to '%s' is forbidden to user '%s'", object.URL.String(), authn.Username)
 		ctx.ReplyForbidden()

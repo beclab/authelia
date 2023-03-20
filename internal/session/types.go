@@ -7,6 +7,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/terminus"
 )
@@ -51,6 +52,9 @@ type UserSession struct {
 
 	// terminuns pass data.
 	TPConfig *terminus.TPOTPConfig
+
+	// resource auth list.
+	ResourceAuthenticationLevels []*ResourceAuthenticationLevel
 }
 
 // Identity identity of the user who is being verified.
@@ -58,4 +62,10 @@ type Identity struct {
 	Username    string
 	Email       string
 	DisplayName string
+}
+
+type ResourceAuthenticationLevel struct {
+	Rule     *authorization.AccessControlRule
+	Level    authentication.Level
+	AuthTime time.Time
 }

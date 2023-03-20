@@ -10,11 +10,14 @@ import (
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/oidc"
+	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/session"
+	sess "github.com/authelia/authelia/v4/internal/session"
 )
 
 type AccessTokenCookieInfo struct {
@@ -56,7 +59,23 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 
 	sessionId := getSessionId(ctx)
 
-	require2FaResp := func() {
+	require2FaResp := func(r *authorization.AccessControlRule, parsedURI *url.URL) {
+		if r != nil {
+			getRule := func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule {
+				return r
+			}
+
+			upsertResourceAuthLevelInSession(ctx, parsedURI, session, requestMethod, getRule, authentication.OneFactor)
+
+			if err = ctx.SaveSession(*session); err != nil {
+				ctx.Logger.Errorf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, session.Username, err)
+
+				respondUnauthorized(ctx, messageAuthenticationFailed)
+
+				return
+			}
+		} // update rule.
+
 		if err = ctx.SetJSONBody(redirectResponse{
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
@@ -65,7 +84,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set token in body: %s", err)
 
-			ctx.ReplyOK()
+			ctx.ReplyError(err, "Unable to set token in body")
 		}
 	}
 
@@ -87,16 +106,16 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		}
 	}
 
-	defaultResp := func() {
+	defaultResp := func(r *authorization.AccessControlRule, parsedURI *url.URL) {
 		if !ctx.Providers.Authorizer.IsSecondFactorEnabled() && ctx.Configuration.DefaultRedirectionURL != "" {
 			redirectResp(ctx.Configuration.DefaultRedirectionURL)
 		} else {
-			require2FaResp()
+			require2FaResp(r, parsedURI)
 		}
 	}
 
 	if len(targetURI) == 0 {
-		defaultResp()
+		defaultResp(nil, nil)
 		return
 	}
 
@@ -108,7 +127,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		return
 	}
 
-	_, requiredLevel := ctx.Providers.Authorizer.GetRequiredLevel(
+	_, requiredLevel, rule := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
 			Username: session.Username,
 			Groups:   session.Groups,
@@ -121,7 +140,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	if requiredLevel == authorization.TwoFactor {
 		ctx.Logger.Warnf("%s requires 2FA, cannot be redirected yet", targetURI)
 
-		require2FaResp()
+		require2FaResp(rule, targetURL)
 
 		return
 	}
@@ -129,7 +148,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	if !ctx.IsSafeRedirectionTargetURI(targetURL) {
 		ctx.Logger.Debugf("Redirection URL %s is not safe", targetURI)
 
-		defaultResp()
+		defaultResp(rule, targetURL)
 
 		return
 	}
@@ -191,6 +210,8 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 		ctx.Error(fmt.Errorf("unable to determine if URI '%s' is safe to redirect to: failed to parse URI '%s': %w", targetURI, targetURI, err), messageMFAValidationFailed)
 		return
 	}
+
+	updateSession2FaLevel(ctx, parsedURI, session)
 
 	safe = ctx.IsSafeRedirectionTargetURI(parsedURI)
 
@@ -394,4 +415,67 @@ func SetStatusCodeResponse(ctx *fasthttp.RequestCtx, statusCode int) {
 
 	ctx.SetStatusCode(statusCode)
 	ctx.SetBodyString(fmt.Sprintf("%d %s", statusCode, fasthttp.StatusMessage(statusCode)))
+}
+
+// update resource auth level in session.
+func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, session *session.UserSession) {
+	getRule := func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule {
+		_, _, r := ctx.Providers.Authorizer.GetRequiredLevel(
+			subject,
+			object,
+		)
+
+		return r
+	}
+
+	upsertResourceAuthLevelInSession(ctx, parsedURI, session, "POST", getRule, authentication.TwoFactor)
+
+	if err := ctx.SaveSession(*session); err != nil {
+		ctx.Logger.Errorf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, session.Username, err)
+	}
+}
+
+func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *url.URL,
+	session *session.UserSession,
+	requestMethod string,
+	getRule func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule,
+	level authentication.Level,
+) {
+	subject := authorization.Subject{
+		Username: session.Username,
+		Groups:   session.Groups,
+		IP:       ctx.RemoteIP(),
+	}
+	object := authorization.NewObject(parsedURI, requestMethod)
+
+	var rule *sess.ResourceAuthenticationLevel
+
+	for i, r := range session.ResourceAuthenticationLevels {
+		if r.Rule.IsMatch(subject, object) {
+			ctx.Logger.Debug("find resource authed rule, ", r.Rule.Domains, r.Level, r.AuthTime)
+
+			session.ResourceAuthenticationLevels[i].AuthTime = time.Now()
+			session.ResourceAuthenticationLevels[i].Level = level
+
+			rule = r
+		}
+	}
+
+	if rule != nil {
+		r := getRule(subject, object)
+
+		if r != nil {
+			ctx.Logger.Debugf("Get match rule for the URL %s", parsedURI.String())
+
+			session.ResourceAuthenticationLevels = append(session.ResourceAuthenticationLevels,
+				&sess.ResourceAuthenticationLevel{
+					Rule:     r,
+					Level:    level,
+					AuthTime: time.Now(),
+				},
+			)
+		} else {
+			ctx.Logger.Error("Can not get url for the URL ", parsedURI.String(), " to update seesion")
+		}
+	}
 }

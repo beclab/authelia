@@ -99,12 +99,12 @@ func (t *TsAuthorizer) IsSecondFactorEnabled() bool {
 	return true
 }
 
-func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level) {
+func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level, r *AccessControlRule) {
 	t.log.Debugf("Check user app process authorization of subject %s and object %s (method %s).",
 		subject.String(), object.String(), object.Method)
 
 	if !t.initialized {
-		return false, t.defaultPolicy
+		return false, t.defaultPolicy, nil
 	}
 
 	t.mutex.Lock()
@@ -114,7 +114,7 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 		if rule.IsMatch(subject, object) {
 			t.log.Tracef(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, object.Method)
 
-			return rule.HasSubjects, rule.Policy
+			return rule.HasSubjects, rule.Policy, rule
 		}
 
 		t.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
@@ -126,15 +126,15 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 
 	// FIXME:.
 	if govalidator.IsIP(object.Domain) && pathToken[len(pathToken)-1] == "task-state" {
-		return false, Bypass
+		return false, Bypass, nil
 	}
 
 	// TESTING:.
 	if strings.HasPrefix(object.Path, "/bfl/backend") {
-		return false, Bypass
+		return false, Bypass, nil
 	}
 
-	return false, t.defaultPolicy
+	return false, t.defaultPolicy, nil
 }
 
 func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult) {
