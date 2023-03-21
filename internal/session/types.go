@@ -65,7 +65,8 @@ type Identity struct {
 }
 
 type ResourceAuthenticationLevel struct {
-	Rule     *authorization.AccessControlRule
 	Level    authentication.Level
 	AuthTime time.Time
+	Subject  authorization.Subject
+	Object   authorization.Object
 }

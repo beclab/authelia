@@ -113,6 +113,7 @@ func (b *BridgeBuilder) Build() Bridge {
 			}
 
 			b.providers.SessionProvider.Config = b.config.Session
+			b.config.DefaultRedirectionURL = string(requestCtx.URI().Scheme()) + "://" + domain + "/"
 			next(NewAutheliaCtx(requestCtx, b.config, b.providers))
 		}
 

@@ -61,12 +61,6 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 		return result, err
 	}
 
-	subject := authorization.Subject{
-		Username: authn.Details.Username,
-		Groups:   authn.Details.Groups,
-		IP:       ctx.RemoteIP(),
-	}
-
 	if err != nil {
 		return result, err
 	}
@@ -81,10 +75,10 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 	)
 
 	for i, r := range userSession.ResourceAuthenticationLevels {
-		if r.Rule.IsMatch(subject, authn.Object) &&
+		if rule.IsMatch(r.Subject, r.Object) &&
 			rule.Policy == authorization.TwoFactor &&
 			r.Level >= authentication.TwoFactor {
-			ctx.Logger.Debug("find resource authed rule, ", r.Rule.Domains, r.Level, r.AuthTime)
+			ctx.Logger.Debug("find resource authed rule, ", rule.Domains, r.Level, r.AuthTime)
 
 			switch {
 			case rule.OneTimeValid:
