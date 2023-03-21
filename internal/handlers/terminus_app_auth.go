@@ -77,7 +77,7 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 
 	var (
 		sessionModified bool        = false
-		mutatedResult   AuthzResult = result
+		mutatedResult   AuthzResult = AuthzResultUnauthorized
 	)
 
 	for i, r := range userSession.ResourceAuthenticationLevels {
@@ -102,8 +102,6 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 
 			break
 		}
-
-		mutatedResult = AuthzResultUnauthorized
 	} // end loop.
 
 	if sessionModified {
