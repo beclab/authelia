@@ -460,7 +460,7 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 		}
 	}
 
-	if rule != nil {
+	if rule == nil {
 		r := getRule(subject, object)
 
 		if r != nil {
