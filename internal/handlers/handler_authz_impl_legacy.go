@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/valyala/fasthttp"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 )
@@ -58,12 +61,55 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 		ctx.Logger.Infof("[legacy] Access to %s (method %s) is not authorized to user %s, responding with status code %d with location redirect to %s", authn.Object.URL.String(), authn.Method, authn.Username, statusCode, redirectionURL.String())
 
 		mode := ctx.RequestCtx.Request.Header.PeekBytes(headerUnauthError)
+		if len(mode) == 0 {
+			mode = ctx.RequestCtx.Request.Header.Cookie(string(headerUnauthError))
+		}
+
+		provider, err := ctx.GetSessionProvider()
+
+		if err != nil {
+			ctx.Logger.Error("Unable to retrieve user session provider, ", err)
+		}
+
+		sessionId := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+
+		userSession, err := ctx.GetSession()
+
+		if err != nil {
+			ctx.Logger.Error("Unable to retrieve user session, ", err)
+		}
 
 		switch string(mode) {
 		case NonRedirectMode:
-			ctx.Logger.Infof("[ext_authz] Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
+			ctx.Logger.Infof("[legacy] Access to %s (method %s) is not authorized to user %s, responding in non-redirect mode", authn.Object.URL.String(), authn.Method, authn.Username)
 			ctx.ReplyUnauthorized()
+
+			// tell the client, it's unauthorized and need to 2fa verify or not.
+			qry := redirectionURL.Query()
+			if err == nil {
+				data := map[string]interface{}{
+					"fa2":        userSession.AuthenticationLevel >= authentication.OneFactor,
+					"target_url": qry.Get(queryArgRD),
+					"method":     qry.Get(queryArgRM),
+					"session_id": string(sessionId),
+				}
+
+				jsonData, err := json.Marshal(data)
+
+				if err != nil {
+					ctx.Logger.Error("parse json error, ", err)
+				} else {
+					ctx.SetBody(jsonData)
+				}
+			}
+
 		default:
+			if err == nil {
+				qry := redirectionURL.Query()
+				qry.Set("fa2", strconv.FormatBool(userSession.AuthenticationLevel >= authentication.OneFactor))
+				redirectionURL.RawQuery = qry.Encode()
+			}
+
 			ctx.SpecialRedirect(redirectionURL.String(), statusCode)
 		}
 	} else {

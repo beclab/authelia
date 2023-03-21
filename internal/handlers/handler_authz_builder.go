@@ -103,6 +103,10 @@ func (b *AuthzBuilder) WithConfig(config *schema.Configuration) *AuthzBuilder {
 		},
 	}
 
+	if config.AccessControl.ConfigType == "terminus" {
+		b.resultMutateFunc = TerminusApp2FACheck
+	}
+
 	return b
 }
 
@@ -185,6 +189,8 @@ func (b *AuthzBuilder) Build() (authz *Authz) {
 		authz.handleUnauthorized = handleAuthzUnauthorizedExtAuthz
 		authz.handleGetAutheliaURL = handleAuthzPortalURLFromHeader
 	}
+
+	authz.resultMutate = b.resultMutateFunc
 
 	return authz
 }

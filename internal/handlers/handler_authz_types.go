@@ -23,8 +23,12 @@ type Authz struct {
 	handleAuthorized   HandlerAuthzAuthorized
 	handleUnauthorized HandlerAuthzUnauthorized
 
+	resultMutate AuthzResultMutate
+
 	legacy bool
 }
+
+type AuthzResultMutate func(ctx *middlewares.AutheliaCtx, result AuthzResult, authn *Authn, required authorization.Level, rule *authorization.AccessControlRule) (AuthzResult, error)
 
 // HandlerAuthzUnauthorized is a Authz handler func that handles unauthorized responses.
 type HandlerAuthzUnauthorized func(ctx *middlewares.AutheliaCtx, authn *Authn, redirectionURL *url.URL)
@@ -88,9 +92,10 @@ type AuthzDomain struct {
 
 // AuthzBuilder is a builder pattern for the Authz type.
 type AuthzBuilder struct {
-	config     AuthzConfig
-	impl       AuthzImplementation
-	strategies []AuthnStrategy
+	config           AuthzConfig
+	impl             AuthzImplementation
+	strategies       []AuthnStrategy
+	resultMutateFunc AuthzResultMutate
 }
 
 // AuthnStrategy is a strategy used for Authz authentication.

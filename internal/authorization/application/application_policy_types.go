@@ -14,14 +14,20 @@
 
 package application
 
+import "time"
+
 type ApplicationSettingsSubPolicy struct {
-	URI    string `json:"uri"`
-	Policy string `json:"policy"`
+	URI      string        `json:"uri"`
+	Policy   string        `json:"policy"`
+	OneTime  bool          `json:"one_time"`
+	Duration time.Duration `json:"valid_duration"`
 }
 
 type ApplicationSettingsPolicy struct {
 	DefaultPolicy string                          `json:"default_policy"`
 	SubPolicies   []*ApplicationSettingsSubPolicy `json:"sub_policies"`
+	OneTime       bool                            `json:"one_time"`
+	Duration      time.Duration                   `json:"valid_duration"`
 }
 
 const ApplicationSettingsPolicyKey = "policy"

@@ -16,6 +16,6 @@ package authorization
 
 type Authorizer interface {
 	IsSecondFactorEnabled() bool
-	GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level)
+	GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level, r *AccessControlRule)
 	GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult)
 }

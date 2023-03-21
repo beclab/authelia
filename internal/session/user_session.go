@@ -11,9 +11,10 @@ import (
 // NewDefaultUserSession create a default user session.
 func NewDefaultUserSession() UserSession {
 	return UserSession{
-		KeepMeLoggedIn:      false,
-		AuthenticationLevel: authentication.NotAuthenticated,
-		LastActivity:        0,
+		KeepMeLoggedIn:               false,
+		AuthenticationLevel:          authentication.NotAuthenticated,
+		LastActivity:                 0,
+		ResourceAuthenticationLevels: []*ResourceAuthenticationLevel{},
 	}
 }
 

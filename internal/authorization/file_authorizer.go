@@ -58,7 +58,7 @@ func (p *FileAuthorizer) IsSecondFactorEnabled() bool {
 }
 
 // GetRequiredLevel retrieve the required level of authorization to access the object.
-func (p *FileAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level) {
+func (p *FileAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level, r *AccessControlRule) {
 	p.log.Debugf("Check authorization of subject %s and object %s (method %s).",
 		subject.String(), object.String(), object.Method)
 
@@ -66,7 +66,7 @@ func (p *FileAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSu
 		if rule.IsMatch(subject, object) {
 			p.log.Tracef(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, object.Method)
 
-			return rule.HasSubjects, rule.Policy
+			return rule.HasSubjects, rule.Policy, rule
 		}
 
 		p.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
@@ -74,7 +74,7 @@ func (p *FileAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSu
 
 	p.log.Debugf("No matching rule for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
 
-	return false, p.defaultPolicy
+	return false, p.defaultPolicy, nil
 }
 
 // GetRuleMatchResults iterates through the rules and produces a list of RuleMatchResult provided a subject and object.

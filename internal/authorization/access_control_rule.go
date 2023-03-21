@@ -2,6 +2,7 @@ package authorization
 
 import (
 	"net"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -46,14 +47,16 @@ func NewAccessControlRule(pos int, rule schema.ACLRule, networksMap map[string][
 type AccessControlRule struct {
 	HasSubjects bool
 
-	Position  int
-	Domains   []AccessControlDomain
-	Resources []AccessControlResource
-	Query     []AccessControlQuery
-	Methods   []string
-	Networks  []*net.IPNet
-	Subjects  []AccessControlSubjects
-	Policy    Level
+	Position      int
+	Domains       []AccessControlDomain
+	Resources     []AccessControlResource
+	Query         []AccessControlQuery
+	Methods       []string
+	Networks      []*net.IPNet
+	Subjects      []AccessControlSubjects
+	Policy        Level
+	OneTimeValid  bool
+	ValidDuration time.Duration
 }
 
 // IsMatch returns true if all elements of an AccessControlRule match the object and subject.
