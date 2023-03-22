@@ -82,7 +82,7 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 		switch string(mode) {
 		case NonRedirectMode:
 			ctx.Logger.Infof("[legacy] Access to %s (method %s) is not authorized to user %s, responding in non-redirect mode", authn.Object.URL.String(), authn.Method, authn.Username)
-			ctx.ReplyStatusCode(459) // special unauth code for terminus client
+			ctx.ReplyStatusCode(459) // special unauth code for terminus client.
 
 			// tell the client, it's unauthorized and need to 2fa verify or not.
 			qry := redirectionURL.Query()

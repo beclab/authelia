@@ -224,7 +224,11 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 	if safe {
 		ctx.Logger.Debugf("Redirection URL %s is safe", targetURI)
 
-		if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
+		if err = ctx.SetJSONBody(redirectResponse{
+			Redirect:     targetURI,
+			AccessToken:  session.AccessToken,
+			RefreshToken: session.RefreshToken,
+		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
 			setTokenToCookie(ctx, &AccessTokenCookieInfo{
