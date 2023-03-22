@@ -5,8 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/klog/v2"
-
 	"github.com/authelia/authelia/v4/internal/utils"
 )
 
@@ -63,10 +61,6 @@ type AccessControlDomainMatcher struct {
 
 // IsMatch returns true if this rule matches.
 func (m AccessControlDomainMatcher) IsMatch(domain string, subject Subject) (match bool) {
-	klog.Info(PrettyJSON(m))
-	klog.Info(domain)
-	klog.Info(PrettyJSON(subject))
-
 	switch {
 	case m.Wildcard:
 		return strings.HasSuffix(domain, m.Name)

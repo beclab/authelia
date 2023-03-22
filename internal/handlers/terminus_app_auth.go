@@ -46,7 +46,7 @@ func TerminusApp2FACheck(
 func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 	authn *Authn, rule *authorization.AccessControlRule,
 ) (AuthzResult, error) {
-	ctx.Logger.Debug("starting authz result mutate, ", result, " ", rule.Resources, " ", rule.Policy.String())
+	ctx.Logger.Debug("starting authz result mutate, ", result, " ", rule.Resources, " ", rule.Policy.String(), " ", rule.DefaultRule)
 	provider, err := ctx.GetSessionProviderByTargetURL(authn.Object.URL)
 
 	if err != nil {
@@ -61,12 +61,13 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 		return result, err
 	}
 
-	if err != nil {
-		return result, err
-	}
-
 	if rule.Policy == authorization.OneFactor && authn.Level >= authentication.OneFactor {
 		return AuthzResultAuthorized, nil
+	}
+
+	// others resource of app.
+	if rule.DefaultRule {
+		return result, nil
 	}
 
 	var (
@@ -87,7 +88,7 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 				sessionModified = true
 				mutatedResult = AuthzResultAuthorized
 			default:
-				if rule.ValidDuration <= 0 || rule.ValidDuration <= time.Now().UTC().Sub(r.AuthTime) {
+				if rule.ValidDuration <= 0 || rule.ValidDuration > time.Now().UTC().Sub(r.AuthTime.UTC()) {
 					mutatedResult = AuthzResultAuthorized
 				} else {
 					mutatedResult = AuthzResultUnauthorized
