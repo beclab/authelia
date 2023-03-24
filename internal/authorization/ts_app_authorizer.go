@@ -339,7 +339,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 				Position:      position,
 				Policy:        NewLevel(sp.Policy),
 				OneTimeValid:  sp.OneTime,
-				ValidDuration: sp.Duration,
+				ValidDuration: time.Duration(sp.Duration) * time.Second,
 			}
 			ruleAddResources(resources, rule)
 			ruleAddDomain(domains, rule)
@@ -371,7 +371,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 		Position:      position,
 		Policy:        NewLevel(policy.DefaultPolicy),
 		OneTimeValid:  policy.OneTime,
-		ValidDuration: policy.Duration,
+		ValidDuration: time.Duration(policy.Duration) * time.Second,
 	}
 	ruleAddDomain(domains, ruleRoot)
 
