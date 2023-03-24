@@ -187,6 +187,13 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 			return
 		}
 
+		if parsedURI, err := url.ParseRequestURI(ctx.Configuration.DefaultRedirectionURL); err != nil {
+			ctx.Error(fmt.Errorf("unable to determine if URI '%s' is safe to redirect to: failed to parse URI '%s': %w", ctx.Configuration.DefaultRedirectionURL, ctx.Configuration.DefaultRedirectionURL, err), messageMFAValidationFailed)
+			return
+		} else {
+			updateSession2FaLevel(ctx, parsedURI, session)
+		}
+
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
 			ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
 		} else {
@@ -217,7 +224,11 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 	if safe {
 		ctx.Logger.Debugf("Redirection URL %s is safe", targetURI)
 
-		if err = ctx.SetJSONBody(redirectResponse{Redirect: targetURI}); err != nil {
+		if err = ctx.SetJSONBody(redirectResponse{
+			Redirect:     targetURI,
+			AccessToken:  session.AccessToken,
+			RefreshToken: session.RefreshToken,
+		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
 			setTokenToCookie(ctx, &AccessTokenCookieInfo{
@@ -447,11 +458,18 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 	}
 	object := authorization.NewObject(parsedURI, requestMethod)
 
+	matchRule := getRule(subject, object)
+
+	if matchRule == nil {
+		ctx.Logger.Error("cannot find rule, update session error, ", parsedURI.String())
+		return
+	}
+
 	var rule *sess.ResourceAuthenticationLevel
 
 	for i, r := range session.ResourceAuthenticationLevels {
-		if r.Rule.IsMatch(subject, object) {
-			ctx.Logger.Debug("find resource authed rule, ", r.Rule.Domains, r.Level, r.AuthTime)
+		if matchRule.IsMatch(r.Subject, r.Object) {
+			ctx.Logger.Debug("find resource authed rule, ", matchRule.Domains, r.Level, r.AuthTime)
 
 			session.ResourceAuthenticationLevels[i].AuthTime = time.Now()
 			session.ResourceAuthenticationLevels[i].Level = level
@@ -460,21 +478,16 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 		}
 	}
 
-	if rule != nil {
-		r := getRule(subject, object)
+	if rule == nil {
+		ctx.Logger.Debugf("Get match rule froom session for the URL %s", parsedURI.String())
 
-		if r != nil {
-			ctx.Logger.Debugf("Get match rule for the URL %s", parsedURI.String())
-
-			session.ResourceAuthenticationLevels = append(session.ResourceAuthenticationLevels,
-				&sess.ResourceAuthenticationLevel{
-					Rule:     r,
-					Level:    level,
-					AuthTime: time.Now(),
-				},
-			)
-		} else {
-			ctx.Logger.Error("Can not get url for the URL ", parsedURI.String(), " to update seesion")
-		}
+		session.ResourceAuthenticationLevels = append(session.ResourceAuthenticationLevels,
+			&sess.ResourceAuthenticationLevel{
+				Subject:  subject,
+				Object:   object,
+				Level:    level,
+				AuthTime: time.Now(),
+			},
+		)
 	}
 }

@@ -339,7 +339,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 				Position:      position,
 				Policy:        NewLevel(sp.Policy),
 				OneTimeValid:  sp.OneTime,
-				ValidDuration: sp.Duration,
+				ValidDuration: time.Duration(sp.Duration) * time.Second,
 			}
 			ruleAddResources(resources, rule)
 			ruleAddDomain(domains, rule)
@@ -351,15 +351,31 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	} // end if.
 
 	// add app others resource to default policy.
+	othersExp := regexp.MustCompile("^/.+")
+	othersResources := []regexp.Regexp{*othersExp}
+
 	ruleOthers := &AccessControlRule{
-		Position:      position,
-		Policy:        NewLevel(policy.DefaultPolicy),
-		OneTimeValid:  policy.OneTime,
-		ValidDuration: policy.Duration,
+		Position:    position,
+		Policy:      t.desktopPolicy,
+		DefaultRule: true,
 	}
+	ruleAddResources(othersResources, ruleOthers)
 	ruleAddDomain(domains, ruleOthers)
 
 	rules = append(rules, ruleOthers)
+
+	position++
+
+	// add app root path to default policy with options.
+	ruleRoot := &AccessControlRule{
+		Position:      position,
+		Policy:        NewLevel(policy.DefaultPolicy),
+		OneTimeValid:  policy.OneTime,
+		ValidDuration: time.Duration(policy.Duration) * time.Second,
+	}
+	ruleAddDomain(domains, ruleRoot)
+
+	rules = append(rules, ruleRoot)
 
 	return rules, nil
 }

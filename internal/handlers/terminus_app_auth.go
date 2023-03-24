@@ -46,6 +46,7 @@ func TerminusApp2FACheck(
 func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 	authn *Authn, rule *authorization.AccessControlRule,
 ) (AuthzResult, error) {
+	ctx.Logger.Debug("starting authz result mutate, ", result, " ", rule.Resources, " ", rule.Policy.String(), " ", rule.DefaultRule)
 	provider, err := ctx.GetSessionProviderByTargetURL(authn.Object.URL)
 
 	if err != nil {
@@ -60,28 +61,25 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 		return result, err
 	}
 
-	subject := authorization.Subject{
-		Username: authn.Details.Username,
-		Groups:   authn.Details.Groups,
-		IP:       ctx.RemoteIP(),
-	}
-
-	if err != nil {
-		return result, err
-	}
-
 	if rule.Policy == authorization.OneFactor && authn.Level >= authentication.OneFactor {
 		return AuthzResultAuthorized, nil
 	}
 
+	// others resource of app.
+	if rule.DefaultRule {
+		return result, nil
+	}
+
 	var (
 		sessionModified bool        = false
-		mutatedResult   AuthzResult = result
+		mutatedResult   AuthzResult = AuthzResultUnauthorized
 	)
 
 	for i, r := range userSession.ResourceAuthenticationLevels {
-		if r.Rule.IsMatch(subject, authn.Object) && r.Level >= authentication.TwoFactor {
-			ctx.Logger.Debug("find resource authed rule, ", r.Rule.Domains, r.Level, r.AuthTime)
+		if rule.IsMatch(r.Subject, r.Object) &&
+			rule.Policy == authorization.TwoFactor &&
+			r.Level >= authentication.TwoFactor {
+			ctx.Logger.Debug("find resource authed rule, ", rule.Domains, r.Level, r.AuthTime)
 
 			switch {
 			case rule.OneTimeValid:
@@ -90,12 +88,14 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 				sessionModified = true
 				mutatedResult = AuthzResultAuthorized
 			default:
-				if rule.Policy == authorization.TwoFactor {
-					if rule.ValidDuration <= 0 || rule.ValidDuration <= time.Now().UTC().Sub(r.AuthTime) {
-						mutatedResult = AuthzResultAuthorized
-					}
+				if rule.ValidDuration <= 0 || rule.ValidDuration > time.Now().UTC().Sub(r.AuthTime.UTC()) {
+					mutatedResult = AuthzResultAuthorized
+				} else {
+					mutatedResult = AuthzResultUnauthorized
 				}
 			} // end switch.
+
+			break
 		}
 	} // end loop.
 

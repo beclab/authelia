@@ -57,6 +57,7 @@ type AccessControlRule struct {
 	Policy        Level
 	OneTimeValid  bool
 	ValidDuration time.Duration
+	DefaultRule   bool
 }
 
 // IsMatch returns true if all elements of an AccessControlRule match the object and subject.
