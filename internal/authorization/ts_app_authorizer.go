@@ -198,8 +198,11 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 
 	var rules []*AccessControlRule
 
+	// portal rule
+	rules = t.addPortalRules(userInfo.Zone, rules)
+
 	// desktop rule.
-	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone)
+	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, rules)
 
 	// auth app rule.
 	rules = t.addAuthDomainRules(userInfo.Zone, rules)
@@ -219,10 +222,35 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	return rules, nil
 }
 
-func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string) (rules []*AccessControlRule) {
+func (t *TsAuthorizer) addDomainBypassRules(subdomain, domain string, rules []*AccessControlRule) []*AccessControlRule {
+	return t.addDomainSpecialRules(subdomain, domain, Bypass, rules)
+}
+
+func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain string, level Level, rules []*AccessControlRule) []*AccessControlRule {
 	domains := []string{
-		"local." + domain,
-		domain,
+		subdomain + "local." + domain,
+		subdomain + domain,
+	}
+
+	rule := &AccessControlRule{
+		Position: len(rules),
+		Policy:   level,
+	}
+	ruleAddDomain(domains, rule)
+
+	rules = append(rules, rule)
+
+	return rules
+}
+
+func (t *TsAuthorizer) addPortalRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
+	return t.addDomainBypassRules("", domain, rules)
+}
+
+func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string, rules []*AccessControlRule) []*AccessControlRule {
+	domains := []string{
+		"desktop.local." + domain,
+		"desktop." + domain,
 	}
 
 	if policy, err := t.getUserAccessPolicy(ctx, username); err != nil {
@@ -231,7 +259,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 		t.desktopPolicy = NewLevel(policy)
 	}
 
-	position := 1
+	position := len(rules)
 
 	if !t.userIsIniting {
 		// add loginn portal to bypass.
@@ -244,14 +272,14 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 			"^/api/.*",
 		})
 
-		portalRule := &AccessControlRule{
+		loginPortalRule := &AccessControlRule{
 			Position: position,
 			Policy:   Bypass,
 		}
-		ruleAddDomain(domains, portalRule)
-		ruleAddResources(resources, portalRule)
+		ruleAddDomain(domains, loginPortalRule)
+		ruleAddResources(resources, loginPortalRule)
 
-		rules = append(rules, portalRule)
+		rules = append(rules, loginPortalRule)
 		position++
 	}
 
@@ -267,20 +295,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 }
 
 func (t *TsAuthorizer) addAuthDomainRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
-	domains := []string{
-		"auth.local." + domain,
-		"auth." + domain,
-	}
-
-	authRule := &AccessControlRule{
-		Position: len(rules),
-		Policy:   t.desktopPolicy,
-	}
-	ruleAddDomain(domains, authRule)
-
-	rules = append(rules, authRule)
-
-	return rules
+	return t.addDomainBypassRules("auth.", domain, rules)
 }
 
 /*
