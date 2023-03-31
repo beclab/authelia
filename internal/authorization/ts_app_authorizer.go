@@ -198,7 +198,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 
 	var rules []*AccessControlRule
 
-	// portal rule
+	// portal rule.
 	rules = t.addPortalRules(userInfo.Zone, rules)
 
 	// desktop rule.

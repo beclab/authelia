@@ -18,7 +18,7 @@ var DefaultTOTPConfiguration = TOTPConfiguration{
 	Issuer:     "Authelia",
 	Algorithm:  TOTPAlgorithmSHA1,
 	Digits:     6,
-	Period:     60,
+	Period:     30,
 	Skew:       &defaultOtpSkew,
 	SecretSize: TOTPSecretSizeDefault,
 }
