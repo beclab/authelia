@@ -114,7 +114,7 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 
 	for _, rule := range t.rules {
 		if rule.IsMatch(subject, object) {
-			t.log.Tracef(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, object.Method)
+			t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
 
 			return rule.HasSubjects, rule.Policy, rule
 		}
