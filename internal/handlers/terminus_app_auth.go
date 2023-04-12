@@ -50,11 +50,6 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 ) (AuthzResult, error) {
 	ctx.Logger.Debug("starting authz result mutate, ", result, " ", rule.Resources, " ", rule.Policy.String(), " ", rule.DefaultRule)
 
-	if isValidBackendRequest(ctx) {
-		ctx.Logger.Debug("backend provider request, pass through")
-		return AuthzResultAuthorized, nil
-	}
-
 	provider, err := ctx.GetSessionProviderByTargetURL(authn.Object.URL)
 
 	if err != nil {

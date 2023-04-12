@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/valyala/fasthttp"
+
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
@@ -20,6 +22,14 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	)
 
 	ctx.Logger.Debug("******************* start to auth ******************")
+
+	if isValidBackendRequest(ctx) {
+		ctx.Logger.Debug("backend provider request, pass through")
+
+		ctx.ReplyStatusCode(fasthttp.StatusOK)
+
+		return
+	}
 
 	if object, err = authz.handleGetObject(ctx); err != nil {
 		ctx.Logger.Errorf("Error getting original request object: %v", err)
