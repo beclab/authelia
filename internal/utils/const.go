@@ -53,7 +53,8 @@ const (
 )
 
 var (
-	TerminusAuthTokenHeader = []byte("X-Authorization")
+	TerminusAuthTokenHeader   = []byte("X-Authorization")
+	TerminusAccessTokenHeader = []byte("X-Access-Token")
 )
 
 const (

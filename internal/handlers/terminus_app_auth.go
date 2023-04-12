@@ -20,6 +20,8 @@ import (
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
+	"github.com/authelia/authelia/v4/internal/session"
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 func TerminusApp2FACheck(
@@ -47,6 +49,12 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 	authn *Authn, rule *authorization.AccessControlRule,
 ) (AuthzResult, error) {
 	ctx.Logger.Debug("starting authz result mutate, ", result, " ", rule.Resources, " ", rule.Policy.String(), " ", rule.DefaultRule)
+
+	if isValidBackendRequest(ctx) {
+		ctx.Logger.Debug("backend provider request, pass through")
+		return AuthzResultAuthorized, nil
+	}
+
 	provider, err := ctx.GetSessionProviderByTargetURL(authn.Object.URL)
 
 	if err != nil {
@@ -70,6 +78,14 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 		return result, nil
 	}
 
+	return mutatingAuthzResult(ctx, provider, userSession, rule)
+}
+
+func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
+	provider *session.Session,
+	userSession session.UserSession,
+	rule *authorization.AccessControlRule,
+) (AuthzResult, error) {
 	var (
 		sessionModified bool        = false
 		mutatedResult   AuthzResult = AuthzResultUnauthorized
@@ -101,10 +117,16 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 
 	if sessionModified {
 		// update session.
-		if err = provider.SaveSession(ctx.RequestCtx, userSession); err != nil {
+		if err := provider.SaveSession(ctx.RequestCtx, userSession); err != nil {
 			ctx.Logger.Errorf("Unable to save updated user session: %+v", err)
 		}
 	}
 
 	return mutatedResult, nil
+}
+
+func isValidBackendRequest(ctx *middlewares.AutheliaCtx) bool {
+	backendToken := ctx.RequestCtx.Request.Header.PeekBytes(utils.TerminusAccessTokenHeader)
+
+	return len(backendToken) > 0
 }
