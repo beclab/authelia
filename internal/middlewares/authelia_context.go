@@ -351,7 +351,7 @@ func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error
 	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
 	if len(cookie) == 0 {
 		// try to get cookie from token header.
-		token := ctx.RequestCtx.Request.Header.PeekBytes(headerAuthorization)
+		token := ctx.RequestCtx.Request.Header.PeekBytes(HeaderTerminusAuthorization)
 		if len(token) == 0 {
 			ctx.Logger.Error("Unable to retrieve user token")
 		} else {
