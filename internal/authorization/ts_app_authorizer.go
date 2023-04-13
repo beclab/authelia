@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -202,6 +203,9 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	// portal rule.
 	rules = t.addPortalRules(userInfo.Zone, rules)
 
+	// CORS rules
+	rules = t.addCORSRules(userInfo.Zone, rules)
+
 	// desktop rule.
 	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, rules)
 
@@ -246,6 +250,26 @@ func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain string, level Lev
 
 func (t *TsAuthorizer) addPortalRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
 	return t.addDomainBypassRules("", domain, rules)
+}
+
+func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
+	// apply the `bypass` policy to `OPTIONS` CORS preflight requests.
+	domains := []string{
+		"*.local." + domain,
+		"*." + domain,
+	}
+
+	rule := &AccessControlRule{
+		Position: len(rules),
+		Policy:   Bypass,
+		Methods:  []string{http.MethodOptions},
+	}
+
+	ruleAddDomain(domains, rule)
+
+	rules = append(rules, rule)
+
+	return rules
 }
 
 func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string, rules []*AccessControlRule) []*AccessControlRule {
