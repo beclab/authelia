@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -42,6 +43,8 @@ import (
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
+
+var TerminusNonce string
 
 // Terminus app service access control.
 type TsAuthorizer struct {
@@ -429,6 +432,8 @@ func (t *TsAuthorizer) reloadRules() {
 	} else {
 		t.defaultPolicy = Denied
 	}
+
+	t.getNonce()
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {
@@ -510,4 +515,23 @@ func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
 	}
 
 	return ret
+}
+
+func (t *TsAuthorizer) getNonce() {
+	nonceUrl := fmt.Sprintf("http://%s/permission/v1alpha1/nonce", utils.SYSTEM_SERVER)
+
+	resp, err := t.httpClient.R().Get(nonceUrl)
+
+	if err != nil {
+		klog.Error("get nonce error, ", err)
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		klog.Error("response error, code: ", resp.StatusCode(), " ", string(resp.Body()))
+		return
+	}
+
+	TerminusNonce = string(resp.Body())
+	klog.Info("get terminus backend nonce with prefix: ", TerminusNonce[:8])
 }

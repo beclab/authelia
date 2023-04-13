@@ -8,13 +8,19 @@ import (
 )
 
 var (
-	BFL = "bfl"
+	BFL           = "bfl"
+	SYSTEM_SERVER = "system-server"
 )
 
 func init() {
 	envBfl := os.Getenv("BFL")
 	if envBfl != "" {
 		BFL = envBfl
+	}
+
+	envSS := os.Getenv("SYSTEM_SERVER")
+	if envSS != "" {
+		SYSTEM_SERVER = envSS
 	}
 }
 

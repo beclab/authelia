@@ -123,5 +123,5 @@ func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
 func isValidBackendRequest(ctx *middlewares.AutheliaCtx) bool {
 	backendToken := ctx.RequestCtx.Request.Header.PeekBytes(utils.TerminusAccessTokenHeader)
 
-	return len(backendToken) > 0
+	return len(backendToken) > 0 && string(backendToken) == authorization.TerminusNonce
 }
