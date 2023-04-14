@@ -4,7 +4,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/klog/v2"
@@ -51,7 +50,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 					Config:        dconfig,
 					sessionHolder: holder,
 					sessionWithToken: ttlcache.New(
-						ttlcache.WithTTL[string, string](time.Hour*2),
+						ttlcache.WithTTL[string, string](dconfig.Expiration),
 						ttlcache.WithCapacity[string, string](1000),
 					),
 				}

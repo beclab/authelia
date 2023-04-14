@@ -68,7 +68,7 @@ var (
 	headerValueXSSModeBlock = []byte("1; mode=block")
 	headerValueCohort       = []byte("interest-cohort=()")
 
-	headerAuthorization = utils.TerminusAuthTokenHeader
+	HeaderTerminusAuthorization = utils.TerminusAuthTokenHeader
 )
 
 const DefaultSessionKeyName = "sessionid"
