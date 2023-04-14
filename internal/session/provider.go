@@ -51,7 +51,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 					Config:        dconfig,
 					sessionHolder: holder,
 					sessionWithToken: ttlcache.New(
-						ttlcache.WithTTL[string, string](time.Hour*2),
+						ttlcache.WithTTL[string, string](time.Hour*24*14),
 						ttlcache.WithCapacity[string, string](1000),
 					),
 				}

@@ -203,7 +203,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	// portal rule.
 	rules = t.addPortalRules(userInfo.Zone, rules)
 
-	// CORS rules
+	// CORS rules.
 	rules = t.addCORSRules(userInfo.Zone, rules)
 
 	// desktop rule.
