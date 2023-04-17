@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/klog/v2"
 
@@ -87,11 +88,11 @@ func (p *Provider) Get(domain, targetDomain, token string) (*Session, error) {
 	s, found := p.sessions[domain]
 
 	if !found {
-		log.Debugf("find session provider by token %s, and target domain %s", token, targetDomain)
+		log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
 
 		if s, err := p.GetByToken(token); err != nil {
 			return nil, err
-		} else if s != nil && s.targetDomain == targetDomain {
+		} else if s != nil && ( s.targetDomain == domain || govalidator.IsIP(domain) ) { // TODO: install wizard.
 			return s, nil
 		}
 
