@@ -129,9 +129,6 @@ func (p *Provider) SetByToken(token string, session *Session) {
 		return
 	}
 
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
 	s := p.providerWithToken.Get(token)
 
 	if s == nil {
