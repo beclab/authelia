@@ -74,7 +74,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain,targetDomain, token string) (*Session, error) {
+func (p *Provider) Get(domain, targetDomain, token string) (*Session, error) {
 	log := logging.Logger()
 
 	if domain == "" {
@@ -91,7 +91,7 @@ func (p *Provider) Get(domain,targetDomain, token string) (*Session, error) {
 
 		if s, err := p.GetByToken(token); err != nil {
 			return nil, err
-		} else if s != nil && s.targetDomain == targetDomain{
+		} else if s != nil && s.targetDomain == targetDomain {
 			return s, nil
 		}
 
