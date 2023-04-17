@@ -132,5 +132,5 @@ func (p *Session) GetSessionID(token string) string {
 }
 
 func (p *Session) SaveSessionID(token, sessionId string) {
-	p.sessionWithToken.Set(token, sessionId, 2*time.Hour)
+	p.sessionWithToken.Set(token, sessionId, p.Config.Expiration)
 }
