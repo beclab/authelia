@@ -92,8 +92,8 @@ func ResetPasswordPOST(ctx *middlewares.AutheliaCtx) {
 
 	addresses := userInfo.Addresses()
 
-	ctx.Logger.Debugf("Sending an email to user %s (%s) to inform that the password has changed.",
-		username, addresses[0])
+	ctx.Logger.Debugf("Sending an email to user %s to inform that the password has changed.",
+		username)
 
 	if err = ctx.Providers.Notifier.Send(ctx, addresses[0], "Password changed successfully", ctx.Providers.Templates.GetEventEmailTemplate(), data); err != nil {
 		ctx.Logger.Error(err)
