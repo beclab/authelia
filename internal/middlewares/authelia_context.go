@@ -310,7 +310,9 @@ func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provi
 		return nil, fmt.Errorf("unable to retrieve domain session: %v", targetURL)
 	}
 
-	return ctx.Providers.SessionProvider.Get(domain)
+	token := ctx.RequestCtx.Request.Header.PeekBytes(HeaderTerminusAuthorization)
+
+	return ctx.Providers.SessionProvider.Get(domain, string(token))
 }
 
 // GetSessionProvider returns the session provider for the Request's domain.
@@ -336,7 +338,9 @@ func (ctx *AutheliaCtx) GetCookieDomainSessionProvider(domain string) (provider 
 		return nil, fmt.Errorf("unable to retrieve domain session: %w", err)
 	}
 
-	return ctx.Providers.SessionProvider.Get(domain)
+	token := ctx.RequestCtx.Request.Header.PeekBytes(HeaderTerminusAuthorization)
+
+	return ctx.Providers.SessionProvider.Get(domain, string(token))
 }
 
 // GetSession returns the user session provided the cookie provider could be discovered. It is recommended to get the

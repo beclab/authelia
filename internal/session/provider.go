@@ -14,10 +14,11 @@ import (
 
 // Provider contains a list of domain sessions.
 type Provider struct {
-	sessions       map[string]*Session
-	sessionCreator func(domain string) (*Session, error)
-	lock           sync.Mutex
-	Config         schema.SessionConfiguration
+	sessions          map[string]*Session
+	sessionCreator    func(domain string) (*Session, error)
+	lock              sync.Mutex
+	Config            schema.SessionConfiguration
+	providerWithToken *ttlcache.Cache[string, *Session]
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -27,6 +28,10 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 	provider := &Provider{
 		sessions: map[string]*Session{},
 		Config:   config,
+		providerWithToken: ttlcache.New(
+			ttlcache.WithTTL[string, *Session](config.Expiration),
+			ttlcache.WithCapacity[string, *Session](1000),
+		),
 	}
 
 	creator := func(domain string) (*Session, error) {
@@ -68,7 +73,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain string) (*Session, error) {
+func (p *Provider) Get(domain, token string) (*Session, error) {
 	if domain == "" {
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
@@ -79,12 +84,52 @@ func (p *Provider) Get(domain string) (*Session, error) {
 	s, found := p.sessions[domain]
 
 	if !found {
+		if s, err := p.GetByToken(token); err != nil {
+			return nil, err
+		} else if s != nil {
+			return s, nil
+		}
+
 		if s, err := p.sessionCreator(domain); err != nil {
 			return nil, err
 		} else {
+			p.SetByToken(token, s)
 			return s, nil
 		}
 	}
 
 	return s, nil
+}
+
+// Get returns session information for specified token.
+func (p *Provider) GetByToken(token string) (*Session, error) {
+	if token == "" {
+		klog.Errorf("can not get session from an undefined token")
+		return nil, nil
+	}
+
+	s := p.providerWithToken.Get(token)
+
+	if s == nil {
+		return nil, nil
+	}
+
+	return s.Value(), nil
+}
+
+// Get returns session information for specified token.
+func (p *Provider) SetByToken(token string, session *Session) {
+	if token == "" {
+		klog.Warning("token is empty")
+		return
+	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	s := p.providerWithToken.Get(token)
+
+	if s == nil {
+		p.providerWithToken.Set(token, session, p.Config.Expiration)
+	}
 }
