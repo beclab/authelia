@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/klog/v2"
 
@@ -75,7 +74,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain, targetDomain, token string) (*Session, error) {
+func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Session, error) {
 	log := logging.Logger()
 
 	if domain == "" {
@@ -92,7 +91,7 @@ func (p *Provider) Get(domain, targetDomain, token string) (*Session, error) {
 
 		if s, err := p.GetByToken(token); err != nil {
 			return nil, err
-		} else if s != nil && ( s.targetDomain == domain || govalidator.IsIP(domain) ) { // TODO: install wizard.
+		} else if s != nil && (s.targetDomain == domain || backend) { // TODO: install wizard.
 			return s, nil
 		}
 

@@ -27,7 +27,7 @@ func newTestSession() (*Session, error) {
 
 	provider := NewProvider(config, nil)
 
-	return provider.Get(testDomain, "", "")
+	return provider.Get(testDomain, "", "", false)
 }
 
 func TestShouldInitializerSession(t *testing.T) {

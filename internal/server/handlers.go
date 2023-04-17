@@ -174,6 +174,11 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		WithPostMiddlewares(middlewares.Require1FA).
 		Build()
 
+	middleware1FAAndBackend := middlewares.NewBridgeBuilder(*config, providers).
+		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
+		WithPostMiddlewares(middlewares.MarkBackend, middlewares.Require1FA).
+		Build()
+
 	r.HEAD("/api/health", middlewareAPI(handlers.HealthGET))
 	r.GET("/api/health", middlewareAPI(handlers.HealthGET))
 
@@ -252,7 +257,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		r.GET("/api/user/info/totp", middleware1FA(handlers.UserTOTPInfoGET))
 		r.POST("/api/secondfactor/totp/identity/start", middleware1FA(handlers.TOTPIdentityStart))
 		r.POST("/api/secondfactor/totp/identity/finish", middleware1FA(handlers.TOTPIdentityFinish))
-		r.POST("/api/secondfactor/totp/identity/bind", middleware1FA(handlers.TOTPIdentityVerificationAll))
+		r.POST("/api/secondfactor/totp/identity/bind", middleware1FAAndBackend(handlers.TOTPIdentityVerificationAll))
 		r.POST("/api/secondfactor/totp", middleware1FA(handlers.TimeBasedOneTimePasswordPOST))
 	}
 

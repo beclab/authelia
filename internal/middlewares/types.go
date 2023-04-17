@@ -34,6 +34,7 @@ type AutheliaCtx struct {
 	session *session.Session
 
 	RequestTargetDomain string
+	BackendRequest      bool
 }
 
 // Providers contain all provider provided to Authelia.
