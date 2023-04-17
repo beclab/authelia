@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"net/url"
 	"time"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
@@ -70,6 +71,21 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			respondUnauthorized(ctx, messageAuthenticationFailed)
 
 			return
+		}
+
+		// get first factor login target domain.
+		if bodyJSON.TargetURL != "" {
+			targetUrl, err := url.Parse(bodyJSON.TargetURL)
+
+			if err != nil {
+				ctx.Logger.Errorf("request target url error, %s", err)
+
+				respondUnauthorized(ctx, messageAuthenticationFailed)
+
+				return
+			}
+
+			ctx.RequestTargetDomain = targetUrl.Host
 		}
 
 		// TODO: write tests.

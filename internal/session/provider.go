@@ -15,7 +15,7 @@ import (
 // Provider contains a list of domain sessions.
 type Provider struct {
 	sessions          map[string]*Session
-	sessionCreator    func(domain string) (*Session, error)
+	sessionCreator    func(domain, targetDomain string) (*Session, error)
 	lock              sync.Mutex
 	Config            schema.SessionConfiguration
 	providerWithToken *ttlcache.Cache[string, *Session]
@@ -34,7 +34,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 		),
 	}
 
-	creator := func(domain string) (*Session, error) {
+	creator := func(domain, targetDomain string) (*Session, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
 
@@ -58,6 +58,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 						ttlcache.WithTTL[string, string](dconfig.Expiration),
 						ttlcache.WithCapacity[string, string](1000),
 					),
+					targetDomain: targetDomain,
 				}
 
 				return provider.sessions[domain], nil
@@ -73,7 +74,9 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain, token string) (*Session, error) {
+func (p *Provider) Get(domain,targetDomain, token string) (*Session, error) {
+	log := logging.Logger()
+
 	if domain == "" {
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
@@ -84,13 +87,15 @@ func (p *Provider) Get(domain, token string) (*Session, error) {
 	s, found := p.sessions[domain]
 
 	if !found {
+		log.Debugf("find session provider by token %s, and target domain %s", token, targetDomain)
+
 		if s, err := p.GetByToken(token); err != nil {
 			return nil, err
-		} else if s != nil {
+		} else if s != nil && s.targetDomain == targetDomain{
 			return s, nil
 		}
 
-		if s, err := p.sessionCreator(domain); err != nil {
+		if s, err := p.sessionCreator(domain, targetDomain); err != nil {
 			return nil, err
 		} else {
 			p.SetByToken(token, s)
