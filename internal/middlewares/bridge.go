@@ -71,24 +71,25 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			var host *url.URL
 
+			hostStr := string(requestCtx.Host())
+
+			host, err = url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
+
+			if err != nil {
+				klog.Error("cannot parse request host, ", host)
+				return
+			}
+
 			parentDomain := func(host string) string {
 				hostSub := strings.Split(host, ".")
 				return strings.Join(hostSub[1:], ".")
 			}
 
 			if info.Zone == "" { // admin user.
-				hostStr := string(requestCtx.Host())
 				domain = strings.Split(hostStr, ":")[0]
 
 				if info.IsEphemeral {
 					domain = parentDomain(domain)
-				}
-
-				host, err := url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
-
-				if err != nil {
-					klog.Error("cannot parse request host, ", host)
-					return
 				}
 			} else {
 				domain = info.Zone
