@@ -35,6 +35,7 @@ type AutheliaCtx struct {
 
 	RequestTargetDomain string
 	BackendRequest      bool
+	AccessToken         string
 }
 
 // Providers contain all provider provided to Authelia.

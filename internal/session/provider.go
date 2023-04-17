@@ -101,6 +101,12 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 			p.SetByToken(token, s)
 			return s, nil
 		}
+	} else if token != "" {
+		if s, err := p.GetByToken(token); err == nil && s == nil {
+			log.Debugf("set session to auth token %s", token)
+
+			p.SetByToken(token, s)
+		}
 	}
 
 	return s, nil
