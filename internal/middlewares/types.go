@@ -32,6 +32,10 @@ type AutheliaCtx struct {
 	Clock utils.Clock
 
 	session *session.Session
+
+	RequestTargetDomain string
+	BackendRequest      bool
+	AccessToken         string
 }
 
 // Providers contain all provider provided to Authelia.

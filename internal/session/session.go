@@ -19,6 +19,8 @@ type Session struct {
 	sessionHolder *session.Session
 
 	sessionWithToken *ttlcache.Cache[string, string]
+
+	TargetDomain string
 }
 
 // NewDefaultUserSession returns a new default UserSession for this session provider.

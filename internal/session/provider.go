@@ -10,14 +10,16 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 // Provider contains a list of domain sessions.
 type Provider struct {
-	sessions       map[string]*Session
-	sessionCreator func(domain string) (*Session, error)
-	lock           sync.Mutex
-	Config         schema.SessionConfiguration
+	sessions          map[string]*Session
+	sessionCreator    func(domain, targetDomain string) (*Session, error)
+	lock              sync.Mutex
+	Config            schema.SessionConfiguration
+	providerWithToken *ttlcache.Cache[string, *Session]
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -27,9 +29,13 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 	provider := &Provider{
 		sessions: map[string]*Session{},
 		Config:   config,
+		providerWithToken: ttlcache.New(
+			ttlcache.WithTTL[string, *Session](config.Expiration),
+			ttlcache.WithCapacity[string, *Session](1000),
+		),
 	}
 
-	creator := func(domain string) (*Session, error) {
+	creator := func(domain, targetDomain string) (*Session, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
 
@@ -53,6 +59,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 						ttlcache.WithTTL[string, string](dconfig.Expiration),
 						ttlcache.WithCapacity[string, string](1000),
 					),
+					TargetDomain: targetDomain,
 				}
 
 				return provider.sessions[domain], nil
@@ -68,7 +75,9 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain string) (*Session, error) {
+func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Session, error) {
+	log := logging.Logger()
+
 	if domain == "" {
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
@@ -76,15 +85,65 @@ func (p *Provider) Get(domain string) (*Session, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	s, found := p.sessions[domain]
+	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
+
+	var (
+		s     *Session
+		found bool
+		err   error
+	)
+
+	if s = p.GetByToken(token); s != nil && (p.findDomain(s.TargetDomain) == domain || backend) { // TODO: install wizard.
+		return s, nil
+	} else {
+		s, found = p.sessions[domain]
+	}
 
 	if !found {
-		if s, err := p.sessionCreator(domain); err != nil {
+		if s, err = p.sessionCreator(domain, targetDomain); err != nil {
 			return nil, err
-		} else {
-			return s, nil
 		}
 	}
 
 	return s, nil
+}
+
+// Get returns session information for specified token.
+func (p *Provider) GetByToken(token string) *Session {
+	if token == "" {
+		klog.Errorf("can not get session from an undefined token")
+		return nil
+	}
+
+	s := p.providerWithToken.Get(token)
+
+	if s == nil {
+		return nil
+	}
+
+	return s.Value()
+}
+
+// Get returns session information for specified token.
+func (p *Provider) SetByToken(token string, session *Session) {
+	if token == "" {
+		klog.Warning("token is empty")
+		return
+	}
+
+	s := p.providerWithToken.Get(token)
+
+	if s == nil {
+		p.providerWithToken.Set(token, session, p.Config.Expiration)
+	}
+}
+
+func (p *Provider) findDomain(hostname string) string {
+	for _, domain := range p.Config.Cookies {
+		if utils.HasDomainSuffix(hostname, domain.Domain) {
+			return domain.Domain
+		}
+	}
+
+	return hostname
 }
