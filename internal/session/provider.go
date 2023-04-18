@@ -84,22 +84,25 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	s, found := p.sessions[domain]
+	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
+
+	var (
+		s *Session
+		found bool
+		err error
+	)
+
+	if s, err = p.GetByToken(token); err != nil {
+		return nil, err
+	} else if s != nil && (s.TargetDomain == domain || backend) { // TODO: install wizard.
+		return s, nil
+	} else {
+		s, found = p.sessions[domain]
+	}
 
 	if !found {
-		log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
-
-		if s, err := p.GetByToken(token); err != nil {
+		if s, err = p.sessionCreator(domain, targetDomain); err != nil {
 			return nil, err
-		} else if s != nil && (s.TargetDomain == domain || backend) { // TODO: install wizard.
-			return s, nil
-		}
-
-		if s, err := p.sessionCreator(domain, targetDomain); err != nil {
-			return nil, err
-		} else {
-			p.SetByToken(token, s)
-			return s, nil
 		}
 	}
 
