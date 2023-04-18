@@ -163,6 +163,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			userSession.AccessToken = validRes.AccessToken
 			userSession.RefreshToken = validRes.RefreshToken
 			ctx.AccessToken = validRes.AccessToken
+			ctx.Providers.SessionProvider.SetByToken(validRes.AccessToken, provider)
 		}
 
 		if err = ctx.SaveSession(userSession); err != nil {
