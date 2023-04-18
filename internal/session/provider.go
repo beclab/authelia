@@ -10,6 +10,7 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 // Provider contains a list of domain sessions.
@@ -87,14 +88,12 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
 
 	var (
-		s *Session
+		s     *Session
 		found bool
-		err error
+		err   error
 	)
 
-	if s, err = p.GetByToken(token); err != nil {
-		return nil, err
-	} else if s != nil && (s.TargetDomain == domain || backend) { // TODO: install wizard.
+	if s = p.GetByToken(token); s != nil && (p.findDomain(s.TargetDomain) == domain || backend) { // TODO: install wizard.
 		return s, nil
 	} else {
 		s, found = p.sessions[domain]
@@ -110,19 +109,19 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 }
 
 // Get returns session information for specified token.
-func (p *Provider) GetByToken(token string) (*Session, error) {
+func (p *Provider) GetByToken(token string) *Session {
 	if token == "" {
 		klog.Errorf("can not get session from an undefined token")
-		return nil, nil
+		return nil
 	}
 
 	s := p.providerWithToken.Get(token)
 
 	if s == nil {
-		return nil, nil
+		return nil
 	}
 
-	return s.Value(), nil
+	return s.Value()
 }
 
 // Get returns session information for specified token.
@@ -137,4 +136,14 @@ func (p *Provider) SetByToken(token string, session *Session) {
 	if s == nil {
 		p.providerWithToken.Set(token, session, p.Config.Expiration)
 	}
+}
+
+func (p *Provider) findDomain(hostname string) string{
+	for _, domain := range p.Config.Cookies {
+		if utils.HasDomainSuffix(hostname, domain.Domain) {
+			return domain.Domain
+		}
+	}
+
+	return hostname
 }
