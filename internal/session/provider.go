@@ -58,7 +58,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 						ttlcache.WithTTL[string, string](dconfig.Expiration),
 						ttlcache.WithCapacity[string, string](1000),
 					),
-					targetDomain: targetDomain,
+					TargetDomain: targetDomain,
 				}
 
 				return provider.sessions[domain], nil
@@ -91,7 +91,7 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 
 		if s, err := p.GetByToken(token); err != nil {
 			return nil, err
-		} else if s != nil && (s.targetDomain == domain || backend) { // TODO: install wizard.
+		} else if s != nil && (s.TargetDomain == domain || backend) { // TODO: install wizard.
 			return s, nil
 		}
 

@@ -20,7 +20,7 @@ type Session struct {
 
 	sessionWithToken *ttlcache.Cache[string, string]
 
-	targetDomain string
+	TargetDomain string
 }
 
 // NewDefaultUserSession returns a new default UserSession for this session provider.
