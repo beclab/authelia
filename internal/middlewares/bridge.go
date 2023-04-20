@@ -85,7 +85,6 @@ func (b *BridgeBuilder) Build() Bridge {
 				return strings.Join(hostSub[1:], ".")
 			}
 
-			hostStr := string(requestCtx.Host())
 			host, err = url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
 
 			if err != nil {
