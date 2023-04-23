@@ -9,6 +9,9 @@ const (
 	testExpiration = time.Second * 40
 	testName       = "my_session"
 	testUsername   = "john"
+
+	TCP  = "tcp"
+	UNIX = "unix"
 )
 
 const (

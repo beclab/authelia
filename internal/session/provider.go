@@ -2,9 +2,13 @@ package session
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/fasthttp/session/v2"
+	"github.com/go-resty/resty/v2"
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/klog/v2"
 
@@ -20,6 +24,8 @@ type Provider struct {
 	lock              sync.Mutex
 	Config            schema.SessionConfiguration
 	providerWithToken *ttlcache.Cache[string, *Session]
+
+	reloadLister *Lister
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -33,6 +39,16 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 			ttlcache.WithTTL[string, *Session](config.Expiration),
 			ttlcache.WithCapacity[string, *Session](1000),
 		),
+	}
+
+	if config.Redis != nil {
+		// reload token from redis.
+		lister, err := NewLister(provider.Config, certPool)
+		if err != nil {
+			panic(err)
+		}
+
+		provider.reloadLister = lister
 	}
 
 	creator := func(domain, targetDomain string) (*Session, error) {
@@ -70,6 +86,8 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 	}
 
 	provider.sessionCreator = creator
+
+	provider.reloadTokenToCache()
 
 	return provider
 }
@@ -152,4 +170,81 @@ func (p *Provider) findDomain(hostname string) string {
 	}
 
 	return hostname
+}
+
+func (p *Provider) reloadTokenToCache() {
+	if p.reloadLister != nil {
+		klog.Info("start to reload token from session redis storage")
+
+		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second))
+		if err != nil {
+			klog.Error("reload user info error, ", err)
+			return
+		}
+
+		// force target domain equals user's zone.
+		targetDomain := info.Zone
+
+		serializer := NewEncryptingSerializer(p.Config.Secret)
+
+		dataList, err := p.reloadLister.List()
+
+		if err != nil {
+			klog.Error("reload token list error, ", err)
+			return
+		}
+
+		for sid, data := range dataList {
+			var sess session.Dict
+			err := serializer.Decode(&sess, data)
+
+			if err != nil {
+				klog.Error("decode session data error, ", err)
+				continue
+			}
+
+			var us UserSession
+			err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
+
+			if err != nil {
+				klog.Error("json unmarshal session data error, ", err)
+				return
+			}
+
+			token := us.AccessToken
+			domain := us.CookieDomain
+
+			if token == "" {
+				klog.Info("ignore unauthorized session, ", sid)
+				continue
+			}
+
+			// create provider.
+			if func() bool {
+				for _, c := range p.Config.Cookies {
+					if c.Domain == domain {
+						return false
+					}
+				}
+
+				return true
+			}() {
+				if len(p.Config.Cookies) > 0 {
+					c := p.Config.Cookies[0]
+					c.Domain = domain
+					p.Config.Cookies = append(p.Config.Cookies, c)
+				}
+			}
+
+			s, err := p.Get(domain, targetDomain, token, false)
+
+			if err != nil {
+				klog.Error("create provider error")
+				continue
+			}
+
+			s.SaveSessionID(token, sid)
+			p.SetByToken(token, s)
+		}
+	}
 }

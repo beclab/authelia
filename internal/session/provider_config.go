@@ -140,12 +140,12 @@ func NewSessionProvider(config schema.SessionConfiguration, certPool *x509.CertP
 			})
 		} else {
 			name = "redis"
-			network := "tcp"
+			network := TCP
 
 			var addr string
 
 			if config.Redis.Port == 0 {
-				network = "unix"
+				network = UNIX
 				addr = config.Redis.Host
 			} else {
 				addr = fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port)
