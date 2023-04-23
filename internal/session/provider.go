@@ -14,6 +14,7 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
+	kubesphere "github.com/authelia/authelia/v4/internal/session/kubesphere/v3.3"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
 
@@ -87,7 +88,9 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 
 	provider.sessionCreator = creator
 
-	provider.reloadTokenToCache()
+	if provider.reloadLister != nil {
+		provider.reloadTokenToCache()
+	}
 
 	return provider
 }
@@ -173,78 +176,91 @@ func (p *Provider) findDomain(hostname string) string {
 }
 
 func (p *Provider) reloadTokenToCache() {
-	if p.reloadLister != nil {
-		klog.Info("start to reload token from session redis storage")
+	klog.Info("start to reload token from session redis storage")
 
-		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second))
+	info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second))
+
+	if err != nil {
+		klog.Error("reload user info error, ", err)
+		return
+	}
+
+	// force target domain equals user's zone.
+	targetDomain := info.Zone
+
+	serializer := NewEncryptingSerializer(p.Config.Secret)
+
+	dataList, err := p.reloadLister.List()
+
+	if err != nil {
+		klog.Error("reload token list error, ", err)
+		return
+	}
+
+	ksTokenOperator, err := kubesphere.NewTokenOperator()
+
+	if err != nil {
+		klog.Error("connect to kubesphere token cache error, ", err)
+	}
+
+	for sid, data := range dataList {
+		var sess session.Dict
+		err := serializer.Decode(&sess, data)
+
 		if err != nil {
-			klog.Error("reload user info error, ", err)
+			klog.Error("decode session data error, ", err)
+			continue
+		}
+
+		var us UserSession
+		err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
+
+		if err != nil {
+			klog.Error("json unmarshal session data error, ", err)
 			return
 		}
 
-		// force target domain equals user's zone.
-		targetDomain := info.Zone
+		token := us.AccessToken
+		domain := us.CookieDomain
 
-		serializer := NewEncryptingSerializer(p.Config.Secret)
+		if token == "" {
+			klog.Info("ignore unauthorized session, ", sid)
+			continue
+		}
 
-		dataList, err := p.reloadLister.List()
+		if ksTokenOperator != nil {
+			ksTokenOperator.RestoreToken(us.Username, token, p.Config.Expiration)
+		}
+
+		// create provider.
+		if func() bool {
+			for _, c := range p.Config.Cookies {
+				if c.Domain == domain {
+					return false
+				}
+			}
+
+			return true
+		}() {
+			if len(p.Config.Cookies) > 0 {
+				c := p.Config.Cookies[0]
+				c.Domain = domain
+				p.Config.Cookies = append(p.Config.Cookies, c)
+			}
+		}
+
+		s, err := p.Get(domain, targetDomain, token, false)
 
 		if err != nil {
-			klog.Error("reload token list error, ", err)
-			return
+			klog.Error("create provider error")
+			continue
 		}
 
-		for sid, data := range dataList {
-			var sess session.Dict
-			err := serializer.Decode(&sess, data)
+		s.SaveSessionID(token, sid)
+		p.SetByToken(token, s)
+	}
 
-			if err != nil {
-				klog.Error("decode session data error, ", err)
-				continue
-			}
-
-			var us UserSession
-			err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
-
-			if err != nil {
-				klog.Error("json unmarshal session data error, ", err)
-				return
-			}
-
-			token := us.AccessToken
-			domain := us.CookieDomain
-
-			if token == "" {
-				klog.Info("ignore unauthorized session, ", sid)
-				continue
-			}
-
-			// create provider.
-			if func() bool {
-				for _, c := range p.Config.Cookies {
-					if c.Domain == domain {
-						return false
-					}
-				}
-
-				return true
-			}() {
-				if len(p.Config.Cookies) > 0 {
-					c := p.Config.Cookies[0]
-					c.Domain = domain
-					p.Config.Cookies = append(p.Config.Cookies, c)
-				}
-			}
-
-			s, err := p.Get(domain, targetDomain, token, false)
-
-			if err != nil {
-				klog.Error("create provider error")
-				continue
-			}
-
-			s.SaveSessionID(token, sid)
-			p.SetByToken(token, s)
-		}
+	if ksTokenOperator != nil {
+		ksTokenOperator.Close()
 	}
 }
