@@ -136,3 +136,7 @@ func (p *Session) GetSessionID(token string) string {
 func (p *Session) SaveSessionID(token, sessionId string) {
 	p.sessionWithToken.Set(token, sessionId, p.Config.Expiration)
 }
+
+func (p *Session) RemoveSessionID(token string) {
+	p.sessionWithToken.Delete(token)
+}

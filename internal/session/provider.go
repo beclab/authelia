@@ -138,6 +138,12 @@ func (p *Provider) SetByToken(token string, session *Session) {
 	}
 }
 
+func (p *Provider) RevokeByToken(token string) {
+	if token != "" {
+		p.providerWithToken.Delete(token)
+	}
+}
+
 func (p *Provider) findDomain(hostname string) string {
 	for _, domain := range p.Config.Cookies {
 		if utils.HasDomainSuffix(hostname, domain.Domain) {

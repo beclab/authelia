@@ -453,6 +453,11 @@ func (ctx *AutheliaCtx) DestroySession() error {
 			}
 		default:
 		}
+
+		ctx.Logger.Infof("session destroyed, clear token, %s", session.AccessToken)
+
+		provider.RemoveSessionID(session.AccessToken)
+		ctx.Providers.SessionProvider.RevokeByToken(session.AccessToken)
 	}
 
 	return provider.DestroySession(ctx.RequestCtx)
@@ -479,7 +484,7 @@ func (ctx *AutheliaCtx) ParseBody(value any) error {
 	}
 
 	if !valid {
-		return fmt.Errorf("Body is not valid")
+		return fmt.Errorf("body is not valid")
 	}
 
 	return nil
