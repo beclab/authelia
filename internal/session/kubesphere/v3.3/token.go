@@ -16,16 +16,22 @@ package kubesphere
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
-	StorageHost     string = "ks-api-redis.kubesphere-system"
+	StorageHost     string = "redis.kubesphere-system"
 	StoragePort     int    = 6379
 	StoragePassword string
 	StorageDB       int = 0
@@ -47,10 +53,40 @@ func init() {
 			*raw = ev
 		case *int:
 			*raw, err = strconv.Atoi(ev)
+
 			if err != nil {
 				klog.Error("read env ", e, " - ", ev, " error, ", err)
 			}
 		}
+	}
+
+	// get redis password from kubesphere secret.
+	if StoragePassword == "" {
+		kubeconfig := ctrl.GetConfigOrDie()
+		k8sClient, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
+
+		if err != nil {
+			panic(err)
+		}
+
+		var password corev1.Secret
+		err = k8sClient.Get(context.TODO(),
+			client.ObjectKey{Name: "redis-secret", Namespace: "kubesphere-system"},
+			&password)
+
+		if err != nil {
+			klog.Error("get ks-apiserver's redis password error, ", err)
+			return
+		}
+
+		data, err := base64.StdEncoding.DecodeString(string(password.Data["auth"]))
+
+		if err != nil {
+			klog.Error("decode ks-apiserver's redis password error, ", err)
+			return
+		}
+
+		StoragePassword = string(data)
 	}
 }
 
