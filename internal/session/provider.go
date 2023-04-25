@@ -182,7 +182,7 @@ func (p *Provider) reloadTokenToCache() {
 
 	if err != nil {
 		klog.Error("reload user info error, ", err)
-		return
+		panic(err)
 	}
 
 	// force target domain equals user's zone.
@@ -194,7 +194,7 @@ func (p *Provider) reloadTokenToCache() {
 
 	if err != nil {
 		klog.Error("reload token list error, ", err)
-		return
+		panic(err)
 	}
 
 	ksTokenOperator, err := kubesphere.NewTokenOperator()
@@ -217,7 +217,7 @@ func (p *Provider) reloadTokenToCache() {
 
 		if err != nil {
 			klog.Error("json unmarshal session data error, ", err)
-			return
+			continue
 		}
 
 		token := us.AccessToken
