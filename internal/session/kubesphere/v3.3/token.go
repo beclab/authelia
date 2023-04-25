@@ -46,6 +46,10 @@ func init() {
 	} {
 		ev := os.Getenv(e)
 
+		if ev == "" {
+			continue
+		}
+
 		var err error
 
 		switch raw := v.(type) {
