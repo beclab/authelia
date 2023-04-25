@@ -16,7 +16,6 @@ package kubesphere
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -83,14 +82,14 @@ func init() {
 			return
 		}
 
-		data, err := base64.StdEncoding.DecodeString(string(password.Data["auth"]))
+		// data, err := base64.StdEncoding.DecodeString(string(password.Data["auth"]))
 
-		if err != nil {
-			klog.Error("decode ks-apiserver's redis password error, ", err)
-			return
-		}
+		// if err != nil {
+		// 	klog.Error("decode ks-apiserver's redis password error, ", err)
+		// 	return
+		// }
 
-		StoragePassword = string(data)
+		StoragePassword = string(password.Data["auth"])
 	}
 }
 
