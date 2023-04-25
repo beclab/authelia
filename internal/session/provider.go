@@ -229,7 +229,8 @@ func (p *Provider) reloadTokenToCache() {
 		}
 
 		if ksTokenOperator != nil {
-			ksTokenOperator.RestoreToken(us.Username, token, p.Config.Expiration)
+			ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
+			ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
 		}
 
 		// create provider.
