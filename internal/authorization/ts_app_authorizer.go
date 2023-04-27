@@ -186,11 +186,16 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 			[]string{
 				fmt.Sprintf("desktop-%s.%s", userInfo.Name, userInfo.Zone),
 				fmt.Sprintf("desktop-%s.local.%s", userInfo.Name, userInfo.Zone),
+				fmt.Sprintf("vault-%s.%s", userInfo.Name, userInfo.Zone),
+				fmt.Sprintf("vault-%s.local.%s", userInfo.Name, userInfo.Zone),
 			},
 			rule,
 		)
 
 		rules := []*AccessControlRule{rule}
+
+		// CORS rules.
+		rules = t.addCORSRules(userInfo.Zone, rules)
 
 		return rules, nil
 	}
