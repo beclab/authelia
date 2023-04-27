@@ -237,6 +237,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 
 	r.POST("/api/firstfactor", middlewareAPI(handlers.FirstFactorPOST(delayFunc)))
 	r.POST("/api/logout", middlewareAPI(handlers.LogoutPOST))
+	r.POST("/api/refresh", middlewareAPI(handlers.RefreshSessionAndTokenPOST))
 
 	// Only register endpoints if forgot password is not disabled.
 	if !config.AuthenticationBackend.PasswordReset.Disable &&

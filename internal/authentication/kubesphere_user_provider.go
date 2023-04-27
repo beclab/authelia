@@ -178,6 +178,49 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 	return nil
 }
 
+func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult,err error){
+	refreshUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/refresh-token", utils.BFL)
+
+	reqBody := utils.UserToken{
+		Token: token,
+	}
+
+	resp, err := p.client.R().
+		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
+		SetBody(reqBody).
+		SetResult(&utils.Response{Data: &utils.TokenResponse{}}).
+		Post(refreshUrl)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, errors.New(string(resp.Body()))
+	}
+
+	responseData := resp.Result().(*utils.Response)
+
+	if responseData.Code != 0 {
+		return nil, errors.New(responseData.Message)
+	}
+
+	tokens := responseData.Data.(*utils.TokenResponse)
+	res = &ValidResult{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}
+
+	cache := p.cache.Get(username)
+	if cache == nil {
+		password := cache.Value().pwd
+		p.cache.Set(username, UserCache{tokens.AccessToken, password}, TokenCacheTTL)
+	}
+
+	return res, nil
+}
+
+
 func (p *KubesphereUserProvider) StartupCheck() (err error) {
 	return nil
 }

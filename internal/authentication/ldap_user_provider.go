@@ -233,6 +233,10 @@ func (p *LDAPUserProvider) UpdatePassword(username, password string) (err error)
 	return nil
 }
 
+func (p *LDAPUserProvider) Refresh(username, token string) (res *ValidResult, err error) {
+	return res, err
+}
+
 func (p *LDAPUserProvider) connect() (client LDAPClient, err error) {
 	return p.connectCustom(p.config.URL, p.config.User, p.config.Password, p.config.StartTLS, p.dialOpts...)
 }

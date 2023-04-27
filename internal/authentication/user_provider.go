@@ -17,4 +17,5 @@ type UserProvider interface {
 	CheckUserPassword(username string, password string) (valid bool, result *ValidResult, err error)
 	GetDetails(username string) (details *UserDetails, err error)
 	UpdatePassword(username string, newPassword string) (err error)
+	Refresh(username, token string) (*ValidResult, error)
 }

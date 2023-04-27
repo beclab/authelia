@@ -20,6 +20,10 @@ type UserPassword struct {
 	Password string `json:"password"`
 }
 
+type UserToken struct {
+	Token string `json:"token"`
+}
+
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`

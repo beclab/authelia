@@ -87,6 +87,13 @@ func (m *MockUserProvider) UpdatePassword(arg0, arg1 string) error {
 	return ret0
 }
 
+func (m *MockUserProvider) Refresh(arg0, arg1 string) (*authentication.ValidResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return nil, ret0
+}
+
 // UpdatePassword indicates an expected call of UpdatePassword.
 func (mr *MockUserProviderMockRecorder) UpdatePassword(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
