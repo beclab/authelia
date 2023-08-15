@@ -23,8 +23,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-func GetUserInfoFromBFL(client *resty.Client) (*UserInfo, error) {
-	userUrl := fmt.Sprintf("http://%s/bfl/backend/v1/user-info", BFL)
+func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
+	userUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/backend/v1/user-info", BFL_NAME, user)
 	resp, err := client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 		SetResult(&Response{Data: &UserInfo{}}).

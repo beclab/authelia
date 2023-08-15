@@ -130,8 +130,10 @@ func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider *sessi
 
 	switch au := ctx.Providers.Authorizer.(type) {
 	case *authorization.TsAuthorizer:
-		if au.LoginPortal != "" {
-			if portalURL, err := url.ParseRequestURI(au.LoginPortal); err != nil {
+
+		loginPortal := au.LoginPortal(ctx.RequestCtx)
+		if loginPortal != "" {
+			if portalURL, err := url.ParseRequestURI(loginPortal); err != nil {
 				return nil, err
 			} else {
 				return portalURL, nil

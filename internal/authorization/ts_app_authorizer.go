@@ -37,6 +37,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
+	"github.com/valyala/fasthttp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/authelia/authelia/v4/internal/authorization/application"
@@ -44,24 +45,34 @@ import (
 	"github.com/authelia/authelia/v4/internal/utils"
 )
 
-var TerminusNonce string
+var (
+	TerminusUserHeader = []byte("X-BFL-USER")
+)
 
 // Terminus app service access control.
 type TsAuthorizer struct {
-	client           client.Client
-	httpClient       *resty.Client
-	kubeConfig       *rest.Config
-	rules            []*AccessControlRule
-	defaultPolicy    Level
-	initialized      bool
-	mutex            sync.Mutex
-	log              *logrus.Logger
+	client     client.Client
+	httpClient *resty.Client
+	kubeConfig *rest.Config
+	mutex      sync.Mutex
+	log        *logrus.Logger
+	exitCh     chan struct{}
+
+	userAuthorizers map[string]*userAuthorizer
+}
+
+type userAuthorizer struct {
+	rules         []*AccessControlRule
+	defaultPolicy Level
+	initialized   bool
+
 	desktopPolicy    Level
-	exitCh           chan struct{}
 	userIsIniting    bool
 	appDefaultPolicy Level
 
 	LoginPortal string
+
+	UserTerminusNonce string
 }
 
 func NewTsAuthorizer() Authorizer {
@@ -73,14 +84,11 @@ func NewTsAuthorizer() Authorizer {
 	}
 
 	authorizer := &TsAuthorizer{
-		kubeConfig:       kubeconfig,
-		client:           k8sClient,
-		defaultPolicy:    Denied,
-		httpClient:       resty.New().SetTimeout(2 * time.Second),
-		log:              logging.Logger(),
-		desktopPolicy:    TwoFactor,
-		exitCh:           make(chan struct{}),
-		appDefaultPolicy: OneFactor,
+		kubeConfig: kubeconfig,
+		client:     k8sClient,
+		httpClient: resty.New().SetTimeout(2 * time.Second),
+		log:        logging.Logger(),
+		exitCh:     make(chan struct{}),
 	}
 
 	authorizer.reloadRules()
@@ -94,12 +102,12 @@ func (t *TsAuthorizer) Stop() {
 }
 
 func (t *TsAuthorizer) IsSecondFactorEnabled() bool {
-	switch {
-	case !t.initialized:
-		return false
-	case t.defaultPolicy == Bypass:
-		return false
-	}
+	// switch {
+	// case !t.initialized:
+	// 	return false
+	// case t.defaultPolicy == Bypass:
+	// 	return false
+	// }
 
 	return true
 }
@@ -108,14 +116,20 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	t.log.Debugf("Check user app process authorization of subject %s and object %s (method %s).",
 		subject.String(), object.String(), object.Method)
 
-	if !t.initialized {
-		return false, t.defaultPolicy, nil
-	}
-
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	for _, rule := range t.rules {
+	auth, ok := t.userAuthorizers[subject.Username]
+	if !ok {
+		klog.Error("user not found in terminus authorizer, ", subject.Username)
+		return false, Denied, nil
+	}
+
+	if !auth.initialized {
+		return false, auth.defaultPolicy, nil
+	}
+
+	for _, rule := range auth.rules {
 		if rule.IsMatch(subject, object) {
 			t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
 
@@ -139,21 +153,27 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 		return false, Bypass, nil
 	}
 
-	return false, t.defaultPolicy, nil
+	return false, auth.defaultPolicy, nil
 }
 
 func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult) {
 	skipped := false
 
-	results = make([]RuleMatchResult, len(t.rules))
-	if !t.initialized {
-		return results
-	}
-
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	for i, rule := range t.rules {
+	auth, ok := t.userAuthorizers[subject.Username]
+	if !ok {
+		klog.Error("user not found in terminus authorizer, ", subject.Username)
+		return nil
+	}
+
+	results = make([]RuleMatchResult, len(auth.rules))
+	if !auth.initialized {
+		return results
+	}
+
+	for i, rule := range auth.rules {
 		results[i] = RuleMatchResult{
 			Rule:    rule,
 			Skipped: skipped,
@@ -173,7 +193,8 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 	return results
 }
 
-func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) ([]*AccessControlRule, error) {
+func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
+	userData *unstructured.Unstructured, userAuth *userAuthorizer) ([]*AccessControlRule, error) {
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
 		klog.Info("new user: ", userInfo.Name, " just bypass launcher ")
@@ -214,7 +235,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	rules = t.addCORSRules(userInfo.Zone, rules)
 
 	// desktop rule.
-	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, rules)
+	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, rules, userData, userAuth)
 
 	// auth app rule.
 	rules = t.addAuthDomainRules(userInfo.Zone, rules)
@@ -222,7 +243,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo) (
 	// applications rule.
 	for _, a := range appList.Items {
 		if a.Spec.Owner == userInfo.Name {
-			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo)
+			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo, userAuth)
 			if err != nil {
 				return nil, err
 			}
@@ -279,21 +300,22 @@ func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) [
 	return rules
 }
 
-func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string, rules []*AccessControlRule) []*AccessControlRule {
+func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string,
+	rules []*AccessControlRule, userData *unstructured.Unstructured, userAuth *userAuthorizer) []*AccessControlRule {
 	domains := []string{
 		"desktop.local." + domain,
 		"desktop." + domain,
 	}
 
-	if policy, err := t.getUserAccessPolicy(ctx, username); err != nil {
+	if policy, err := t.getUserAccessPolicy(ctx, userData); err != nil {
 		klog.Error("get user access policy error, ", username, " ", err)
 	} else {
-		t.desktopPolicy = NewLevel(policy)
+		userAuth.desktopPolicy = NewLevel(policy)
 	}
 
 	position := len(rules)
 
-	if !t.userIsIniting {
+	if !userAuth.userIsIniting {
 		// add loginn portal to bypass.
 		resources := t.getResourceExps([]string{
 			"^/login",
@@ -317,7 +339,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 
 	desktopRule := &AccessControlRule{
 		Position: position,
-		Policy:   t.desktopPolicy,
+		Policy:   userAuth.desktopPolicy,
 	}
 	ruleAddDomain(domains, desktopRule)
 
@@ -344,7 +366,8 @@ app settings:
 		}
 	}.
 */
-func (t *TsAuthorizer) getAppRules(position int, app *application.Application, userInfo *utils.UserInfo) (rules []*AccessControlRule, err error) {
+func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
+	userInfo *utils.UserInfo, userAuth *userAuthorizer) (rules []*AccessControlRule, err error) {
 	policyData, ok := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
 	domains := []string{
 		fmt.Sprintf("%s.local.%s", app.Spec.Name, userInfo.Zone),
@@ -354,7 +377,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	if !ok {
 		rule := &AccessControlRule{
 			Position: position,
-			Policy:   t.appDefaultPolicy,
+			Policy:   userAuth.appDefaultPolicy,
 		}
 		ruleAddDomain(domains, rule)
 
@@ -403,7 +426,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 
 	ruleOthers := &AccessControlRule{
 		Position:    position,
-		Policy:      t.desktopPolicy,
+		Policy:      userAuth.desktopPolicy,
 		DefaultRule: true,
 	}
 	ruleAddResources(othersResources, ruleOthers)
@@ -427,41 +450,71 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application, u
 	return rules, nil
 }
 
-func (t *TsAuthorizer) reloadRules() {
-	info, err := utils.GetUserInfoFromBFL(t.httpClient)
-	if err != nil {
-		klog.Error("reload user info error, ", err)
-		return
+func (t *TsAuthorizer) newUserAuthorizer(user string) *userAuthorizer {
+	return &userAuthorizer{
+		defaultPolicy:    Denied,
+		desktopPolicy:    TwoFactor,
+		appDefaultPolicy: OneFactor,
 	}
+}
 
+func (t *TsAuthorizer) reloadRules() {
 	ctx := context.Background()
 
-	rules, err := t.getRules(ctx, info)
+	users, err := t.listUserData(ctx)
 	if err != nil {
-		klog.Error("reload apps auth rules error, ", err)
+		klog.Error("list user error, ", err)
 		return
 	}
 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.userIsIniting = info.Zone == ""
-	t.initialized = true
-	t.rules = rules
+	for _, user := range users {
+		username := user.GetName()
 
-	if info.IsEphemeral {
-		t.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
-	} else {
-		t.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
+		info, err := utils.GetUserInfoFromBFL(t.httpClient, username)
+		if err != nil {
+			klog.Error("reload user info error, ", err, ", ", username)
+			return
+		}
+
+		userAuth := t.newUserAuthorizer(username)
+
+		userAuth.userIsIniting = info.Zone == ""
+		userAuth.initialized = true
+
+		if info.IsEphemeral {
+			userAuth.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
+		} else {
+			userAuth.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
+		}
+
+		if userAuth.userIsIniting {
+			userAuth.defaultPolicy = Bypass
+		} else {
+			userAuth.defaultPolicy = Denied
+		}
+
+		rules, err := t.getRules(ctx, info, &user, userAuth)
+		if err != nil {
+			klog.Error("reload user apps auth rules error, ", err, ", ", username)
+			return
+		}
+
+		userAuth.rules = rules
+
+		nonce, err := t.getNonce(username)
+		if err != nil {
+			klog.Error("get user backend service nonce error, ", err, ", ", username)
+			return
+		}
+
+		userAuth.UserTerminusNonce = nonce
+
+		t.userAuthorizers[username] = userAuth
 	}
 
-	if t.userIsIniting {
-		t.defaultPolicy = Bypass
-	} else {
-		t.defaultPolicy = Denied
-	}
-
-	t.getNonce()
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {
@@ -478,14 +531,8 @@ func (t *TsAuthorizer) autoRefreshRules() {
 	}
 }
 
-func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string) (string, error) {
-	data, err := t.getUserData(ctx, username)
-
-	if err != nil {
-		return "", nil
-	}
-
-	policy, ok := data.GetAnnotations()[UserLauncherAuthPolicy]
+func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, userData *unstructured.Unstructured) (string, error) {
+	policy, ok := userData.GetAnnotations()[UserLauncherAuthPolicy]
 
 	if !ok {
 		return "", errors.New("user access policy not found")
@@ -494,7 +541,7 @@ func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, username string)
 	return policy, nil
 }
 
-func (t *TsAuthorizer) getUserData(ctx context.Context, username string) (*unstructured.Unstructured, error) {
+func (t *TsAuthorizer) listUserData(ctx context.Context) ([]unstructured.Unstructured, error) {
 	gvr := schema.GroupVersionResource{
 		Group:    "iam.kubesphere.io",
 		Version:  "v1alpha2",
@@ -506,13 +553,13 @@ func (t *TsAuthorizer) getUserData(ctx context.Context, username string) (*unstr
 		return nil, err
 	}
 
-	data, err := client.Resource(gvr).Get(ctx, username, metav1.GetOptions{})
+	data, err := client.Resource(gvr).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	return data.Items, nil
 }
 
 // func (t *TsAuthorizer) getUserZone(ctx context.Context, username string) (string, error) {
@@ -545,21 +592,65 @@ func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
 	return ret
 }
 
-func (t *TsAuthorizer) getNonce() {
-	nonceUrl := fmt.Sprintf("http://%s/permission/v1alpha1/nonce", utils.SYSTEM_SERVER)
+func (t *TsAuthorizer) getNonce(user string) (string, error) {
+	nonceUrl := fmt.Sprintf("http://%s.user-system-%s/permission/v1alpha1/nonce", utils.SYSTEM_SERVER_NAME, user)
 
 	resp, err := t.httpClient.R().Get(nonceUrl)
 
 	if err != nil {
 		klog.Error("get nonce error, ", err)
-		return
+		return "", err
 	}
 
 	if resp.StatusCode() != http.StatusOK {
 		klog.Error("response error, code: ", resp.StatusCode(), " ", string(resp.Body()))
-		return
+		return "", err
 	}
 
-	TerminusNonce = string(resp.Body())
-	klog.Info("get terminus backend nonce with prefix: ", TerminusNonce[:8])
+	nonce := string(resp.Body())
+	klog.Info("get terminus backend nonce with prefix: ", nonce[:8])
+
+	return nonce, nil
+}
+
+func (t *TsAuthorizer) ValidBackendRequest(ctx *fasthttp.RequestCtx, nonce string) bool {
+	user := ctx.Request.Header.PeekBytes(TerminusUserHeader)
+	if user == nil {
+		for _, u := range t.userAuthorizers {
+			if u.UserTerminusNonce == nonce {
+				return true
+			}
+		}
+		return false
+	}
+
+	userAuth, ok := t.userAuthorizers[string(user)]
+	if !ok {
+		klog.Error("user not found in authorizer, ", string(user))
+		return false
+	}
+
+	return userAuth.UserTerminusNonce == nonce
+}
+
+func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
+	user := ctx.Request.Header.PeekBytes(TerminusUserHeader)
+	if user == nil {
+		// try to gen the user's login portal from request url
+		klog.Info("user header not found, gen login url from request")
+		uri := ctx.Request.URI()
+		host := string(uri.Host())
+		hostToken := strings.Split(host, ".")
+		hostToken[0] = "auth"
+
+		return "https://" + strings.Join(hostToken, ".") + "/"
+	}
+
+	userAuth, ok := t.userAuthorizers[string(user)]
+	if !ok {
+		klog.Error("user not found in authorizer, ", string(user))
+		return ""
+	}
+
+	return userAuth.LoginPortal
 }

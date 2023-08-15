@@ -178,16 +178,6 @@ func (p *Provider) findDomain(hostname string) string {
 func (p *Provider) reloadTokenToCache() {
 	klog.Info("start to reload token from session redis storage")
 
-	info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second))
-
-	if err != nil {
-		klog.Error("reload user info error, ", err)
-		panic(err)
-	}
-
-	// force target domain equals user's zone.
-	targetDomain := info.Zone
-
 	serializer := NewEncryptingSerializer(p.Config.Secret)
 
 	dataList, err := p.reloadLister.List()
@@ -249,6 +239,16 @@ func (p *Provider) reloadTokenToCache() {
 				p.Config.Cookies = append(p.Config.Cookies, c)
 			}
 		}
+
+		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second), us.Username)
+
+		if err != nil {
+			klog.Error("reload user info error, ", err)
+			panic(err)
+		}
+
+		// force target domain equals user's zone.
+		targetDomain := info.Zone
 
 		s, err := p.Get(domain, targetDomain, token, false)
 

@@ -2,27 +2,14 @@ package utils
 
 import (
 	"net/url"
-	"os"
 	"path"
 	"strings"
 )
 
 var (
-	BFL           = "bfl"
-	SYSTEM_SERVER = "system-server"
+	BFL_NAME           = "bfl"
+	SYSTEM_SERVER_NAME = "system-server"
 )
-
-func init() {
-	envBfl := os.Getenv("BFL")
-	if envBfl != "" {
-		BFL = envBfl
-	}
-
-	envSS := os.Getenv("SYSTEM_SERVER")
-	if envSS != "" {
-		SYSTEM_SERVER = envSS
-	}
-}
 
 // URLPathFullClean returns a URL path with the query parameters appended (full path) with the path portion parsed
 // through path.Clean given a *url.URL.

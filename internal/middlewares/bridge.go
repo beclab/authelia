@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
@@ -61,7 +62,13 @@ func (b *BridgeBuilder) Build() Bridge {
 		}
 
 		bridge := func(requestCtx *fasthttp.RequestCtx) {
-			info, err := utils.GetUserInfoFromBFL(b.httpClient)
+			user := requestCtx.Request.Header.PeekBytes(authorization.TerminusUserHeader)
+			if user == nil {
+				klog.Error("cannot get user name from header")
+				return
+			}
+
+			info, err := utils.GetUserInfoFromBFL(b.httpClient, string(user))
 			if err != nil {
 				klog.Error("reload user info error, ", err)
 				return
@@ -72,13 +79,6 @@ func (b *BridgeBuilder) Build() Bridge {
 			var host *url.URL
 
 			hostStr := string(requestCtx.Host())
-
-			host, err = url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
-
-			if err != nil {
-				klog.Error("cannot parse request host, ", host)
-				return
-			}
 
 			parentDomain := func(host string) string {
 				hostSub := strings.Split(host, ".")

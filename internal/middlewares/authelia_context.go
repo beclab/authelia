@@ -447,7 +447,7 @@ func (ctx *AutheliaCtx) DestroySession() error {
 	if session.AccessToken != "" {
 		switch p := ctx.Providers.UserProvider.(type) {
 		case *authentication.KubesphereUserProvider:
-			err = p.Logout(session.AccessToken)
+			err = p.Logout(session.Username, session.AccessToken)
 			if err != nil {
 				ctx.Logger.Error("cannot logout from kubesphere, ", err)
 			}

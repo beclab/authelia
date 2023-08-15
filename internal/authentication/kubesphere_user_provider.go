@@ -53,7 +53,7 @@ func NewKubesphereUserProvider() *KubesphereUserProvider {
 }
 
 func (p *KubesphereUserProvider) CheckUserPassword(username string, password string) (match bool, res *ValidResult, err error) {
-	loginUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/login", utils.BFL)
+	loginUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/login", utils.BFL_NAME, username)
 
 	reqBody := utils.UserPassword{
 		UserName: username,
@@ -94,7 +94,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetails, err error) {
 	token := p.cache.Get(username)
 	if token == nil {
-		info, err := utils.GetUserInfoFromBFL(p.client)
+		info, err := utils.GetUserInfoFromBFL(p.client, username)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 
 		return details, nil
 	} else {
-		userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s", utils.BFL, username)
+		userUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/users/%s", utils.BFL_NAME, username,username)
 
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
@@ -149,7 +149,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 		return ErrUserNotFound
 	}
 
-	userUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/users/%s/password", utils.BFL, username)
+	userUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/users/%s/password", utils.BFL_NAME, username, username)
 	reset := utils.PasswordReset{
 		CurrentPassword: cache.Value().pwd,
 		Password:        newPassword,
@@ -179,7 +179,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 }
 
 func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult,err error){
-	refreshUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/refresh-token", utils.BFL)
+	refreshUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/refresh-token", utils.BFL_NAME, username)
 
 	reqBody := utils.UserToken{
 		Token: token,
@@ -225,8 +225,8 @@ func (p *KubesphereUserProvider) StartupCheck() (err error) {
 	return nil
 }
 
-func (p *KubesphereUserProvider) Logout(token string) (err error) {
-	logoutUrl := fmt.Sprintf("http://%s/bfl/iam/v1alpha1/logout", utils.BFL)
+func (p *KubesphereUserProvider) Logout(username,token string) (err error) {
+	logoutUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/logout", utils.BFL_NAME, username)
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 		SetHeader(string(utils.TerminusAuthTokenHeader), token).
