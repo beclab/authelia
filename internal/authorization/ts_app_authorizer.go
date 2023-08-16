@@ -122,23 +122,22 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	defer t.mutex.Unlock()
 
 	auth, ok := t.userAuthorizers[subject.Username]
-	if !ok {
-		klog.Error("user not found in terminus authorizer, ", subject.Username)
-		return false, Denied, nil
-	}
-
-	if !auth.initialized {
-		return false, auth.defaultPolicy, nil
-	}
-
-	for _, rule := range auth.rules {
-		if rule.IsMatch(subject, object) {
-			t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
-
-			return rule.HasSubjects, rule.Policy, rule
+	if ok {
+		if !auth.initialized {
+			return false, auth.defaultPolicy, nil
 		}
 
-		t.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
+		for _, rule := range auth.rules {
+			if rule.IsMatch(subject, object) {
+				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
+
+				return rule.HasSubjects, rule.Policy, rule
+			}
+
+			t.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
+		}
+	} else {
+		klog.Error("user not found in terminus authorizer, ", subject.Username)
 	}
 
 	t.log.Debugf("No matching rule for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
