@@ -639,7 +639,12 @@ func (t *TsAuthorizer) ValidBackendRequest(ctx *fasthttp.RequestCtx, nonce strin
 }
 
 func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
-	user := ctx.Request.Header.PeekBytes(TerminusUserHeader)
+	user := ctx.UserValueBytes(TerminusUserHeader)
+
+	if user == nil {
+		user = ctx.Request.Header.PeekBytes(TerminusUserHeader)
+	}
+
 	if user == nil {
 		// try to gen the user's login portal from request url
 		klog.Info("user header not found, gen login url from request")
@@ -651,9 +656,9 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		return "https://" + strings.Join(hostToken, ".") + "/"
 	}
 
-	userAuth, ok := t.userAuthorizers[string(user)]
+	userAuth, ok := t.userAuthorizers[string(user.([]byte))]
 	if !ok {
-		klog.Error("user not found in authorizer, ", string(user))
+		klog.Error("user not found in authorizer, ", string(user.([]byte)))
 		return ""
 	}
 
