@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -67,18 +68,32 @@ func (b *BridgeBuilder) Build() Bridge {
 			if user == nil {
 				klog.Error("cannot get user name from header")
 
-				if govalidator.IsIP(string(requestCtx.Host())) && authorization.AdminUser != "" {
+				host := string(requestCtx.Host())
+				if govalidator.IsIP(host) && authorization.AdminUser != "" {
 					// only admin user will access the os via ip and port
 					user = []byte(authorization.AdminUser)
-					klog.Error("set the default admin user, ", authorization.AdminUser)
+					klog.Info("set the default admin user, ", authorization.AdminUser)
 				} else {
-					return
+					// FIXME:
+					hostToken := strings.Split(host, ".")
+					for _, t := range hostToken {
+						klog.Info("try to find user space")
+						if strings.HasPrefix("user-space-", t) {
+							user = []byte(strings.Replace(t, "user-space-", "", 1))
+						}
+					}
+
+					if user == nil {
+						requestCtx.Error("cannot get user name from header", http.StatusBadRequest)
+						return
+					}
 				}
 			}
 
 			info, err := utils.GetUserInfoFromBFL(b.httpClient, string(user))
 			if err != nil {
 				klog.Error("reload user info error, ", err)
+				requestCtx.Error(err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -97,6 +112,7 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			if err != nil {
 				klog.Error("cannot parse request host, ", host)
+				requestCtx.Error("cannot parse request host", http.StatusBadRequest)
 				return
 			}
 
