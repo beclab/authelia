@@ -78,7 +78,7 @@ func (b *BridgeBuilder) Build() Bridge {
 					hostToken := strings.Split(host, ".")
 					for _, t := range hostToken {
 						klog.Info("try to find user space")
-						if strings.HasPrefix("user-space-", t) {
+						if strings.HasPrefix(t, "user-space-") {
 							user = []byte(strings.Replace(t, "user-space-", "", 1))
 						}
 					}
