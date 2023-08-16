@@ -47,6 +47,7 @@ import (
 
 var (
 	TerminusUserHeader = []byte("X-BFL-USER")
+	AdminUser          = ""
 )
 
 // Terminus app service access control.
@@ -470,6 +471,9 @@ func (t *TsAuthorizer) reloadRules() {
 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	// FIXME: check the user's role
+	AdminUser = users[0].GetName()
 
 	for _, user := range users {
 		username := user.GetName()
