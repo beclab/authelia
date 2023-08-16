@@ -69,6 +69,7 @@ func (b *BridgeBuilder) Build() Bridge {
 				klog.Error("cannot get user name from header")
 
 				host := string(requestCtx.Host())
+				host = strings.Split(host, ":")[0]
 				if govalidator.IsIP(host) && authorization.AdminUser != "" {
 					// only admin user will access the os via ip and port
 					user = []byte(authorization.AdminUser)
