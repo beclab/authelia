@@ -84,11 +84,12 @@ func NewTsAuthorizer() Authorizer {
 	}
 
 	authorizer := &TsAuthorizer{
-		kubeConfig: kubeconfig,
-		client:     k8sClient,
-		httpClient: resty.New().SetTimeout(2 * time.Second),
-		log:        logging.Logger(),
-		exitCh:     make(chan struct{}),
+		kubeConfig:      kubeconfig,
+		client:          k8sClient,
+		httpClient:      resty.New().SetTimeout(2 * time.Second),
+		log:             logging.Logger(),
+		exitCh:          make(chan struct{}),
+		userAuthorizers: make(map[string]*userAuthorizer),
 	}
 
 	authorizer.reloadRules()
