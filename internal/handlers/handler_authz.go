@@ -86,9 +86,14 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	authn.Object = object
 	authn.Method = friendlyMethod(authn.Object.Method)
 
+	username := authn.Details.Username
+	if username == "" {
+		username = string(ctx.RequestCtx.UserValueBytes(authorization.TerminusUserHeader).([]byte))
+	}
+
 	ruleHasSubject, required, rule := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
-			Username: authn.Details.Username,
+			Username: username,
 			Groups:   authn.Details.Groups,
 			IP:       ctx.RemoteIP(),
 		},
