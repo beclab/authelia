@@ -15,6 +15,9 @@
 package handlers
 
 import (
+	"encoding/base64"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -22,6 +25,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"k8s.io/klog/v2"
 )
 
 func TerminusApp2FACheck(
@@ -123,6 +127,10 @@ func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
 func isValidBackendRequest(ctx *middlewares.AutheliaCtx) bool {
 	backendToken := ctx.RequestCtx.Request.Header.PeekBytes(utils.TerminusAccessTokenHeader)
 
+	if isValidOsSystemRequest(backendToken) {
+		return true
+	}
+
 	return len(backendToken) > 0 && func() bool {
 		auth, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
 		if !ok {
@@ -131,4 +139,35 @@ func isValidBackendRequest(ctx *middlewares.AutheliaCtx) bool {
 
 		return auth.ValidBackendRequest(ctx.RequestCtx, string(backendToken))
 	}()
+}
+
+func isValidOsSystemRequest(token []byte) bool {
+	origKey := string(token)
+
+	prefix := "appservice:"
+	if !strings.HasPrefix(origKey, prefix) {
+		return false
+	}
+
+	key := strings.Replace(origKey, prefix, "", 1)
+
+	secret := os.Getenv("APP_RANDOM_KEY")
+	if secret == "" {
+		return false
+	}
+
+	decodeKey, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		klog.Error("app service random key decode error, ", err, ", ", origKey)
+		return false
+	}
+
+	_, err = AesDecrypt(decodeKey, []byte(secret))
+	if err != nil {
+		klog.Error("app service random key decrypt error, ", err, ", ", origKey)
+		return false
+	}
+
+	// TODO: content verify
+	return true
 }

@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"fmt"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -44,4 +47,42 @@ func ctxLogEvent(ctx *middlewares.AutheliaCtx, username, description string, eve
 		ctx.Logger.Error(err)
 		return
 	}
+}
+
+func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
+	padding := blockSize - len(ciphertext)%blockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(ciphertext, padtext...)
+}
+
+func PKCS7UnPadding(origin []byte) []byte {
+	length := len(origin)
+	unpadding := int(origin[length-1])
+	return origin[:(length - unpadding)]
+}
+
+func AesEncrypt(origin, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	blockSize := block.BlockSize()
+	origin = PKCS7Padding(origin, blockSize)
+	blockMode := cipher.NewCBCEncrypter(block, key[:blockSize])
+	crypted := make([]byte, len(origin))
+	blockMode.CryptBlocks(crypted, origin)
+	return crypted, nil
+}
+
+func AesDecrypt(crypted, key []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	blockSize := block.BlockSize()
+	blockMode := cipher.NewCBCDecrypter(block, key[:blockSize])
+	origin := make([]byte, len(crypted))
+	blockMode.CryptBlocks(origin, crypted)
+	origin = PKCS7UnPadding(origin)
+	return origin, nil
 }
