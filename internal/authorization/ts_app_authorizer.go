@@ -427,7 +427,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 	ruleOthers := &AccessControlRule{
 		Position:    position,
-		Policy:      userAuth.desktopPolicy,
+		Policy:      NewLevel(policy.DefaultPolicy),
 		DefaultRule: true,
 	}
 	ruleAddResources(othersResources, ruleOthers)
