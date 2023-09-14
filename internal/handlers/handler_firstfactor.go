@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
@@ -45,6 +46,23 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 
 			ctx.Logger.Errorf(logFmtErrRegulationFail, regulation.AuthType1FA, bodyJSON.Username, err)
 
+			respondUnauthorized(ctx, messageAuthenticationFailed)
+
+			return
+		}
+
+		ctxUser := ctx.UserValueBytes(authorization.TerminusUserHeader)
+		if ctxUser == nil {
+			ctx.Logger.Errorf("user not found in request ctx")
+			respondUnauthorized(ctx, messageAuthenticationFailed)
+			return
+		}
+
+		if string(ctxUser.([]byte)) != bodyJSON.Username {
+			err := errors.New("login user mismatch")
+			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
+
+			ctx.Logger.Errorf("login failed, %s, %s, %s", err.Error(), bodyJSON.Username, string(ctxUser.([]byte)))
 			respondUnauthorized(ctx, messageAuthenticationFailed)
 
 			return
