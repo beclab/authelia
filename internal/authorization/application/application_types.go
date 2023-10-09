@@ -55,6 +55,12 @@ type ApplicationSpec struct {
 	// the name of the application.
 	Name string `json:"name"`
 
+	// the unique id of the application
+	// for sys application appid equal name otherwise appid equal md5(name)[:8]
+	Appid string `json:"appid"`
+
+	IsSysApp bool `json:"isSysApp"`
+
 	// the namespace of the application.
 	Namespace string `json:"namespace,omitempty"`
 

@@ -371,8 +371,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 	userInfo *utils.UserInfo, userAuth *userAuthorizer) (rules []*AccessControlRule, err error) {
 	policyData, ok := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
 	domains := []string{
-		fmt.Sprintf("%s.local.%s", app.Spec.Name, userInfo.Zone),
-		fmt.Sprintf("%s.%s", app.Spec.Name, userInfo.Zone),
+		fmt.Sprintf("%s.local.%s", app.Spec.Appid, userInfo.Zone),
+		fmt.Sprintf("%s.%s", app.Spec.Appid, userInfo.Zone),
 	}
 
 	if !ok {
