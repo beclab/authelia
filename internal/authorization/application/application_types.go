@@ -71,10 +71,19 @@ type ApplicationSpec struct {
 	Owner string `json:"owner,omitempty"`
 
 	// the service address of the application.
-	ServiceAddr string `json:"service,omitempty"`
+	Entrances []Entrance `json:"entrances,omitempty"`
 
 	// the extend settings of the application.
 	Settings map[string]string `json:"settings,omitempty"`
+}
+
+type Entrance struct {
+	Name      string `json:"name"`
+	Host      string `json:"host"`
+	Port      int32  `json:"port"`
+	Icon      string `json:"icon,omitempty"`
+	Title     string `json:"title"`
+	AuthLevel string `json:"authLevel"`
 }
 
 // ApplicationStatus defines the observed state of Application.

@@ -28,4 +28,20 @@ type ApplicationSettingsPolicy struct {
 	Duration      int32                           `json:"valid_duration"`
 }
 
+//	'{
+//		"a":
+//			{"cert":"certa","key":"keya","ssl_config":"firefox-a-domain-ssl-config",
+//				"third_level_domain":"aa","third_party_domain":"adomain"},
+//		"b":
+//			{"cert":"","key":"","third_level_domain":"","third_party_domain":""}
+//	}'
+type ApplicationCustomDomain struct {
+	Cert             string `json:"cert,omitempty"`
+	Key              string `json:"key,omitempty"`
+	SSLConfig        string `json:"ssl_config,omitempty"`
+	ThirdLevelDomain string `json:"third_level_domain,omitempty"`
+	ThirdPartyDomain string `json:"third_party_domain,omitempty"`
+}
+
 const ApplicationSettingsPolicyKey = "policy"
+const ApplicationSettingsCustomDomainKey = "policy"

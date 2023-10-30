@@ -117,14 +117,24 @@ func (b *BridgeBuilder) Build() Bridge {
 				return
 			}
 
+			domain = strings.Split(hostStr, ":")[0]
 			if info.Zone == "" { // admin user.
-				domain = strings.Split(hostStr, ":")[0]
-
 				if info.IsEphemeral {
 					domain = parentDomain(domain)
 				}
 			} else {
-				domain = info.Zone
+				if strings.HasSuffix(domain, info.Zone) {
+					domain = info.Zone
+				} else {
+					customDomain, ok := authorization.UserCustomDomain[info.Name]
+					if !ok {
+						domain = info.Zone
+					} else {
+						if _, ok = customDomain[domain]; !ok {
+							domain = info.Zone
+						}
+					}
+				}
 			}
 
 			klog.Info("find domain from user and request: ", domain)

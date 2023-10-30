@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +49,9 @@ import (
 var (
 	TerminusUserHeader = []byte("X-BFL-USER")
 	AdminUser          = ""
+
+	tmpUserCustomDomain map[string]map[string]string
+	UserCustomDomain    map[string]map[string]string
 )
 
 // Terminus app service access control.
@@ -369,84 +373,144 @@ app settings:
 */
 func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 	userInfo *utils.UserInfo, userAuth *userAuthorizer) (rules []*AccessControlRule, err error) {
-	policyData, ok := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
-	domains := []string{
-		fmt.Sprintf("%s.local.%s", app.Spec.Appid, userInfo.Zone),
-		fmt.Sprintf("%s.%s", app.Spec.Appid, userInfo.Zone),
-	}
+	policyData, policyExists := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
+	policies := make(map[string]*application.ApplicationSettingsPolicy)
+	if policyExists {
+		err = json.Unmarshal([]byte(policyData), &policies)
 
-	if !ok {
-		rule := &AccessControlRule{
-			Position: position,
-			Policy:   userAuth.appDefaultPolicy,
+		if err != nil {
+			return nil, err
 		}
-		ruleAddDomain(domains, rule)
-
-		rules = append(rules, rule)
-
-		return rules, nil
 	}
 
-	var policy application.ApplicationSettingsPolicy
-	err = json.Unmarshal([]byte(policyData), &policy)
+	customDomainData, customDomainExists := app.Spec.Settings[application.ApplicationSettingsCustomDomainKey]
+	customDomain := make(map[string]*application.ApplicationCustomDomain)
+	if customDomainExists {
+		err = json.Unmarshal([]byte(customDomainData), &customDomain)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if policy.SubPolicies != nil {
-		for _, sp := range policy.SubPolicies {
-			t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
+	for index, entrance := range app.Spec.Entrances {
+		entranceId := app.Spec.Appid
+		if len(app.Spec.Entrances) > 1 {
+			entranceId += strconv.Itoa(index)
+		}
+		domains := []string{
+			fmt.Sprintf("%s.local.%s", entranceId, userInfo.Zone),
+			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
+		}
 
-			resExp, err := regexp.Compile(sp.URI)
-			if err != nil {
-				t.log.Error("invalid resource sub policy uri ", app.Spec.Name, " ", sp.URI)
-				return nil, err
+		if customDomainExists {
+			entranceCustomDomain, ok := customDomain[entrance.Name]
+			if ok {
+				if entranceCustomDomain.ThirdLevelDomain != "" {
+					domains = append(domains, []string{
+						fmt.Sprintf("%s.local.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone),
+						fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone),
+					}...)
+				}
+
+				if entranceCustomDomain.ThirdPartyDomain != "" {
+					domains = append(domains, entranceCustomDomain.ThirdPartyDomain)
+
+					// add domain to user domain, for session bridge
+					if _, ok = tmpUserCustomDomain[userInfo.Name]; !ok {
+						tmpUserCustomDomain[userInfo.Name] = make(map[string]string)
+					}
+
+					tmpUserCustomDomain[userInfo.Name][entranceCustomDomain.ThirdPartyDomain] = entrance.Name
+				}
 			}
+		}
 
-			resources := []regexp.Regexp{*resExp}
-
+		nonPolicy := func(p Level) {
 			rule := &AccessControlRule{
-				Position:      position,
-				Policy:        NewLevel(sp.Policy),
-				OneTimeValid:  sp.OneTime,
-				ValidDuration: time.Duration(sp.Duration) * time.Second,
+				Position: position,
+				Policy:   p,
 			}
-			ruleAddResources(resources, rule)
 			ruleAddDomain(domains, rule)
 
 			rules = append(rules, rule)
+		}
 
-			position++
-		} // end for policy.SubPolicies.
-	} // end if.
+		defaulPolicy := userAuth.appDefaultPolicy
+		if entrance.AuthLevel != "" && entrance.AuthLevel == "public" {
+			defaulPolicy = NewLevel(entrance.AuthLevel)
+		}
 
-	// add app others resource to default policy.
-	othersExp := regexp.MustCompile("^/.+")
-	othersResources := []regexp.Regexp{*othersExp}
+		if !policyExists {
+			nonPolicy(defaulPolicy)
+			continue
+		}
 
-	ruleOthers := &AccessControlRule{
-		Position:    position,
-		Policy:      NewLevel(policy.DefaultPolicy),
-		DefaultRule: true,
+		policy, ok := policies[entrance.Name]
+		if !ok {
+			nonPolicy(defaulPolicy)
+			continue
+		}
+
+		if policy.SubPolicies != nil {
+			for _, sp := range policy.SubPolicies {
+				t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
+
+				resExp, err := regexp.Compile(sp.URI)
+				if err != nil {
+					t.log.Error("invalid resource sub policy uri ", app.Spec.Name, " ", sp.URI)
+					return nil, err
+				}
+
+				resources := []regexp.Regexp{*resExp}
+
+				rule := &AccessControlRule{
+					Position:      position,
+					Policy:        NewLevel(sp.Policy),
+					OneTimeValid:  sp.OneTime,
+					ValidDuration: time.Duration(sp.Duration) * time.Second,
+				}
+				ruleAddResources(resources, rule)
+				ruleAddDomain(domains, rule)
+
+				rules = append(rules, rule)
+
+				position++
+			} // end for policy.SubPolicies.
+		} // end if.
+
+		// add app others resource to default policy.
+		othersExp := regexp.MustCompile("^/.+")
+		othersResources := []regexp.Regexp{*othersExp}
+
+		if entrance.AuthLevel != "public" {
+			defaulPolicy = NewLevel(policy.DefaultPolicy)
+		}
+
+		ruleOthers := &AccessControlRule{
+			Position:    position,
+			Policy:      defaulPolicy,
+			DefaultRule: true,
+		}
+		ruleAddResources(othersResources, ruleOthers)
+		ruleAddDomain(domains, ruleOthers)
+
+		rules = append(rules, ruleOthers)
+
+		position++
+
+		// add app root path to default policy with options.
+		ruleRoot := &AccessControlRule{
+			Position:      position,
+			Policy:        defaulPolicy,
+			OneTimeValid:  policy.OneTime,
+			ValidDuration: time.Duration(policy.Duration) * time.Second,
+		}
+		ruleAddDomain(domains, ruleRoot)
+
+		rules = append(rules, ruleRoot)
+
 	}
-	ruleAddResources(othersResources, ruleOthers)
-	ruleAddDomain(domains, ruleOthers)
-
-	rules = append(rules, ruleOthers)
-
-	position++
-
-	// add app root path to default policy with options.
-	ruleRoot := &AccessControlRule{
-		Position:      position,
-		Policy:        NewLevel(policy.DefaultPolicy),
-		OneTimeValid:  policy.OneTime,
-		ValidDuration: time.Duration(policy.Duration) * time.Second,
-	}
-	ruleAddDomain(domains, ruleRoot)
-
-	rules = append(rules, ruleRoot)
 
 	return rules, nil
 }
@@ -484,6 +548,7 @@ func (t *TsAuthorizer) reloadRules() {
 		}
 
 		userAuth := t.newUserAuthorizer(username)
+		tmpUserCustomDomain = make(map[string]map[string]string)
 
 		userAuth.userIsIniting = info.Zone == ""
 		userAuth.initialized = true
@@ -517,6 +582,8 @@ func (t *TsAuthorizer) reloadRules() {
 		userAuth.UserTerminusNonce = nonce
 
 		t.userAuthorizers[username] = userAuth
+
+		UserCustomDomain = tmpUserCustomDomain
 	}
 
 }
