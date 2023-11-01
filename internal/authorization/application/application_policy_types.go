@@ -44,4 +44,4 @@ type ApplicationCustomDomain struct {
 }
 
 const ApplicationSettingsPolicyKey = "policy"
-const ApplicationSettingsCustomDomainKey = "policy"
+const ApplicationSettingsCustomDomainKey = "customDomain"

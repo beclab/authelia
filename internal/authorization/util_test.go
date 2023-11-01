@@ -1,6 +1,8 @@
 package authorization
 
 import (
+	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
+	"github.com/authelia/authelia/v4/internal/authorization/application"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
 
@@ -216,4 +219,19 @@ func TestIsAuthLevelSufficient(t *testing.T) {
 	assert.False(t, IsAuthLevelSufficient(authentication.NotAuthenticated, TwoFactor))
 	assert.False(t, IsAuthLevelSufficient(authentication.OneFactor, TwoFactor))
 	assert.True(t, IsAuthLevelSufficient(authentication.TwoFactor, TwoFactor))
+}
+
+func TestPolicy(t *testing.T) {
+	p := []byte(`{"vault":{"default_policy":"one_factor","sub_policies":null,"one_time":false,"valid_duration":0}}`)
+	policies := make(map[string]*application.ApplicationSettingsPolicy)
+	err := json.Unmarshal(p, &policies)
+
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+
+		return
+	}
+
+	fmt.Printf("%v", policies)
 }
