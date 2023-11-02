@@ -158,7 +158,11 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 		return false, Bypass, nil
 	}
 
-	return false, auth.defaultPolicy, nil
+	if ok {
+		return false, auth.defaultPolicy, nil
+	} else {
+		return false, Denied, nil
+	}
 }
 
 func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult) {
