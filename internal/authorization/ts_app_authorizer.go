@@ -206,10 +206,8 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 		}
 		ruleAddDomain(
 			[]string{
-				fmt.Sprintf("desktop-%s.%s", userInfo.Name, userInfo.Zone),
-				fmt.Sprintf("desktop-%s.local.%s", userInfo.Name, userInfo.Zone),
-				fmt.Sprintf("vault-%s.%s", userInfo.Name, userInfo.Zone),
-				fmt.Sprintf("vault-%s.local.%s", userInfo.Name, userInfo.Zone),
+				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.Zone),
+				fmt.Sprintf("wizard-%s.local.%s", userInfo.Name, userInfo.Zone),
 			},
 			rule,
 		)
