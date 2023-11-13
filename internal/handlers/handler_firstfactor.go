@@ -198,7 +198,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if bodyJSON.Workflow == workflowOpenIDConnect {
 			handleOIDCWorkflowResponse(ctx, bodyJSON.TargetURL, bodyJSON.WorkflowID)
 		} else {
-			cookie := false
+			cookie := true
 			if bodyJSON.AcceptCookie != nil {
 				cookie = *bodyJSON.AcceptCookie
 			}
