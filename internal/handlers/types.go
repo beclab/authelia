@@ -71,6 +71,8 @@ type bodyFirstFactorRequest struct {
 	WorkflowID     string `json:"workflowID"`
 	RequestMethod  string `json:"requestMethod"`
 	KeepMeLoggedIn *bool  `json:"keepMeLoggedIn"`
+
+	AcceptCookie *bool `json:"acceptCookie"`
 	// KeepMeLoggedIn: Cannot require this field because of https://github.com/asaskevich/govalidator/pull/329
 	// TODO(c.michaud): add required validation once the above PR is merged.
 }

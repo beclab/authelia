@@ -53,7 +53,8 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 // Handle1FAResponse handle the redirection upon 1FA authentication.
 func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	targetURI, requestMethod string,
-	session *sess.UserSession) {
+	session *sess.UserSession,
+	acceptCookie bool) {
 	var err error
 
 	sessionId := getSessionId(ctx)
@@ -97,11 +98,13 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
-			setTokenToCookie(ctx, &AccessTokenCookieInfo{
-				AccessToken:  session.AccessToken,
-				RefreshToken: session.RefreshToken,
-				Username:     session.Username,
-			})
+			if acceptCookie {
+				setTokenToCookie(ctx, &AccessTokenCookieInfo{
+					AccessToken:  session.AccessToken,
+					RefreshToken: session.RefreshToken,
+					Username:     session.Username,
+				})
+			}
 		}
 	}
 
