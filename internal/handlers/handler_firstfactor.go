@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/middlewares"
@@ -49,6 +50,10 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			respondUnauthorized(ctx, messageAuthenticationFailed)
 
 			return
+		}
+
+		if bodyJSON.AcceptCookie != nil {
+			ctx.SetUserValueBytes(authentication.AuthnAcceptCookeKey, bodyJSON.AcceptCookie)
 		}
 
 		ctxUser := ctx.UserValueBytes(authorization.TerminusUserHeader)

@@ -81,3 +81,5 @@ type LDAPSupportedControlTypes struct {
 }
 
 var utf16LittleEndian = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
+
+var AuthnAcceptCookeKey = []byte("accept-cookie")

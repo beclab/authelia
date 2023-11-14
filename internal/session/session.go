@@ -9,6 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
 
@@ -80,6 +81,12 @@ func (p *Session) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSession)
 
 	if err = p.sessionHolder.Save(ctx, store); err != nil {
 		return err
+	}
+
+	// force remove session cookie
+	cookie := ctx.UserValueBytes(authentication.AuthnAcceptCookeKey)
+	if cookie != nil && !*cookie.(*bool) {
+		ctx.Response.Header.DelCookie(p.Config.SessionCookieCommonConfiguration.Name)
 	}
 
 	return nil
