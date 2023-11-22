@@ -322,27 +322,27 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 
 	position := len(rules)
 
-	if !userAuth.userIsIniting {
-		// add loginn portal to bypass.
-		resources := t.getResourceExps([]string{
-			"^/login",
-			"^/assets/.*",
-			"^/avatar/.*",
-			"^/icons/.*",
-			"^/bfl/backend/.*",
-			"^/api/.*",
-		})
+	// if !userAuth.userIsIniting {
+	// 	// add loginn portal to bypass.
+	// 	resources := t.getResourceExps([]string{
+	// 		"^/login",
+	// 		"^/assets/.*",
+	// 		"^/avatar/.*",
+	// 		"^/icons/.*",
+	// 		"^/bfl/backend/.*",
+	// 		"^/api/.*",
+	// 	})
 
-		loginPortalRule := &AccessControlRule{
-			Position: position,
-			Policy:   Bypass,
-		}
-		ruleAddDomain(domains, loginPortalRule)
-		ruleAddResources(resources, loginPortalRule)
+	// 	loginPortalRule := &AccessControlRule{
+	// 		Position: position,
+	// 		Policy:   Bypass,
+	// 	}
+	// 	ruleAddDomain(domains, loginPortalRule)
+	// 	ruleAddResources(resources, loginPortalRule)
 
-		rules = append(rules, loginPortalRule)
-		position++
-	}
+	// 	rules = append(rules, loginPortalRule)
+	// 	position++
+	// }
 
 	desktopRule := &AccessControlRule{
 		Position: position,
