@@ -154,9 +154,9 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	}
 
 	// TESTING:.
-	if strings.HasPrefix(object.Path, "/bfl/backend") {
-		return false, Bypass, nil
-	}
+	// if strings.HasPrefix(object.Path, "/bfl/backend") {
+	// 	return false, Bypass, nil
+	// }
 
 	if ok {
 		return false, auth.defaultPolicy, nil
