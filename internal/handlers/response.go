@@ -29,10 +29,16 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 	if tokenInfo.AccessToken != "" {
 		klog.Infof("set access token in cookie and header for user %s", tokenInfo.Username)
 
+		domain, err := ctx.GetCookieDomain()
+		if err != nil {
+			klog.Error("get cookie domain error, ", err)
+			domain = ctx.Providers.SessionProvider.Config.Domain
+		}
+
 		cookie := &fasthttp.Cookie{}
 		cookie.SetKey("auth_token")
 		cookie.SetValue(tokenInfo.AccessToken)
-		cookie.SetDomain(ctx.Providers.SessionProvider.Config.Domain)
+		cookie.SetDomain(domain)
 		cookie.SetPath("/")
 		cookie.SetMaxAge(int(ctx.Providers.SessionProvider.Config.Expiration))
 
