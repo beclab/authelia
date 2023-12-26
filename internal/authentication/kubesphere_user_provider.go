@@ -107,7 +107,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 
 		return details, nil
 	} else {
-		userUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/users/%s", utils.BFL_NAME, username,username)
+		userUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/users/%s", utils.BFL_NAME, username, username)
 
 		resp, err := p.client.R().
 			SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
@@ -178,7 +178,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username string, newPassword str
 	return nil
 }
 
-func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult,err error){
+func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult, err error) {
 	refreshUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/refresh-token", utils.BFL_NAME, username)
 
 	reqBody := utils.UserToken{
@@ -220,18 +220,48 @@ func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResu
 	return res, nil
 }
 
-
 func (p *KubesphereUserProvider) StartupCheck() (err error) {
 	return nil
 }
 
-func (p *KubesphereUserProvider) Logout(username,token string) (err error) {
+func (p *KubesphereUserProvider) Logout(username, token string) (err error) {
 	logoutUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/logout", utils.BFL_NAME, username)
 	resp, err := p.client.R().
 		SetHeader(restful.HEADER_Accept, restful.MIME_JSON).
 		SetHeader(string(utils.TerminusAuthTokenHeader), token).
 		SetResult(&utils.Response{}).
 		Post(logoutUrl)
+
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return errors.New(string(resp.Body()))
+	}
+
+	responseData := resp.Result().(*utils.Response)
+
+	if responseData.Code != 0 {
+		return errors.New(responseData.Message)
+	}
+
+	return nil
+}
+
+func (p *KubesphereUserProvider) ValiidateUserPassword(username string, password string) error {
+	loginUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/validate", utils.BFL_NAME, username)
+
+	reqBody := utils.UserPassword{
+		UserName: username,
+		Password: password,
+	}
+
+	resp, err := p.client.R().
+		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
+		SetBody(reqBody).
+		SetResult(&utils.Response{Data: &utils.TokenResponse{}}).
+		Post(loginUrl)
 
 	if err != nil {
 		return err
