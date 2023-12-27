@@ -306,7 +306,7 @@ func (ctx *AutheliaCtx) GetCookieDomain() (domain string, err error) {
 func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provider *session.Session, err error) {
 	domain := ctx.GetTargetURICookieDomain(targetURL)
 
-	if domain == "" {
+	if domain == "" && !ctx.BackendRequest {
 		return nil, fmt.Errorf("unable to retrieve domain session: %v", targetURL)
 	}
 
@@ -338,7 +338,7 @@ func (ctx *AutheliaCtx) GetSessionProvider() (provider *session.Session, err err
 
 // GetCookieDomainSessionProvider returns the session provider for the provided domain.
 func (ctx *AutheliaCtx) GetCookieDomainSessionProvider(domain string) (provider *session.Session, err error) {
-	if domain == "" {
+	if domain == "" && !ctx.BackendRequest {
 		return nil, fmt.Errorf("unable to retrieve domain session: %w", err)
 	}
 
