@@ -249,7 +249,7 @@ func (p *Provider) reloadTokenToCache() {
 
 		if err != nil {
 			klog.Error("reload user info error, ", err)
-			panic(err)
+			continue
 		}
 
 		// force target domain equals user's zone.
