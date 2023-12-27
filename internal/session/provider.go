@@ -99,7 +99,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Session, error) {
 	log := logging.Logger()
 
-	if domain == "" {
+	if domain == "" && !backend {
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
 
@@ -117,7 +117,12 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 	if s = p.GetByToken(token); s != nil && (p.findDomain(s.TargetDomain) == domain || backend) { // TODO: install wizard.
 		return s, nil
 	} else {
-		s, found = p.sessions[domain]
+		if domain != "" {
+			s, found = p.sessions[domain]
+		} else {
+			log.Error("domain is empty and is not a backend request")
+			return nil, fmt.Errorf("can not get session from an undefined domain")
+		}
 	}
 
 	if !found {
@@ -240,7 +245,7 @@ func (p *Provider) reloadTokenToCache() {
 			}
 		}
 
-		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2 * time.Second), us.Username)
+		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2*time.Second), us.Username)
 
 		if err != nil {
 			klog.Error("reload user info error, ", err)
