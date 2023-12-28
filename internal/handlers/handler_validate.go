@@ -82,5 +82,5 @@ func ValidatePOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
-
+	ctx.SetJSONBody("user verified")
 }
