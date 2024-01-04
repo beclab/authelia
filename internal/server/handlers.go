@@ -184,6 +184,8 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 
 	r.GET("/api/state", middlewareAPI(handlers.StateGET))
 
+	r.GET("/api/usertokens", middlewareAPI(handlers.ListTokenGET))
+
 	r.GET("/api/configuration", middleware1FA(handlers.ConfigurationGET))
 
 	r.GET("/api/configuration/password-policy", middlewareAPI(handlers.PasswordPolicyConfigurationGET))

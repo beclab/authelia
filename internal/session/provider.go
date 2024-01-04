@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,14 @@ type Provider struct {
 	providerWithToken *ttlcache.Cache[string, *Session]
 
 	reloadLister *Lister
+}
+
+type SessionTokenInfo struct {
+	Token                 string `json:"token"`
+	Username              string `json:"userName"`
+	AuthLevel             string `json:"authLevel"`
+	FirstFactorTimestamp  int64  `json:"firstFactorTimestamp"`
+	SecondFactorTimestamp int64  `json:"secondFactorTimestamp"`
 }
 
 // NewProvider instantiate a session provider given a configuration.
@@ -168,6 +177,57 @@ func (p *Provider) RevokeByToken(token string) {
 	if token != "" {
 		p.providerWithToken.Delete(token)
 	}
+}
+
+func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
+	serializer := NewEncryptingSerializer(p.Config.Secret)
+
+	dataList, err := p.reloadLister.List()
+
+	if err != nil {
+		klog.Error("get token list error, ", err)
+		return nil, err
+	}
+
+	var infos []*SessionTokenInfo
+	for _, data := range dataList {
+		var sess session.Dict
+		err := serializer.Decode(&sess, data)
+
+		if err != nil {
+			klog.Error("decode session data error, ", err)
+			continue
+		}
+
+		var us UserSession
+		err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
+
+		if err != nil {
+			klog.Error("json unmarshal session data error, ", err)
+			continue
+		}
+
+		if us.Username == user {
+			token := strings.Split(us.AccessToken, ".")
+			if len(token) != 3 {
+				klog.Error("invalid access token in session data, ", us.AccessToken)
+				continue
+			}
+
+			info := &SessionTokenInfo{
+				Token:                 token[1],
+				Username:              us.Username,
+				AuthLevel:             us.AuthenticationLevel.String(),
+				FirstFactorTimestamp:  us.FirstFactorAuthnTimestamp,
+				SecondFactorTimestamp: us.SecondFactorAuthnTimestamp,
+			}
+
+			infos = append(infos, info)
+		}
+
+	}
+
+	return infos, nil
 }
 
 func (p *Provider) findDomain(hostname string) string {
