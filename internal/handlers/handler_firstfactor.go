@@ -11,6 +11,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"k8s.io/klog/v2"
 )
 
 // FirstFactorPOST is the handler performing the first factory.
@@ -119,6 +120,17 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			respondUnauthorized(ctx, messageAuthenticationFailed)
 
 			return
+		}
+
+		if bodyJSON.AcceptCookie != nil && !*bodyJSON.AcceptCookie {
+			// client does not accept cookie
+			// ignore cookie from client
+			cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+
+			if len(cookie) > 0 {
+				klog.Info("clear session cookie, cause accept cookie is ", *bodyJSON.AcceptCookie)
+				ctx.RequestCtx.Request.Header.DelCookie(provider.Config.Name)
+			}
 		}
 
 		userSession, err := provider.GetSession(ctx.RequestCtx)
