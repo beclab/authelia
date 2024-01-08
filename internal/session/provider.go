@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,12 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/jellydator/ttlcache/v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
@@ -276,6 +282,11 @@ func (p *Provider) findDomain(hostname string) string {
 func (p *Provider) reloadTokenToCache() {
 	klog.Info("start to reload token from session redis storage")
 
+	users, err := p.listUserData()
+	if err != nil {
+		panic(err)
+	}
+
 	serializer := NewEncryptingSerializer(p.Config.Secret)
 
 	dataList, err := p.reloadLister.List()
@@ -305,6 +316,19 @@ func (p *Provider) reloadTokenToCache() {
 
 		if err != nil {
 			klog.Error("json unmarshal session data error, ", err)
+			continue
+		}
+
+		if ok := func() bool {
+			for _, u := range users {
+				if u.GetName() == us.Username {
+					return true
+				}
+			}
+
+			return false
+		}(); !ok {
+			klog.Info("ignore unknown user, ", us.Username)
 			continue
 		}
 
@@ -342,7 +366,7 @@ func (p *Provider) reloadTokenToCache() {
 
 		if err != nil {
 			klog.Error("reload user info error, ", err)
-			continue
+			panic(err)
 		}
 
 		// force target domain equals user's zone.
@@ -362,4 +386,27 @@ func (p *Provider) reloadTokenToCache() {
 	if ksTokenOperator != nil {
 		ksTokenOperator.Close()
 	}
+}
+
+func (p *Provider) listUserData() ([]unstructured.Unstructured, error) {
+	kubeConfig := ctrl.GetConfigOrDie()
+
+	gvr := k8sschema.GroupVersionResource{
+		Group:    "iam.kubesphere.io",
+		Version:  "v1alpha2",
+		Resource: "users",
+	}
+	client, err := dynamic.NewForConfig(kubeConfig)
+
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := client.Resource(gvr).List(context.Background(), metav1.ListOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return data.Items, nil
 }
