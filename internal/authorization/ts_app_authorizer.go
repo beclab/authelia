@@ -475,7 +475,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 		if policy.SubPolicies != nil {
 			for _, sp := range policy.SubPolicies {
-				t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
+				// t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
 
 				resExp, err := regexp.Compile(sp.URI)
 				if err != nil {
@@ -701,7 +701,7 @@ func (t *TsAuthorizer) getNonce(user string) (string, error) {
 	}
 
 	nonce := string(resp.Body())
-	klog.Info("get terminus backend nonce with prefix: ", nonce[:8])
+	// klog.Info("get terminus backend nonce with prefix: ", nonce[:8])
 
 	return nonce, nil
 }
