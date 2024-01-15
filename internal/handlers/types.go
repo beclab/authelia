@@ -57,6 +57,14 @@ type bodySignTerminusRequest struct {
 	WorkflowID string `json:"workflowID"`
 }
 
+type bodySignTermipassRequest struct {
+	TermipassSignBody `json:",inline"`
+	ID                string `json:"id" valid:"required"`
+	DID               string `json:"did"`
+	JWS               string `json:"jws"`
+	UserID            string `json:"userId"`
+}
+
 // bodyPreferred2FAMethod the selected 2FA method.
 type bodyPreferred2FAMethod struct {
 	Method string `json:"method" valid:"required"`
@@ -72,7 +80,8 @@ type bodyFirstFactorRequest struct {
 	RequestMethod  string `json:"requestMethod"`
 	KeepMeLoggedIn *bool  `json:"keepMeLoggedIn"`
 
-	AcceptCookie *bool `json:"acceptCookie"`
+	AcceptCookie     *bool `json:"acceptCookie"`
+	RequestTermiPass *bool `json:"requestTermiPass"`
 	// KeepMeLoggedIn: Cannot require this field because of https://github.com/asaskevich/govalidator/pull/329
 	// TODO(c.michaud): add required validation once the above PR is merged.
 }
@@ -165,3 +174,9 @@ type handlerAuthorizationConsent func(
 	userSession session.UserSession, subject uuid.UUID,
 	rw http.ResponseWriter, r *http.Request,
 	requester fosite.AuthorizeRequester) (consent *model.OAuth2ConsentSession, handled bool)
+
+type TermipassSignBody struct {
+	TerminusName string `json:"terminusName"`
+	AuthTokenID  string `json:"authTokenID"`
+	AuthTokenMd5 string `json:"authTokenMd5"`
+}

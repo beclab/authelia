@@ -25,7 +25,12 @@ import (
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"github.com/google/uuid"
 	"k8s.io/klog/v2"
+)
+
+var (
+	AuthTokenSalt = uuid.NewString()
 )
 
 func TerminusApp2FACheck(

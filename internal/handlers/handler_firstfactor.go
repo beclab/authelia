@@ -219,7 +219,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			if bodyJSON.AcceptCookie != nil {
 				cookie = *bodyJSON.AcceptCookie
 			}
-			Handle1FAResponse(ctx, bodyJSON.TargetURL, bodyJSON.RequestMethod, &userSession, cookie)
+			requestTermiPass := false
+			if bodyJSON.RequestTermiPass != nil {
+				requestTermiPass = *bodyJSON.RequestTermiPass
+			}
+			Handle1FAResponse(ctx, bodyJSON.TargetURL, bodyJSON.RequestMethod, &userSession, cookie, requestTermiPass)
 		}
 	}
 }

@@ -1,13 +1,20 @@
 package handlers
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
+	"github.com/emicklei/go-restful/v3"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -24,6 +31,10 @@ type AccessTokenCookieInfo struct {
 	RefreshToken string
 	Username     string
 }
+
+var (
+	NM_URL = "notification-manager-svc.kubesphere-monitoring-system:19093"
+)
 
 func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookieInfo) {
 	if tokenInfo.AccessToken != "" {
@@ -56,11 +67,104 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 	}
 }
 
+func sendNotificationToTermipass(user, nonce, payload, message string) error {
+	namespace := "user-system-" + user
+	alert := Alert{
+		Labels: KV{
+			"namespace": namespace,
+			"type":      "notification",
+			"version":   "v1",
+			"payload":   payload,
+		},
+		Annotations: KV{
+			"message": message,
+		},
+	}
+
+	// Set the webhook receiver to notification server for kubeshpere notification manager
+	// and send the notification message to Notification Mananger
+	// Notification Mananger will pick the webhook receiver to send message
+	enableWebhook := true
+	notificationServiceUrl := fmt.Sprintf("http://notifications-service.%s/notification/system/push", strings.Replace(namespace, "user-system-", "user-space-", 1))
+	request := NotificationManagerRequest{
+		Alert: &struct {
+			Alerts Alerts `json:"alerts"`
+		}{
+			Alerts: Alerts{
+				alert,
+			},
+		},
+		Receiver: &Receiver{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "notification.kubesphere.io/v2beta2",
+				Kind:       "Receiver",
+			},
+
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "sys-receiver",
+				Labels: map[string]string{
+					"app":  "notification-manager",
+					"type": "global",
+				},
+			},
+
+			Spec: ReceiverSpec{
+				Webhook: &WebhookReceiver{
+					Enabled: &enableWebhook,
+					URL:     &notificationServiceUrl,
+					HTTPConfig: &HTTPClientConfig{
+						BasicAuth: &BasicAuth{
+							Username: "Terminus-Nonce",
+							Password: &Credential{
+								Value: nonce,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	data, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+
+	klog.Info("send alert to notification manager, ", string(data))
+
+	postUrl := fmt.Sprintf("http://%s/api/v2/notifications", NM_URL)
+	client := resty.New().SetTimeout(2 * time.Second)
+	res, err := client.R().
+		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
+		SetBody(data).
+		Post(postUrl)
+
+	if err != nil {
+		return err
+	}
+
+	klog.Info("send alert to notification manager, get response: ", string(res.Body()))
+
+	var nmResp NotificationManagerResponse
+	err = json.Unmarshal(res.Body(), &nmResp)
+	if err != nil {
+		return err
+	}
+
+	if nmResp.Status != http.StatusOK {
+		return errors.New(nmResp.Message)
+	}
+
+	return nil
+
+}
+
 // Handle1FAResponse handle the redirection upon 1FA authentication.
 func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	targetURI, requestMethod string,
 	session *sess.UserSession,
-	acceptCookie bool) {
+	acceptCookie bool,
+	requestTermiPass bool) {
 	var err error
 
 	sessionId := getSessionId(ctx)
@@ -81,6 +185,72 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 				return
 			}
 		} // update rule.
+
+		if requestTermiPass {
+			// send notification to termipass via notification-center
+			authorizer, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
+			if !ok {
+				ctx.Logger.Errorf("Authorizer invalid , %s", session.Username)
+
+				ctx.ReplyError(errors.New("unable to get nonce"), "Unable to get nonce")
+				return
+			}
+
+			nonce := authorizer.GetUserBackendNonce(session.Username)
+			if nonce == "" {
+				ctx.Logger.Errorf("Unable to get user terminuce nonce , %s", session.Username)
+
+				ctx.ReplyError(errors.New("unable to get nonce"), "Unable to get nonce")
+				return
+			}
+
+			type sign struct {
+				CallbackUrl string            `json:"callback_url"`
+				SignBody    TermipassSignBody `json:"sign_body"`
+			}
+
+			type vars struct {
+				TerminusName string `json:"terminusName"`
+			}
+
+			payload := `{"eventType": "system.second.verification"}`
+			zone := authorizer.GetUserZone(session.Username)
+			terminusName := session.Username + "@" + strings.Join(strings.Split(zone, ".")[1:], ".")
+			message := &struct {
+				ID   string `json:"id"`
+				Sign sign   `json:"sign"`
+				Vars vars   `json:"vars"`
+			}{
+				ID: time.Now().String(),
+				Sign: sign{
+					CallbackUrl: fmt.Sprintf("auth.%s/api/secondfactor/termipass", zone),
+					SignBody: TermipassSignBody{
+						TerminusName: terminusName,
+						AuthTokenID:  session.AccessToken,
+						AuthTokenMd5: md5(session.AccessToken + AuthTokenSalt),
+					},
+				},
+				Vars: vars{
+					TerminusName: terminusName,
+				},
+			}
+
+			messageData, err := json.Marshal(message)
+			if err != nil {
+				ctx.Logger.Errorf("Unable to parse notification message , %s", err)
+
+				ctx.ReplyError(err, "unable to parse notification message")
+				return
+
+			}
+
+			if err = sendNotificationToTermipass(session.Username, nonce, payload, string(messageData)); err != nil {
+				ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", session.Username)
+
+				ctx.ReplyError(err, "Unable to send notification")
+				return
+			}
+		}
 
 		if err = ctx.SetJSONBody(redirectResponse{
 			AccessToken:  session.AccessToken,

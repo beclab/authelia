@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -85,4 +87,10 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 	blockMode.CryptBlocks(origin, crypted)
 	origin = PKCS7UnPadding(origin)
 	return origin, nil
+}
+
+func md5(str string) string {
+	h := crypto.MD5.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
 }

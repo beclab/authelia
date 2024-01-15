@@ -78,6 +78,7 @@ type userAuthorizer struct {
 	LoginPortal string
 
 	UserTerminusNonce string
+	UserZone          string
 }
 
 func NewTsAuthorizer() Authorizer {
@@ -105,6 +106,24 @@ func NewTsAuthorizer() Authorizer {
 
 func (t *TsAuthorizer) Stop() {
 	close(t.exitCh)
+}
+
+func (t *TsAuthorizer) GetUserBackendNonce(user string) string {
+	a, ok := t.userAuthorizers[user]
+	if !ok {
+		return ""
+	}
+
+	return a.UserTerminusNonce
+}
+
+func (t *TsAuthorizer) GetUserZone(user string) string {
+	a, ok := t.userAuthorizers[user]
+	if !ok {
+		return ""
+	}
+
+	return a.UserZone
 }
 
 func (t *TsAuthorizer) IsSecondFactorEnabled() bool {
@@ -582,6 +601,7 @@ func (t *TsAuthorizer) reloadRules() {
 		}
 
 		userAuth.UserTerminusNonce = nonce
+		userAuth.UserZone = info.Zone
 
 		t.userAuthorizers[username] = userAuth
 
