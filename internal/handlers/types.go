@@ -179,4 +179,5 @@ type TermipassSignBody struct {
 	TerminusName string `json:"terminusName"`
 	AuthTokenID  string `json:"authTokenID"`
 	AuthTokenMd5 string `json:"authTokenMd5"`
+	TargetUrl    string `json:"targetUrl"`
 }

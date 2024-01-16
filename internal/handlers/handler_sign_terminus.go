@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -166,6 +167,15 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
+	var (
+		parsedURI *url.URL
+	)
+
+	if parsedURI, err = url.ParseRequestURI(bodyJSON.TargetUrl); err != nil {
+		ctx.Error(fmt.Errorf("failed to parse URI '%s': %w", bodyJSON.TargetUrl, err), messageMFAValidationFailed)
+		return
+	}
+
 	nameToken := strings.Split(bodyJSON.TerminusName, "@")
 	if len(nameToken) < 2 {
 		ctx.Logger.Errorf("invalid terminus name %s, %+v", bodyJSON.TerminusName, err)
@@ -215,6 +225,8 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 
 		return
 	}
+
+	updateSession2FaLevel(ctx, parsedURI, &userSession)
 
 	// ignore cookie from client
 	cookie := ctx.RequestCtx.Request.Header.Cookie(session.Config.Name)

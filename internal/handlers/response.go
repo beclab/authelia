@@ -228,6 +228,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 						TerminusName: terminusName,
 						AuthTokenID:  session.AccessToken,
 						AuthTokenMd5: md5(session.AccessToken + AuthTokenSalt),
+						TargetUrl:    targetURI,
 					},
 				},
 				Vars: vars{
