@@ -175,7 +175,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	token, err := verifyTermipassSiign(bodyJSON.JWS, nameToken[0])
+	token, err := verifyTermipassSign(bodyJSON.JWS, nameToken[0])
 	if err != nil {
 		ctx.Logger.Errorf("verify termipass sign error, %+v, %s", err, bodyJSON.JWS)
 
@@ -253,7 +253,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	ctx.ReplyOK()
 }
 
-func verifyTermipassSiign(jws string, name string) (token string, err error) {
+func verifyTermipassSign(jws string, name string) (token string, err error) {
 	httpClient := resty.New().SetTimeout(2 * time.Second)
 
 	type verify struct {
