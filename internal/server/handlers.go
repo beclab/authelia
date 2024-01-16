@@ -174,10 +174,10 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		WithPostMiddlewares(middlewares.Require1FA).
 		Build()
 
-	middleware2FA := middlewares.NewBridgeBuilder(*config, providers).
-		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
-		WithPostMiddlewares(middlewares.Require2FA).
-		Build()
+	// middleware2FA := middlewares.NewBridgeBuilder(*config, providers).
+	// 	WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
+	// 	WithPostMiddlewares(middlewares.Require2FA).
+	// 	Build()
 
 	middleware1FAAndBackend := middlewares.NewBridgeBuilder(*config, providers).
 		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
