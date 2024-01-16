@@ -306,7 +306,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 		r.POST("/api/secondfactor/terminus_pass", middleware1FA(handlers.TerminusPassPOST))
 	}
 
-	r.POST("/api/secondfactor/termipass", middleware2FA(handlers.TermipassSignPOST))
+	r.POST("/api/secondfactor/termipass", middleware1FA(handlers.TermipassSignPOST))
 
 	if config.Server.Endpoints.EnablePprof {
 		r.GET("/debug/pprof/{name?}", pprofhandler.PprofHandler)
