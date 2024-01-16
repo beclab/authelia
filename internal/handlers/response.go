@@ -223,7 +223,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			}{
 				ID: time.Now().String(),
 				Sign: sign{
-					CallbackUrl: fmt.Sprintf("auth.%s/api/secondfactor/termipass", zone),
+					CallbackUrl: fmt.Sprintf("https://auth.%s/api/secondfactor/termipass", zone),
 					SignBody: TermipassSignBody{
 						TerminusName: terminusName,
 						AuthTokenID:  session.AccessToken,
