@@ -314,7 +314,7 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 	}
 
 	checksum := md5(verifyRes.Data.Payload.AuthTokenID + AuthTokenSalt)
-	if checksum != verifyRes.Data.Payload.AuthTokenID {
+	if checksum != verifyRes.Data.Payload.AuthTokenMd5 {
 		return "", errors.New("invalid token in payload")
 	}
 
