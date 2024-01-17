@@ -303,7 +303,7 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 		return "", errors.New("invalid response")
 	}
 
-	klog.Infof("verify result: %+v", err)
+	klog.Infof("verify result: %+v", verifyRes)
 
 	if verifyRes.Code != 0 {
 		return "", errors.New(*verifyRes.Message)
