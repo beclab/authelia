@@ -15,7 +15,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -269,10 +268,10 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 	httpClient := resty.New().SetTimeout(2 * time.Second)
 
 	type verify struct {
-		Verify  bool   `json:"verify"`
-		Payload string `json:"payload"`
-		DID     string `json:"did"`
-		Name    string `json:"name"`
+		Verify  bool               `json:"verify"`
+		Payload *TermipassSignBody `json:"payload"`
+		DID     string             `json:"did"`
+		Name    string             `json:"name"`
 	}
 
 	type verifyResponse struct {
@@ -314,16 +313,10 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 		return "", errors.New("vault cannot verified")
 	}
 
-	var payload TermipassSignBody
-	err = json.Unmarshal([]byte(verifyRes.Data.Payload), &payload)
-	if err != nil {
-		return "", err
-	}
-
-	checksum := md5(payload.AuthTokenID + AuthTokenSalt)
-	if checksum != payload.AuthTokenID {
+	checksum := md5(verifyRes.Data.Payload.AuthTokenID + AuthTokenSalt)
+	if checksum != verifyRes.Data.Payload.AuthTokenID {
 		return "", errors.New("invalid token in payload")
 	}
 
-	return payload.AuthTokenID, nil
+	return verifyRes.Data.Payload.AuthTokenID, nil
 }
