@@ -469,6 +469,11 @@ func (ctx *AutheliaCtx) ReplyOK() {
 	ctx.SetBody(okMessageBytes)
 }
 
+func (ctx *AutheliaCtx) ReplyCode0() {
+	ctx.SetContentTypeApplicationJSON()
+	ctx.SetBody(code0MessageBytes)
+}
+
 // ParseBody parse the request body into the type of value.
 func (ctx *AutheliaCtx) ParseBody(value any) error {
 	err := json.Unmarshal(ctx.PostBody(), &value)

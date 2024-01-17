@@ -261,7 +261,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	ctx.ReplyOK()
+	ctx.ReplyCode0()
 }
 
 func verifyTermipassSign(jws string, name string) (token string, err error) {

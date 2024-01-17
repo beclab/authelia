@@ -109,6 +109,7 @@ const (
 )
 
 var okMessageBytes = []byte("{\"status\":\"OK\"}")
+var code0MessageBytes = []byte("{\"code\":0, \"message\":null, \"data\":null}")
 
 const (
 	messageOperationFailed                      = "Operation failed"
