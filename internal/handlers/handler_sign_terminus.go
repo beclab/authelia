@@ -275,6 +275,12 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 		Name    string `json:"name"`
 	}
 
+	type verifyResponse struct {
+		Code    int     `json:"code"`
+		Message *string `json:"message,omitempty"`
+		Data    *verify `json:"data,omitempty"`
+	}
+
 	url := fmt.Sprintf("http://vault-server:3010/verify/%s", name)
 	resp, err := httpClient.R().
 		SetBody(
@@ -282,7 +288,7 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 				JWS string `json:"jws"`
 			}{JWS: jws},
 		).
-		SetResult(&verify{}).
+		SetResult(&verifyResponse{}).
 		Post(url)
 
 	if err != nil {
@@ -293,17 +299,23 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 		return "", errors.New(string(resp.Body()))
 	}
 
-	verifyRes, ok := resp.Result().(*verify)
+	verifyRes, ok := resp.Result().(*verifyResponse)
 	if !ok {
 		return "", errors.New("invalid response")
 	}
 
-	if !verifyRes.Verify {
+	klog.Infof("verify result: %+v", err)
+
+	if verifyRes.Code != 0 {
+		return "", errors.New(*verifyRes.Message)
+	}
+
+	if verifyRes.Data == nil || !verifyRes.Data.Verify {
 		return "", errors.New("vault cannot verified")
 	}
 
 	var payload TermipassSignBody
-	err = json.Unmarshal([]byte(verifyRes.Payload), &payload)
+	err = json.Unmarshal([]byte(verifyRes.Data.Payload), &payload)
 	if err != nil {
 		return "", err
 	}
