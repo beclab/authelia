@@ -225,7 +225,11 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	updateSession2FaLevel(ctx, parsedURI, &userSession)
+	if err = updateSession2FaLevel(ctx, parsedURI, &userSession); err != nil {
+		respondUnauthorized(ctx, messageMFAValidationFailed)
+
+		return
+	}
 
 	// ignore cookie from client
 	cookie := ctx.RequestCtx.Request.Header.Cookie(session.Config.Name)
@@ -254,7 +258,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 
 	payload := `{"eventType": "system.cancel.sign"}`
 	message := `{"id": "` + bodyJSON.ID + `"}`
-	if err = sendNotificationToTermipass(userSession.Username, nonce, payload, message); err != nil {
+	if err = sendNotification(userSession.Username, nonce, payload, message); err != nil {
 		ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", userSession.Username)
 
 		ctx.ReplyError(err, "Unable to send notification")

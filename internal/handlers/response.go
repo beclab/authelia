@@ -67,7 +67,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 	}
 }
 
-func sendNotificationToTermipass(user, nonce, payload, message string) error {
+func sendNotification(user, nonce, payload, message string) error {
 	namespace := "user-system-" + user
 	alert := Alert{
 		Labels: KV{
@@ -213,6 +213,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 				TerminusName string `json:"terminusName"`
 			}
 
+			// send notification to termipass
 			payload := `{"eventType": "system.second.verification"}`
 			zone := authorizer.GetUserZone(session.Username)
 			terminusName := session.Username + "@" + strings.Join(strings.Split(zone, ".")[1:], ".")
@@ -245,7 +246,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 
 			}
 
-			if err = sendNotificationToTermipass(session.Username, nonce, payload, string(messageData)); err != nil {
+			if err = sendNotification(session.Username, nonce, payload, string(messageData)); err != nil {
 				ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", session.Username)
 
 				ctx.ReplyError(err, "Unable to send notification")
@@ -371,7 +372,10 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 			ctx.Error(fmt.Errorf("unable to determine if URI '%s' is safe to redirect to: failed to parse URI '%s': %w", ctx.Configuration.DefaultRedirectionURL, ctx.Configuration.DefaultRedirectionURL, err), messageMFAValidationFailed)
 			return
 		} else {
-			updateSession2FaLevel(ctx, parsedURI, session)
+			if err = updateSession2FaLevel(ctx, parsedURI, session); err != nil {
+				ctx.Error(err, messageMFAValidationFailed)
+				return
+			}
 		}
 
 		if err = ctx.SetJSONBody(redirectResponse{Redirect: ctx.Configuration.DefaultRedirectionURL}); err != nil {
@@ -397,7 +401,10 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 		return
 	}
 
-	updateSession2FaLevel(ctx, parsedURI, session)
+	if err = updateSession2FaLevel(ctx, parsedURI, session); err != nil {
+		ctx.Error(err, messageMFAValidationFailed)
+		return
+	}
 
 	safe = ctx.IsSafeRedirectionTargetURI(parsedURI)
 
@@ -608,7 +615,7 @@ func SetStatusCodeResponse(ctx *fasthttp.RequestCtx, statusCode int) {
 }
 
 // update resource auth level in session.
-func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, session *sess.UserSession) {
+func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, session *sess.UserSession) error {
 	getRule := func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule {
 		_, _, r := ctx.Providers.Authorizer.GetRequiredLevel(
 			subject,
@@ -622,7 +629,43 @@ func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, ses
 
 	if err := ctx.SaveSession(*session); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, session.Username, err)
+		return err
 	}
+
+	authorizer, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
+	if !ok {
+		ctx.Logger.Errorf("Authorizer invalid , %s", session.Username)
+		return nil
+	}
+
+	nonce := authorizer.GetUserBackendNonce(session.Username)
+	if nonce == "" {
+		ctx.Logger.Errorf("Unable to get user terminuce nonce , %s", session.Username)
+		return nil
+	}
+
+	payload := &struct {
+		Type string      `json:"eventType"`
+		Data interface{} `json:"eventData,omitempty"`
+	}{
+		Type: "user.login",
+		Data: map[string]interface{}{
+			"user": session.Username,
+		},
+	}
+
+	payloadStr, err := json.Marshal(payload)
+	if err != nil {
+		ctx.Logger.Errorf("parse user %s notification payload error, %+v", session.Username, err)
+		return nil
+	}
+
+	message := fmt.Sprintf("%s login from %s", session.Username, ctx.RemoteIP().String())
+	if err := sendNotification(session.Username, nonce, string(payloadStr), message); err != nil {
+		ctx.Logger.Errorf("send notification to user %s error, %+v", session.Username, err)
+	}
+
+	return nil
 }
 
 func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *url.URL,
