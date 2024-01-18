@@ -212,7 +212,7 @@ func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResu
 	}
 
 	cache := p.cache.Get(username)
-	if cache == nil {
+	if cache != nil {
 		password := cache.Value().pwd
 		p.cache.Set(username, UserCache{tokens.AccessToken, password}, TokenCacheTTL)
 	}
