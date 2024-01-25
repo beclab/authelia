@@ -55,12 +55,12 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 
 		ctx.Response.Header.SetCookie(cookie)
 
-		refreshCookie := &fasthttp.Cookie{}
-		refreshCookie.CopyTo(cookie)
-		refreshCookie.SetKey("auth_refresh_token")
-		refreshCookie.SetValue(tokenInfo.RefreshToken)
+		// refreshCookie := &fasthttp.Cookie{}
+		// refreshCookie.CopyTo(cookie)
+		// refreshCookie.SetKey("auth_refresh_token")
+		// refreshCookie.SetValue(tokenInfo.RefreshToken)
 
-		ctx.Response.Header.SetCookie(refreshCookie)
+		// ctx.Response.Header.SetCookie(refreshCookie)
 
 		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, tokenInfo.AccessToken)
 		ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, tokenInfo.RefreshToken)
