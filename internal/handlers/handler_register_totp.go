@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/valyala/fasthttp"
 
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/session"
+	"github.com/authelia/authelia/v4/internal/storage"
 )
 
 // identityRetrieverFromSession retriever computing the identity from the cookie session.
@@ -44,10 +47,9 @@ var TOTPIdentityStart = middlewares.IdentityVerificationStart(middlewares.Identi
 	IdentityRetrieverFunc: identityRetrieverFromSession,
 }, nil)
 
-func totpIdentityFinish(ctx *middlewares.AutheliaCtx, username string) {
+func totpIdentityFinish(ctx *middlewares.AutheliaCtx, username string) (err error) {
 	var (
 		config *model.TOTPConfiguration
-		err    error
 	)
 
 	if config, err = ctx.Providers.TOTP.Generate(username); err != nil {
@@ -69,6 +71,8 @@ func totpIdentityFinish(ctx *middlewares.AutheliaCtx, username string) {
 	}
 
 	ctxLogEvent(ctx, username, "Second Factor Method Added", map[string]any{"Action": "Second Factor Method Added", "Category": "Time-based One Time Password"})
+
+	return
 }
 
 // TOTPIdentityFinish the handler for finishing the identity validation.
@@ -76,10 +80,54 @@ var TOTPIdentityFinish = middlewares.IdentityVerificationFinish(
 	middlewares.IdentityVerificationFinishArgs{
 		ActionClaim:          ActionTOTPRegistration,
 		IsTokenUserValidFunc: isTokenUserValidFor2FARegistration,
-	}, totpIdentityFinish)
+	}, func(ctx *middlewares.AutheliaCtx, username string) { totpIdentityFinish(ctx, username) })
 
 // TOTP All in one register api.
 func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
+	var (
+		userSession session.UserSession
+		err         error
+	)
+
+	if userSession, err = ctx.GetSession(); err != nil {
+		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
+
+		// In that case we reply ok to avoid user enumeration.
+		ctx.Logger.Error(err)
+		ctx.ReplyOK()
+
+		return
+	}
+
+	var config *model.TOTPConfiguration
+
+	ctx.Providers.StorageProvider.BeginTX(ctx.RequestCtx)
+	defer func() {
+		if err != nil {
+			ctx.Providers.StorageProvider.Rollback(ctx.RequestCtx)
+		} else {
+			ctx.Providers.StorageProvider.Commit(ctx.RequestCtx)
+		}
+	}()
+
+	if config, err = ctx.Providers.StorageProvider.LoadTOTPConfiguration(ctx, userSession.Username); err != nil {
+		if !errors.Is(err, storage.ErrNoTOTPConfiguration) {
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+			ctx.SetJSONError("Could not find TOTP Configuration for user.")
+			ctx.Logger.Errorf("Failed to lookup TOTP configuration for user '%s' with unknown error: %v", userSession.Username, err)
+			return
+		}
+	}
+
+	if err == nil {
+		if err = ctx.SetJSONBody(config); err != nil {
+			ctx.Logger.Errorf("Unable to perform TOTP configuration response: %s", err)
+		}
+
+		ctx.SetStatusCode(fasthttp.StatusOK)
+		return
+	}
+
 	identity, err := identityRetrieverFromSession(ctx)
 	if err != nil {
 		// In that case we reply ok to avoid user enumeration.
@@ -112,5 +160,5 @@ func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	totpIdentityFinish(ctx, verification.Username)
+	err = totpIdentityFinish(ctx, verification.Username)
 }
