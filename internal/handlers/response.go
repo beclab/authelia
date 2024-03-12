@@ -702,7 +702,7 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 	}
 
 	if rule == nil {
-		ctx.Logger.Debugf("Get match rule froom session for the URL %s", parsedURI.String())
+		ctx.Logger.Debugf("Get match rule from session for the URL %s", parsedURI.String())
 
 		session.ResourceAuthenticationLevels = append(session.ResourceAuthenticationLevels,
 			&sess.ResourceAuthenticationLevel{

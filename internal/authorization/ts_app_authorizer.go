@@ -404,6 +404,39 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		}
 	}
 
+	// hardcode vault /server policy
+	if app.Spec.Name == "vault" {
+		if policy, ok := policies["vault"]; !ok {
+			policies["vault"] = &application.ApplicationSettingsPolicy{
+				DefaultPolicy: userAuth.appDefaultPolicy.String(),
+				SubPolicies: []*application.ApplicationSettingsSubPolicy{
+					{
+						URI:    "/server/*",
+						Policy: OneFactor.String(),
+					},
+				},
+				OneTime:  false,
+				Duration: -1,
+			}
+		} else {
+			found := false
+			for _, sp := range policy.SubPolicies {
+				if sp.URI == "/server/*" {
+					sp.Policy = OneFactor.String()
+					found = true
+				}
+			}
+
+			if !found {
+				policy.SubPolicies = append(policy.SubPolicies, &application.ApplicationSettingsSubPolicy{
+					URI:    "/server/*",
+					Policy: OneFactor.String(),
+				})
+			}
+		}
+
+	} // end if vault
+
 	customDomainData, customDomainExists := app.Spec.Settings[application.ApplicationSettingsCustomDomainKey]
 	customDomain := make(map[string]*application.ApplicationCustomDomain)
 	if customDomainExists {
@@ -540,7 +573,7 @@ func (t *TsAuthorizer) newUserAuthorizer(user string) *userAuthorizer {
 	return &userAuthorizer{
 		defaultPolicy:    Denied,
 		desktopPolicy:    TwoFactor,
-		appDefaultPolicy: OneFactor,
+		appDefaultPolicy: TwoFactor,
 	}
 }
 
