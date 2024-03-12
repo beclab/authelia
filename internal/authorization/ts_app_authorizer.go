@@ -168,14 +168,16 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	pathToken := strings.Split(object.Path, "/")
 
 	// FIXME:.
-	if govalidator.IsIP(object.Domain) && pathToken[len(pathToken)-1] == "task-state" {
-		return false, Bypass, nil
+	if govalidator.IsIP(object.Domain) {
+		switch {
+		case pathToken[len(pathToken)-1] == "task-state":
+			return false, OneFactor, nil
+		case len(object.String()) == 0:
+			return false, OneFactor, nil
+		default:
+			return false, TwoFactor, nil
+		}
 	}
-
-	// TESTING:.
-	// if strings.HasPrefix(object.Path, "/bfl/backend") {
-	// 	return false, Bypass, nil
-	// }
 
 	if ok {
 		return false, auth.defaultPolicy, nil
@@ -411,7 +413,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 				DefaultPolicy: userAuth.appDefaultPolicy.String(),
 				SubPolicies: []*application.ApplicationSettingsSubPolicy{
 					{
-						URI:    "/server/*",
+						URI:    "/server",
 						Policy: OneFactor.String(),
 					},
 				},
@@ -423,7 +425,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			policy.DefaultPolicy = userAuth.appDefaultPolicy.String()
 			found := false
 			for _, sp := range policy.SubPolicies {
-				if sp.URI == "/server/*" {
+				if sp.URI == "/server" {
 					sp.Policy = OneFactor.String()
 					found = true
 				}
@@ -431,7 +433,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 			if !found {
 				policy.SubPolicies = append(policy.SubPolicies, &application.ApplicationSettingsSubPolicy{
-					URI:    "/server/*",
+					URI:    "/server",
 					Policy: OneFactor.String(),
 				})
 			}
