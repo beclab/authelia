@@ -419,6 +419,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 				Duration: -1,
 			}
 		} else {
+			// FIXME:
+			policy.DefaultPolicy = userAuth.appDefaultPolicy.String()
 			found := false
 			for _, sp := range policy.SubPolicies {
 				if sp.URI == "/server/*" {
