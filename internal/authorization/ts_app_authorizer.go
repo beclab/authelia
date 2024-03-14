@@ -561,6 +561,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			Policy:        defaulPolicy,
 			OneTimeValid:  policy.OneTime,
 			ValidDuration: time.Duration(policy.Duration) * time.Second,
+			DefaultRule:   true,
 		}
 		ruleAddDomain(domains, ruleRoot)
 
