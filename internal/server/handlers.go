@@ -246,6 +246,7 @@ func handleRouter(config *schema.Configuration, providers middlewares.Providers)
 	r.POST("/api/logout", middlewareAPI(handlers.LogoutPOST))
 	r.POST("/api/refresh", middlewareAPI(handlers.RefreshSessionAndTokenPOST))
 	r.POST("/api/validate", middlewareAPI(handlers.ValidatePOST))
+	r.POST("/api/revoke-token", middlewareAPI(handlers.RevokeTokenPOST))
 
 	// Only register endpoints if forgot password is not disabled.
 	if !config.AuthenticationBackend.PasswordReset.Disable &&
