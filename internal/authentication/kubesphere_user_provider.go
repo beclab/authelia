@@ -77,6 +77,12 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 	responseData := resp.Result().(*utils.Response)
 
 	if responseData.Code != 0 {
+		switch responseData.Code {
+		case http.StatusBadRequest:
+			return false, nil, ErrInvalidUserPwd
+		case http.StatusTooManyRequests:
+			return false, nil, ErrTooManyRetries
+		}
 		return false, nil, errors.New(responseData.Message)
 	}
 
@@ -202,6 +208,13 @@ func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResu
 	responseData := resp.Result().(*utils.Response)
 
 	if responseData.Code != 0 {
+		switch responseData.Code {
+		case http.StatusBadRequest:
+			return nil, ErrInvalidToken
+		case http.StatusTooManyRequests:
+			return nil, ErrTooManyRetries
+		}
+
 		return nil, errors.New(responseData.Message)
 	}
 

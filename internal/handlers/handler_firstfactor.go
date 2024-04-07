@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -41,7 +42,8 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			if errors.Is(err, regulation.ErrUserIsBanned) {
 				_ = markAuthenticationAttempt(ctx, false, &bannedUntil, bodyJSON.Username, regulation.AuthType1FA, nil)
 
-				respondUnauthorized(ctx, messageAuthenticationFailed)
+				ctx.SetStatusCode(http.StatusTooManyRequests)
+				ctx.SetJSONError(authentication.ErrTooManyRetries.Error())
 
 				return
 			}
@@ -78,7 +80,16 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err != nil {
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			switch err {
+			case authentication.ErrInvalidUserPwd, authentication.ErrInvalidToken:
+				ctx.SetStatusCode(http.StatusBadRequest)
+				ctx.SetJSONError(err.Error())
+			case authentication.ErrTooManyRetries:
+				ctx.SetStatusCode(http.StatusTooManyRequests)
+				ctx.SetJSONError(err.Error())
+			default:
+				respondUnauthorized(ctx, messageAuthenticationFailed)
+			}
 
 			return
 		}

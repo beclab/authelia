@@ -15,6 +15,9 @@
 package handlers
 
 import (
+	"net/http"
+
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
 )
@@ -54,7 +57,16 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 
 	validRes, err := ctx.Providers.UserProvider.Refresh(userSession.Username, bodyJSON.RefreshToken)
 	if err != nil {
-		respondUnauthorized(ctx, messageAuthenticationFailed)
+		switch err {
+		case authentication.ErrInvalidUserPwd, authentication.ErrInvalidToken:
+			ctx.SetStatusCode(http.StatusBadRequest)
+			ctx.SetJSONError(err.Error())
+		case authentication.ErrTooManyRetries:
+			ctx.SetStatusCode(http.StatusTooManyRequests)
+			ctx.SetJSONError(err.Error())
+		default:
+			respondUnauthorized(ctx, messageAuthenticationFailed)
+		}
 
 		return
 	}

@@ -1,6 +1,8 @@
 package authentication
 
 import (
+	"errors"
+
 	"github.com/authelia/authelia/v4/internal/model"
 )
 
@@ -8,6 +10,12 @@ type ValidResult struct {
 	AccessToken  string
 	RefreshToken string
 }
+
+var (
+	ErrInvalidUserPwd = errors.New("invalid username / password")
+	ErrInvalidToken   = errors.New("invalid refresh token")
+	ErrTooManyRetries = errors.New("too many failed login attempts, retry again later after 5 minutes")
+)
 
 // UserProvider is the interface for checking user password and
 // gathering user details.
