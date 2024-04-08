@@ -603,6 +603,11 @@ func respondUnauthorized(ctx *middlewares.AutheliaCtx, message string) {
 	ctx.SetJSONError(message)
 }
 
+func respondInvalidToken(ctx *middlewares.AutheliaCtx) {
+	ctx.SetStatusCode(fasthttp.StatusBadRequest)
+	ctx.SetJSONError(authentication.ErrInvalidToken.Error())
+}
+
 // SetStatusCodeResponse writes a response status code and an appropriate body on either a
 // *fasthttp.RequestCtx or *middlewares.AutheliaCtx.
 func SetStatusCodeResponse(ctx *fasthttp.RequestCtx, statusCode int) {

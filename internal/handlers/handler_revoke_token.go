@@ -44,7 +44,7 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 	if userSession, err = ctx.GetSession(); err != nil {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
-		respondUnauthorized(ctx, messageMFAValidationFailed)
+		respondInvalidToken(ctx)
 
 		return
 	}

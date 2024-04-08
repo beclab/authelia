@@ -41,7 +41,7 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 	if userSession, err = ctx.GetSession(); err != nil {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
-		respondUnauthorized(ctx, messageMFAValidationFailed)
+		respondInvalidToken(ctx)
 
 		return
 	}
@@ -50,7 +50,7 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 		msg := "Invalid refresh token"
 		ctx.Logger.WithError(err).Error(msg)
 
-		respondUnauthorized(ctx, msg)
+		respondInvalidToken(ctx)
 
 		return
 	}
