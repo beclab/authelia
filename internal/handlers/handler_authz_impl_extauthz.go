@@ -6,6 +6,7 @@ import (
 
 	"github.com/valyala/fasthttp"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 )
@@ -57,7 +58,11 @@ func handleAuthzUnauthorizedExtAuthz(ctx *middlewares.AutheliaCtx, authn *Authn,
 	switch string(mode) {
 	case NonRedirectMode:
 		ctx.Logger.Infof("[ext_authz] Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
-		ctx.ReplyUnauthorized()
+		if authn.Level == authentication.NotAuthenticated {
+			ctx.ReplyBadRequest()
+		} else {
+			ctx.ReplyUnauthorized()
+		}
 	default:
 		ctx.SpecialRedirect(redirectionURL.String(), statusCode)
 	}
