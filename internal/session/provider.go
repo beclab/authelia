@@ -254,7 +254,7 @@ func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
 			}
 
 			info := &SessionTokenInfo{
-				Token:                 token[1],
+				Token:                 us.AccessToken,
 				Username:              us.Username,
 				AuthLevel:             us.AuthenticationLevel.String(),
 				FirstFactorTimestamp:  us.FirstFactorAuthnTimestamp,
