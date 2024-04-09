@@ -645,7 +645,12 @@ func (ctx *AutheliaCtx) AcceptsMIME(mime string) (acceptsMime bool) {
 // SpecialRedirect performs a redirect similar to fasthttp.RequestCtx except it allows statusCode 401 and includes body
 // content in the form of a link to the location.
 func (ctx *AutheliaCtx) SpecialRedirect(uri string, statusCode int) {
-	if statusCode < fasthttp.StatusMovedPermanently || (statusCode > fasthttp.StatusSeeOther && statusCode != fasthttp.StatusTemporaryRedirect && statusCode != fasthttp.StatusPermanentRedirect && statusCode != fasthttp.StatusUnauthorized) {
+	if statusCode < fasthttp.StatusMovedPermanently ||
+		(statusCode > fasthttp.StatusSeeOther &&
+			statusCode != fasthttp.StatusTemporaryRedirect &&
+			statusCode != fasthttp.StatusPermanentRedirect &&
+			statusCode != fasthttp.StatusUnauthorized &&
+			statusCode != fasthttp.StatusBadRequest) {
 		statusCode = fasthttp.StatusFound
 	}
 

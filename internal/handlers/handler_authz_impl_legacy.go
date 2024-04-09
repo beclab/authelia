@@ -110,7 +110,11 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 				redirectionURL.RawQuery = qry.Encode()
 			}
 
-			ctx.SpecialRedirect(redirectionURL.String(), statusCode)
+			if authn.Level == authentication.NotAuthenticated {
+				ctx.SpecialRedirect(redirectionURL.String(), fasthttp.StatusBadRequest)
+			} else {
+				ctx.SpecialRedirect(redirectionURL.String(), statusCode)
+			}
 		}
 	} else {
 		ctx.Logger.Infof("[legacy] Access to %s (method %s) is not authorized to user %s, responding with status code %d", authn.Object.URL.String(), authn.Method, authn.Username, statusCode)
