@@ -110,7 +110,7 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 				redirectionURL.RawQuery = qry.Encode()
 			}
 
-			if authn.Level == authentication.NotAuthenticated {
+			if authn.Level == authentication.NotAuthenticated && statusCode == fasthttp.StatusUnauthorized {
 				ctx.SpecialRedirect(redirectionURL.String(), fasthttp.StatusBadRequest)
 			} else {
 				ctx.SpecialRedirect(redirectionURL.String(), statusCode)
