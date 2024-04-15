@@ -51,6 +51,6 @@ jobs:
               uses: docker/build-push-action@v3
               with:
                   push: true
-                  tags: bytetrade/auth:${{ github.event.inputs.tags }}
+                  tags: beclab/auth:${{ github.event.inputs.tags }}
                   file: Dockerfile.dev
 
