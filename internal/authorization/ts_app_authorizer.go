@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -786,5 +787,25 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		return ""
 	}
 
-	return userAuth.LoginPortal
+	uri := ctx.Request.URI()
+	host := string(uri.Host())
+	hostToken := strings.Split(host, ".")
+
+	loginPortal := userAuth.LoginPortal
+
+	// local domain
+	if hostToken[1] == "local" {
+		loginUri, err := url.ParseRequestURI(loginPortal)
+		if err != nil {
+			klog.Error("parse loginUri error, ", err, ", ", loginPortal)
+			return loginPortal
+		}
+
+		loginToken := strings.Split(loginUri.Host, ".")
+		loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
+
+		loginPortal = loginUri.String()
+	}
+
+	return loginPortal
 }
