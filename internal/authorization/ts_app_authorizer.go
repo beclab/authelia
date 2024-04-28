@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -596,6 +595,7 @@ func (t *TsAuthorizer) reloadRules() {
 	// FIXME: check the user's role
 	AdminUser = users[0].GetName()
 
+	tmpUserCustomDomain = make(map[string]map[string]string)
 	for _, user := range users {
 		username := user.GetName()
 
@@ -606,7 +606,6 @@ func (t *TsAuthorizer) reloadRules() {
 		}
 
 		userAuth := t.newUserAuthorizer(username)
-		tmpUserCustomDomain = make(map[string]map[string]string)
 
 		userAuth.userIsIniting = info.Zone == ""
 		userAuth.initialized = true
@@ -642,9 +641,9 @@ func (t *TsAuthorizer) reloadRules() {
 
 		t.userAuthorizers[username] = userAuth
 
-		UserCustomDomain = tmpUserCustomDomain
 	}
 
+	UserCustomDomain = tmpUserCustomDomain
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {
@@ -787,25 +786,26 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		return ""
 	}
 
-	uri := ctx.Request.URI()
-	host := string(uri.Host())
-	hostToken := strings.Split(host, ".")
+	// TODO: redirect by frontend
+	// uri := ctx.Request.URI()
+	// host := string(uri.Host())
+	// hostToken := strings.Split(host, ".")
 
-	loginPortal := userAuth.LoginPortal
+	// loginPortal := userAuth.LoginPortal
 
-	// local domain
-	if hostToken[1] == "local" {
-		loginUri, err := url.ParseRequestURI(loginPortal)
-		if err != nil {
-			klog.Error("parse loginUri error, ", err, ", ", loginPortal)
-			return loginPortal
-		}
+	// // local domain
+	// if hostToken[1] == "local" {
+	// 	loginUri, err := url.ParseRequestURI(loginPortal)
+	// 	if err != nil {
+	// 		klog.Error("parse loginUri error, ", err, ", ", loginPortal)
+	// 		return loginPortal
+	// 	}
 
-		loginToken := strings.Split(loginUri.Host, ".")
-		loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
+	// 	loginToken := strings.Split(loginUri.Host, ".")
+	// 	loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
 
-		loginPortal = loginUri.String()
-	}
+	// 	loginPortal = loginUri.String()
+	// }
 
-	return loginPortal
+	return userAuth.LoginPortal
 }
