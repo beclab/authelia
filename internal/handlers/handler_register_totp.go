@@ -120,7 +120,12 @@ func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
 	}
 
 	if err == nil {
-		if err = ctx.SetJSONBody(config); err != nil {
+		response := TOTPKeyResponse{
+			OTPAuthURL:   config.URI(),
+			Base32Secret: string(config.Secret),
+		}
+
+		if err = ctx.SetJSONBody(response); err != nil {
 			ctx.Logger.Errorf("Unable to perform TOTP configuration response: %s", err)
 		}
 
