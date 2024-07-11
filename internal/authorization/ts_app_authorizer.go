@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	conf_schema "github.com/authelia/authelia/v4/internal/configuration/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -64,6 +65,9 @@ type TsAuthorizer struct {
 	exitCh     chan struct{}
 
 	userAuthorizers map[string]*userAuthorizer
+
+	updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)
+	oidcConfig        *conf_schema.OpenIDConnectConfiguration
 }
 
 type userAuthorizer struct {
@@ -81,7 +85,7 @@ type userAuthorizer struct {
 	UserZone          string
 }
 
-func NewTsAuthorizer() Authorizer {
+func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)) Authorizer {
 	kubeconfig := ctrl.GetConfigOrDie()
 	k8sClient, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
 
@@ -90,12 +94,14 @@ func NewTsAuthorizer() Authorizer {
 	}
 
 	authorizer := &TsAuthorizer{
-		kubeConfig:      kubeconfig,
-		client:          k8sClient,
-		httpClient:      resty.New().SetTimeout(2 * time.Second),
-		log:             logging.Logger(),
-		exitCh:          make(chan struct{}),
-		userAuthorizers: make(map[string]*userAuthorizer),
+		kubeConfig:        kubeconfig,
+		client:            k8sClient,
+		httpClient:        resty.New().SetTimeout(2 * time.Second),
+		log:               logging.Logger(),
+		exitCh:            make(chan struct{}),
+		userAuthorizers:   make(map[string]*userAuthorizer),
+		updateOIDCClients: updateOIDCClients,
+		oidcConfig:        &conf_schema.DefaultOpenIDConnectConfiguration,
 	}
 
 	authorizer.reloadRules()
@@ -572,7 +578,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 	return rules, nil
 }
 
-func (t *TsAuthorizer) newUserAuthorizer(user string) *userAuthorizer {
+func (t *TsAuthorizer) newUserAuthorizer(_ string) *userAuthorizer {
 	return &userAuthorizer{
 		defaultPolicy:    Denied,
 		desktopPolicy:    TwoFactor,
@@ -643,6 +649,10 @@ func (t *TsAuthorizer) reloadRules() {
 
 	}
 
+	if err = t.getOIDCClients(); err != nil {
+		klog.Error("get oidc clients error, ", err)
+	}
+
 	UserCustomDomain = tmpUserCustomDomain
 }
 
@@ -660,7 +670,7 @@ func (t *TsAuthorizer) autoRefreshRules() {
 	}
 }
 
-func (t *TsAuthorizer) getUserAccessPolicy(ctx context.Context, userData *unstructured.Unstructured) (string, error) {
+func (t *TsAuthorizer) getUserAccessPolicy(_ context.Context, userData *unstructured.Unstructured) (string, error) {
 	policy, ok := userData.GetAnnotations()[UserLauncherAuthPolicy]
 
 	if !ok {
@@ -705,21 +715,22 @@ func (t *TsAuthorizer) listUserData(ctx context.Context) ([]unstructured.Unstruc
 // 	}
 
 //		return zone, nil
-//	}.
-func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
-	var ret []regexp.Regexp
+//	}
 
-	for _, r := range res {
-		e, err := regexp.Compile(r)
-		if err != nil {
-			t.log.Error("resource compile error: ", err)
-		} else {
-			ret = append(ret, *e)
-		}
-	}
+// func (t *TsAuthorizer) getResourceExps(res []string) []regexp.Regexp {
+// 	var ret []regexp.Regexp
 
-	return ret
-}
+// 	for _, r := range res {
+// 		e, err := regexp.Compile(r)
+// 		if err != nil {
+// 			t.log.Error("resource compile error: ", err)
+// 		} else {
+// 			ret = append(ret, *e)
+// 		}
+// 	}
+
+// 	return ret
+// }
 
 func (t *TsAuthorizer) getNonce(user string) (string, error) {
 	nonceUrl := fmt.Sprintf("http://%s.user-system-%s/permission/v1alpha1/nonce", utils.SYSTEM_SERVER_NAME, user)
@@ -808,4 +819,81 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 	// }
 
 	return userAuth.LoginPortal
+}
+
+// clients config example
+// ## The other portions of the mandatory OpenID Connect 1.0 configuration go here.
+// ## See: https://www.authelia.com/c/oidc
+// clients:
+//   - client_id: 'Express.js'
+//     client_name: 'Express.js App'
+//     client_secret: '$pbkdf2-sha512$310000$c8p78n7pUMln0jzvd4aK4Q$JNRBzwAo0ek5qKn50cFzzvE9RXV88h1wJn5KGiHrD0YKtZaR/nCb2CJPOsKaPK0hjf.9yHxzQGZziziccp6Yng'  # The digest of 'insecure_secret'.
+//     public: false
+//     authorization_policy: 'two_factor'
+//     require_pkce: true
+//     require_pushed_authorization_requests: true
+//     redirect_uris:
+//   - 'https://express.example.com/callback'
+//     scopes:
+//   - 'openid'
+//   - 'profile'
+//   - 'email'
+//   - 'groups'
+//     userinfo_signed_response_alg: 'none'
+//     token_endpoint_auth_method: 'client_secret_basic'
+func (t *TsAuthorizer) getOIDCClients() error {
+	var clients []conf_schema.OpenIDConnectClientConfiguration
+
+	var appList application.ApplicationList
+	if err := t.client.List(context.Background(), &appList, client.InNamespace("")); err != nil {
+		return err
+	}
+
+	for _, app := range appList.Items {
+		conf := conf_schema.OpenIDConnectClientConfiguration{
+			Public:                   false,
+			Policy:                   "two_factor",
+			EnforcePKCE:              false,
+			Scopes:                   []string{"openid", "profile", "email", "groups"},
+			UserinfoSigningAlgorithm: "none",
+			ConsentMode:              "implicit",
+			GrantTypes:               []string{"refresh_token", "authorization_code"},
+			ResponseTypes:            []string{"code"},
+			ResponseModes:            []string{"form_post", "query", "fragment"},
+		}
+
+		var (
+			ok bool
+		)
+
+		if conf.ID, ok = app.Spec.Settings["oidc.client.id"]; !ok {
+			// klog.Errorf("%s oidc client id not found", app.Name)
+			continue
+		}
+
+		if secret, ok := app.Spec.Settings["oidc.client.secret"]; !ok {
+			klog.Errorf("%s oidc client secret not found", app.Name)
+			continue
+		} else {
+			var err error
+			conf.Secret, err = conf_schema.DecodePasswordDigest(secret)
+			if err != nil {
+				klog.Error("decode secret error, ", err, ", ", app.Name)
+				continue
+			}
+		}
+
+		if redirect_uri, ok := app.Spec.Settings["oidc.client.redirect_uri"]; !ok {
+			klog.Errorf("%s oidc client redirect uri not found", app.Name)
+			continue
+		} else {
+			conf.RedirectURIs = []string{redirect_uri}
+		}
+
+		clients = append(clients, conf)
+	}
+
+	t.oidcConfig.Clients = clients
+	t.updateOIDCClients(t.oidcConfig)
+	return nil
 }

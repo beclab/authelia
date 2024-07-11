@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
@@ -133,12 +134,22 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 		return warns, errs
 	}
 
+	var err error
+
 	ctx.providers.StorageProvider = getStorageProvider(ctx)
+	if ctx.providers.OpenIDConnect, err = oidc.NewOpenIDConnectProvider(ctx.config.IdentityProviders.OIDC, ctx.providers.StorageProvider, ctx.providers.Templates); err != nil {
+		errs = append(errs, err)
+	}
 
 	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
 		ctx.providers.Authorizer = authorization.NewFileAuthorizer(ctx.config)
 	} else {
-		ctx.providers.Authorizer = authorization.NewTsAuthorizer()
+		ctx.providers.Authorizer = authorization.NewTsAuthorizer(func(config *schema.OpenIDConnectConfiguration) {
+			ctx.config.IdentityProviders.OIDC.Clients = config.Clients
+			if ctx.providers.OpenIDConnect, err = oidc.NewOpenIDConnectProvider(ctx.config.IdentityProviders.OIDC, ctx.providers.StorageProvider, ctx.providers.Templates); err != nil {
+				klog.Error("update oidc provider error, ", err)
+			}
+		})
 	}
 
 	ctx.providers.NTP = ntp.NewProvider(&ctx.config.NTP)
@@ -146,8 +157,6 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 	ctx.providers.Regulator = regulation.NewRegulator(ctx.config.Regulation, ctx.providers.StorageProvider, utils.RealClock{})
 	ctx.providers.SessionProvider = session.NewProvider(ctx.config.Session, ctx.trusted)
 	ctx.providers.TOTP = totp.NewTimeBasedProvider(ctx.config.TOTP)
-
-	var err error
 
 	switch {
 	case ctx.config.AuthenticationBackend.File != nil:
@@ -167,10 +176,6 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 		ctx.providers.Notifier = notification.NewSMTPNotifier(ctx.config.Notifier.SMTP, ctx.trusted)
 	case ctx.config.Notifier.FileSystem != nil:
 		ctx.providers.Notifier = notification.NewFileNotifier(*ctx.config.Notifier.FileSystem)
-	}
-
-	if ctx.providers.OpenIDConnect, err = oidc.NewOpenIDConnectProvider(ctx.config.IdentityProviders.OIDC, ctx.providers.StorageProvider, ctx.providers.Templates); err != nil {
-		errs = append(errs, err)
 	}
 
 	if ctx.config.Telemetry.Metrics.Enabled {
