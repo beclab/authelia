@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/authelia/authelia/v4/internal/authorization"
+	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/configuration/validator"
 )
 
@@ -65,7 +66,7 @@ func (ctx *CmdCtx) AccessControlCheckRunE(cmd *cobra.Command, _ []string) (err e
 	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
 		authorizer = authorization.NewFileAuthorizer(ctx.config)
 	} else {
-		authorizer = authorization.NewTsAuthorizer()
+		authorizer = authorization.NewTsAuthorizer(func(config *schema.OpenIDConnectConfiguration) {})
 		defer (authorizer.(*authorization.TsAuthorizer)).Stop()
 	}
 
