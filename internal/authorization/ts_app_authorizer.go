@@ -36,7 +36,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -174,7 +173,7 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	pathToken := strings.Split(object.Path, "/")
 
 	// FIXME:.
-	if govalidator.IsIP(object.Domain) {
+	if utils.IsIP(object.Domain) {
 		switch {
 		case pathToken[len(pathToken)-1] == "task-state":
 			return false, OneFactor, nil

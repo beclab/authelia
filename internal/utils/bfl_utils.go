@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-resty/resty/v2"
 )
@@ -45,4 +46,8 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 	}
 
 	return responseData.Data.(*UserInfo), nil
+}
+
+func IsIP(host string) bool {
+	return govalidator.IsIP(host) || host == "localhost"
 }

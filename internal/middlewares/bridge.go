@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/go-resty/resty/v2"
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
@@ -70,7 +69,7 @@ func (b *BridgeBuilder) Build() Bridge {
 
 				host := string(requestCtx.Host())
 				host = strings.Split(host, ":")[0]
-				if govalidator.IsIP(host) && authorization.AdminUser != "" {
+				if utils.IsIP(host) && authorization.AdminUser != "" {
 					// only admin user will access the os via ip and port
 					user = []byte(authorization.AdminUser)
 					klog.Info("set the default admin user, ", authorization.AdminUser)
