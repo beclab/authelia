@@ -73,7 +73,7 @@ type BridgeBuilder struct {
 	httpClient *resty.Client
 
 	config          schema.Configuration
-	providers       Providers
+	providers       *Providers
 	preMiddlewares  []Middleware
 	postMiddlewares []AutheliaMiddleware
 }

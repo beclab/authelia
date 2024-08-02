@@ -77,6 +77,13 @@ func (s *Store) GetClientPolicy(id string) (level authorization.Level) {
 
 // GetFullClient returns a fosite.Client asserted as an Client matching the provided id.
 func (s *Store) GetFullClient(id string) (client *Client, err error) {
+	// logger := logging.Logger()
+
+	// keys := []string{}
+	// for k := range s.clients {
+	// 	keys = append(keys, k)
+	// }
+	// logger.Debugf("find client %s in store with clients %s", id, strings.Join(keys, " | "))
 	client, ok := s.clients[id]
 	if !ok {
 		return nil, fosite.ErrNotFound

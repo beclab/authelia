@@ -133,7 +133,7 @@ func TestShouldCallNextWithAutheliaCtx(t *testing.T) {
 	}
 	nextCalled := false
 
-	middleware := middlewares.NewBridgeBuilder(configuration, providers).Build()
+	middleware := middlewares.NewBridgeBuilder(configuration, &providers).Build()
 
 	middleware(func(actx *middlewares.AutheliaCtx) {
 		// Authelia context wraps the request.

@@ -38,7 +38,7 @@ func NewCmdCtx() *CmdCtx {
 	return &CmdCtx{
 		Context: ctx,
 		log:     logging.Logger(),
-		providers: middlewares.Providers{
+		providers: &middlewares.Providers{
 			Random: &random.Cryptographical{},
 		},
 		config: &schema.Configuration{},
@@ -52,7 +52,7 @@ type CmdCtx struct {
 	log *logrus.Logger
 
 	config    *schema.Configuration
-	providers middlewares.Providers
+	providers *middlewares.Providers
 	trusted   *x509.CertPool
 
 	cconfig *CmdCtxConfig

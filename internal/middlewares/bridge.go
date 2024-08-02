@@ -16,7 +16,7 @@ import (
 )
 
 // NewBridgeBuilder creates a new BridgeBuilder.
-func NewBridgeBuilder(config schema.Configuration, providers Providers) *BridgeBuilder {
+func NewBridgeBuilder(config schema.Configuration, providers *Providers) *BridgeBuilder {
 	b := &BridgeBuilder{
 		config:     config,
 		providers:  providers,
@@ -34,7 +34,7 @@ func (b *BridgeBuilder) WithConfig(config schema.Configuration) *BridgeBuilder {
 }
 
 // WithProviders sets the Providers used with this BridgeBuilder.
-func (b *BridgeBuilder) WithProviders(providers Providers) *BridgeBuilder {
+func (b *BridgeBuilder) WithProviders(providers *Providers) *BridgeBuilder {
 	b.providers = providers
 
 	return b
@@ -157,7 +157,7 @@ func (b *BridgeBuilder) Build() Bridge {
 			b.providers.SessionProvider.Config = b.config.Session
 			b.config.DefaultRedirectionURL = string(requestCtx.URI().Scheme()) + "://" + domain + "/"
 			requestCtx.SetUserValueBytes(authorization.TerminusUserHeader, user)
-			ctx := NewAutheliaCtx(requestCtx, b.config, b.providers)
+			ctx := NewAutheliaCtx(requestCtx, b.config, *b.providers)
 			next(ctx)
 		}
 

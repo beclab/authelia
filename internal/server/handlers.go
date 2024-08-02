@@ -100,7 +100,7 @@ func handleMethodNotAllowed(ctx *fasthttp.RequestCtx) {
 }
 
 //nolint:gocyclo
-func handleRouter(config *schema.Configuration, providers middlewares.Providers) fasthttp.RequestHandler {
+func handleRouter(config *schema.Configuration, providers *middlewares.Providers) fasthttp.RequestHandler {
 	log := logging.Logger()
 
 	optsTemplatedFile := NewTemplatedFileOptions(config)
