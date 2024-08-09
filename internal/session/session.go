@@ -78,6 +78,10 @@ func (p *Session) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSession)
 	}
 
 	store.Set(userSessionStorerKey, userSessionJSON)
+	// anonymous session default expiration 5 minutes
+	if userSession.Username == "" {
+		store.SetExpiration(5 * time.Minute)
+	}
 
 	if err = p.sessionHolder.Save(ctx, store); err != nil {
 		return err

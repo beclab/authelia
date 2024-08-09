@@ -302,7 +302,7 @@ func (p *Provider) reloadTokenToCache() {
 		klog.Error("connect to kubesphere token cache error, ", err)
 	}
 
-	for sid, data := range dataList {
+	for key, data := range dataList {
 		var sess session.Dict
 		err := serializer.Decode(&sess, data)
 
@@ -328,10 +328,15 @@ func (p *Provider) reloadTokenToCache() {
 
 			return false
 		}(); !ok {
-			klog.Info("ignore unknown user, ", us.Username)
+			klog.Info("clear unknown user, ", us.Username)
+			err := p.reloadLister.Destroy(context.Background(), key)
+			if err != nil {
+				klog.Error("destroy session error, ", err)
+			}
 			continue
 		}
 
+		sid := p.reloadLister.GetSessionIDFromKey(key)
 		token := us.AccessToken
 		domain := us.CookieDomain
 

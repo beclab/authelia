@@ -136,11 +136,6 @@ func (l *Lister) List() (map[string][]byte, error) {
 	list := make(map[string][]byte)
 
 	for _, k := range reply {
-		sessionId := l.getSessionIDFromKey(k)
-
-		if k == "" {
-			continue
-		}
 
 		item, err := l.db.Get(context.Background(), k).Bytes()
 
@@ -148,7 +143,7 @@ func (l *Lister) List() (map[string][]byte, error) {
 			return nil, err
 		}
 
-		list[sessionId] = item
+		list[k] = item
 	}
 
 	return list, nil
@@ -167,7 +162,7 @@ func (l *Lister) getRedisSessionKey(sessionID []byte) string {
 	return keyStr
 }
 
-func (l *Lister) getSessionIDFromKey(key string) string {
+func (l *Lister) GetSessionIDFromKey(key string) string {
 	prefixLen := len(l.keyPrefix) + 1 // prefix + ":".
 
 	if len(key) > prefixLen {
@@ -175,4 +170,9 @@ func (l *Lister) getSessionIDFromKey(key string) string {
 	}
 
 	return ""
+}
+
+func (l *Lister) Destroy(ctx context.Context, key string) error {
+	_, err := l.db.Del(ctx, key).Result()
+	return err
 }
