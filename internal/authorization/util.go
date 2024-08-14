@@ -24,6 +24,8 @@ func NewLevel(policy string) Level {
 		return TwoFactor
 	case deny:
 		return Denied
+	case system:
+		return System
 	}
 	// By default the deny policy applies.
 	return Denied

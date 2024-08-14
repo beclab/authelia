@@ -346,6 +346,9 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 		userAuth.desktopPolicy = NewLevel(policy)
 	}
 
+	// apps follow system level
+	userAuth.appDefaultPolicy = userAuth.defaultPolicy
+
 	position := len(rules)
 
 	// if !userAuth.userIsIniting {
@@ -513,6 +516,15 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			continue
 		}
 
+		getLevel := func(policy string) Level {
+			switch policy {
+			case system:
+				return userAuth.appDefaultPolicy
+			default:
+				return NewLevel(policy)
+			}
+		}
+
 		if policy.SubPolicies != nil {
 			for _, sp := range policy.SubPolicies {
 				// t.log.Debugf("add app %s rules %s on resource %s", app.Spec.Name, sp.Policy, sp.URI)
@@ -527,7 +539,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 				rule := &AccessControlRule{
 					Position:      position,
-					Policy:        NewLevel(sp.Policy),
+					Policy:        getLevel(sp.Policy),
 					OneTimeValid:  sp.OneTime,
 					ValidDuration: time.Duration(sp.Duration) * time.Second,
 				}
@@ -545,7 +557,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		othersResources := []regexp.Regexp{*othersExp}
 
 		if entrance.AuthLevel != "public" {
-			defaulPolicy = NewLevel(policy.DefaultPolicy)
+			defaulPolicy = getLevel(policy.DefaultPolicy)
 		}
 
 		ruleOthers := &AccessControlRule{

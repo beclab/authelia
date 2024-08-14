@@ -19,6 +19,9 @@ const (
 
 	// Denied denied level.
 	Denied
+
+	// System follow system's level
+	System
 )
 
 const (
@@ -32,6 +35,7 @@ const (
 	twoFactor = "two_factor"
 	deny      = "deny"
 	public    = "public"
+	system    = "system"
 )
 
 const (
