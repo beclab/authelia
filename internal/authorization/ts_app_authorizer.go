@@ -347,7 +347,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 	}
 
 	// apps follow system level
-	userAuth.appDefaultPolicy = userAuth.defaultPolicy
+	userAuth.appDefaultPolicy = userAuth.desktopPolicy
 
 	position := len(rules)
 
