@@ -151,7 +151,7 @@ func NewSessionProvider(config schema.SessionConfiguration, certPool *x509.CertP
 				addr = fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port)
 			}
 
-			provider, err = redis.New(redis.Config{
+			redisProvider, err := redis.New(redis.Config{
 				Logger:       logging.LoggerCtxPrintf(logrus.TraceLevel),
 				Network:      network,
 				Addr:         addr,
@@ -164,6 +164,10 @@ func NewSessionProvider(config schema.SessionConfiguration, certPool *x509.CertP
 				TLSConfig:    tlsConfig,
 				KeyPrefix:    "authelia-session",
 			})
+
+			if err == nil {
+				provider = NewMemcachedRedisSessionProvider(redisProvider)
+			}
 		}
 	default:
 		name = "memory"
