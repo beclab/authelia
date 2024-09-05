@@ -109,6 +109,7 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 			Username:    username,
 			DisplayName: username,
 			Groups:      []string{info.OwnerRole},
+			Emails:      []string{username + "@myterminus.com"}, // FIXME:
 		}
 
 		return details, nil
@@ -140,8 +141,9 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 		details := &UserDetails{
 			Username:    username,
 			DisplayName: username,
-			Emails:      []string{d.Email},
-			Groups:      d.Roles,
+			// Emails:      []string{d.Email},
+			Emails: []string{username + "@myterminus.com"}, // FIXME:
+			Groups: d.Roles,
 		}
 
 		return details, nil
