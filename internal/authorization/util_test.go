@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization/application"
@@ -234,4 +237,28 @@ func TestPolicy(t *testing.T) {
 	}
 
 	fmt.Printf("%v", policies)
+}
+
+func TestAddLocal(t *testing.T) {
+	redirect_uri := "https://222fd105.xuejingjie8.myterminus.com/auth/login"
+	url, err := url.Parse(redirect_uri)
+	if err != nil {
+		klog.Errorf("%s oidc client redirect uri invalid, %s, %v", "test", redirect_uri, err)
+		return
+	}
+	hostToken := strings.Split(url.Host, ".")
+	if len(hostToken) < 2 {
+		klog.Errorf("%s oidc client redirect uri host invalid, %s", "test", redirect_uri)
+		return
+	}
+
+	var newHostToken []string
+	newHostToken = append(newHostToken, hostToken[0], "local")
+	newHostToken = append(newHostToken, hostToken[1:]...)
+
+	url.Host = strings.Join(newHostToken, ".")
+	local_redirect_uri := url.String()
+
+	t.Log(local_redirect_uri)
+
 }

@@ -910,7 +910,8 @@ func (t *TsAuthorizer) getOIDCClients() error {
 				continue
 			}
 
-			newHostToken := append(hostToken[:1], "local")
+			var newHostToken []string
+			newHostToken = append(newHostToken, hostToken[0], "local")
 			newHostToken = append(newHostToken, hostToken[1:]...)
 
 			url.Host = strings.Join(newHostToken, ".")
