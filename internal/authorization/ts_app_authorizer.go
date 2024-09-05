@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -898,7 +899,24 @@ func (t *TsAuthorizer) getOIDCClients() error {
 			klog.Errorf("%s oidc client redirect uri not found", app.Name)
 			continue
 		} else {
-			conf.RedirectURIs = []string{redirect_uri}
+			url, err := url.Parse(redirect_uri)
+			if err != nil {
+				klog.Errorf("%s oidc client redirect uri invalid, %s, %v", app.Name, redirect_uri, err)
+				continue
+			}
+			hostToken := strings.Split(url.Host, ".")
+			if len(hostToken) < 2 {
+				klog.Errorf("%s oidc client redirect uri host invalid, %s", app.Name, redirect_uri)
+				continue
+			}
+
+			newHostToken := append(hostToken[:1], "local")
+			newHostToken = append(newHostToken, hostToken[1:]...)
+
+			url.Host = strings.Join(newHostToken, ".")
+			local_redirect_uri := url.String()
+
+			conf.RedirectURIs = []string{redirect_uri, local_redirect_uri}
 		}
 
 		clients = append(clients, conf)

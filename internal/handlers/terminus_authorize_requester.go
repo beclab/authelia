@@ -27,11 +27,13 @@ func (r *terminusAuthorizeRequester) GetRedirectURI() *url.URL {
 		if len(referToken) > 1 && referToken[1] == "local" {
 			klog.Info("force change redirect url host ", u.Host, " to local")
 			hostToken := strings.Split(u.Host, ".")
-			var newHostToken []string
-			newHostToken = append(newHostToken, hostToken[0])
-			newHostToken = append(newHostToken, "local")
-			newHostToken = append(newHostToken, hostToken[1:]...)
-			u.Host = strings.Join(newHostToken, ".")
+			if hostToken[1] != "local" {
+				var newHostToken []string
+				newHostToken = append(newHostToken, hostToken[0])
+				newHostToken = append(newHostToken, "local")
+				newHostToken = append(newHostToken, hostToken[1:]...)
+				u.Host = strings.Join(newHostToken, ".")
+			}
 		}
 	}
 
