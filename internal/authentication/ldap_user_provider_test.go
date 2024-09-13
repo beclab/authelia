@@ -1387,7 +1387,7 @@ func TestShouldNotUpdateUserPasswordConnect(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: dial failed with error: tcp timeout")
 }
 
@@ -1464,7 +1464,7 @@ func TestShouldNotUpdateUserPasswordGetDetails(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: cannot find user DN of user 'john'. Cause: LDAP Result Code 2 \"Protocol Error\": permission error")
 }
 
@@ -1571,7 +1571,7 @@ func TestShouldUpdateUserPassword(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -1680,7 +1680,7 @@ func TestShouldUpdateUserPasswordMSAD(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -1809,7 +1809,7 @@ func TestShouldUpdateUserPasswordMSADWithReferrals(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -1927,7 +1927,7 @@ func TestShouldUpdateUserPasswordMSADWithReferralsWithReferralConnectErr(t *test
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: error occurred connecting to referred LDAP server 'ldap://192.168.0.1': dial failed with error: tcp timeout. Original Error: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2060,7 +2060,7 @@ func TestShouldUpdateUserPasswordMSADWithReferralsWithReferralModifyErr(t *testi
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: error occurred performing modify on referred LDAP server 'ldap://192.168.0.1': LDAP Result Code 51 \"Busy\": error occurred. Original Error: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2174,7 +2174,7 @@ func TestShouldUpdateUserPasswordMSADWithoutReferrals(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2280,7 +2280,7 @@ func TestShouldUpdateUserPasswordPasswdModifyExtension(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -2408,7 +2408,7 @@ func TestShouldUpdateUserPasswordPasswdModifyExtensionWithReferrals(t *testing.T
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -2521,7 +2521,7 @@ func TestShouldUpdateUserPasswordPasswdModifyExtensionWithoutReferrals(t *testin
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2638,7 +2638,7 @@ func TestShouldUpdateUserPasswordPasswdModifyExtensionWithReferralsReferralConne
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: error occurred connecting to referred LDAP server 'ldap://192.168.0.1': dial failed with error: tcp timeout. Original Error: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2770,7 +2770,7 @@ func TestShouldUpdateUserPasswordPasswdModifyExtensionWithReferralsReferralPassw
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.EqualError(t, err, "unable to update password. Cause: error occurred performing password modify on referred LDAP server 'ldap://192.168.0.1': LDAP Result Code 51 \"Busy\": too busy. Original Error: LDAP Result Code 10 \"Referral\": error occurred")
 }
 
@@ -2881,7 +2881,7 @@ func TestShouldUpdateUserPasswordActiveDirectoryWithServerPolicyHints(t *testing
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	assert.NoError(t, err)
 }
 
@@ -2992,7 +2992,7 @@ func TestShouldUpdateUserPasswordActiveDirectoryWithServerPolicyHintsDeprecated(
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -3103,7 +3103,7 @@ func TestShouldUpdateUserPasswordActiveDirectory(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 
@@ -3211,7 +3211,7 @@ func TestShouldUpdateUserPasswordBasic(t *testing.T) {
 	err := provider.StartupCheck()
 	require.NoError(t, err)
 
-	err = provider.UpdatePassword("john", "password")
+	err = provider.UpdatePassword("john", "", "password")
 	require.NoError(t, err)
 }
 

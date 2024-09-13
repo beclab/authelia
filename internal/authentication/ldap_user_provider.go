@@ -16,6 +16,8 @@ import (
 	"github.com/authelia/authelia/v4/internal/utils"
 )
 
+var _ UserProvider = &LDAPUserProvider{}
+
 // LDAPUserProvider is a UserProvider that connects to LDAP servers like ActiveDirectory, OpenLDAP, OpenDJ, FreeIPA, etc.
 type LDAPUserProvider struct {
 	config    schema.LDAPAuthenticationBackend
@@ -177,7 +179,7 @@ func (p *LDAPUserProvider) GetDetails(username string) (details *UserDetails, er
 }
 
 // UpdatePassword update the password of the given user.
-func (p *LDAPUserProvider) UpdatePassword(username, password string) (err error) {
+func (p *LDAPUserProvider) UpdatePassword(username, _, password string) (err error) {
 	var (
 		client  LDAPClient
 		profile *ldapUserProfile

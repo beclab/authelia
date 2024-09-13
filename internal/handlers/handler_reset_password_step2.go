@@ -43,7 +43,7 @@ func ResetPasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if err = ctx.Providers.UserProvider.UpdatePassword(username, requestBody.Password); err != nil {
+	if err = ctx.Providers.UserProvider.UpdatePassword(username, userSession.AccessToken, requestBody.Password); err != nil {
 		switch {
 		case utils.IsStringInSliceContains(err.Error(), ldapPasswordComplexityCodes),
 			utils.IsStringInSliceContains(err.Error(), ldapPasswordComplexityErrors):

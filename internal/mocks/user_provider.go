@@ -12,6 +12,9 @@ import (
 	authentication "github.com/authelia/authelia/v4/internal/authentication"
 )
 
+var _ authentication.UserProvider = &MockUserProvider{}
+
+
 // MockUserProvider is a mock of UserProvider interface.
 type MockUserProvider struct {
 	ctrl     *gomock.Controller
@@ -80,7 +83,7 @@ func (mr *MockUserProviderMockRecorder) StartupCheck() *gomock.Call {
 }
 
 // UpdatePassword mocks base method.
-func (m *MockUserProvider) UpdatePassword(arg0, arg1 string) error {
+func (m *MockUserProvider) UpdatePassword(arg0, _, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePassword", arg0, arg1)
 	ret0, _ := ret[0].(error)

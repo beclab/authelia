@@ -156,7 +156,7 @@ func TestShouldUpdatePassword(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		err := provider.UpdatePassword("harry", "newpassword")
+		err := provider.UpdatePassword("harry", "", "newpassword")
 		assert.NoError(t, err)
 
 		// Reset the provider to force a read from disk.
@@ -181,7 +181,7 @@ func TestShouldUpdatePasswordHashingAlgorithmToArgon2id(t *testing.T) {
 		assert.NoError(t, provider.StartupCheck())
 
 		assert.True(t, strings.HasPrefix(provider.database.Users["harry"].Digest.Encode(), "$6$"))
-		err := provider.UpdatePassword("harry", "newpassword")
+		err := provider.UpdatePassword("harry", "", "newpassword")
 		assert.NoError(t, err)
 
 		// Reset the provider to force a read from disk.
@@ -208,7 +208,7 @@ func TestShouldUpdatePasswordHashingAlgorithmToSHA512(t *testing.T) {
 		assert.NoError(t, provider.StartupCheck())
 
 		assert.True(t, strings.HasPrefix(provider.database.Users["john"].Digest.Encode(), "$argon2id$"))
-		err := provider.UpdatePassword("john", "newpassword")
+		err := provider.UpdatePassword("john", "", "newpassword")
 		assert.NoError(t, err)
 
 		// Reset the provider to force a read from disk.

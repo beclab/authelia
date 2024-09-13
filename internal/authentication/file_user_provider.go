@@ -19,6 +19,8 @@ import (
 	"github.com/authelia/authelia/v4/internal/logging"
 )
 
+var _ UserProvider = &FileUserProvider{}
+
 // FileUserProvider is a provider reading details from a file.
 type FileUserProvider struct {
 	config        *schema.FileAuthenticationBackend
@@ -96,7 +98,7 @@ func (p *FileUserProvider) GetDetails(username string) (details *UserDetails, er
 }
 
 // UpdatePassword update the password of the given user.
-func (p *FileUserProvider) UpdatePassword(username string, newPassword string) (err error) {
+func (p *FileUserProvider) UpdatePassword(username, _ string, newPassword string) (err error) {
 	var details DatabaseUserDetails
 
 	if details, err = p.database.GetUserDetails(username); err != nil {
