@@ -300,6 +300,7 @@ func (p *Provider) reloadTokenToCache() {
 
 	if err != nil {
 		klog.Error("connect to kubesphere token cache error, ", err)
+		panic(err)
 	}
 
 	for key, data := range dataList {
@@ -346,8 +347,15 @@ func (p *Provider) reloadTokenToCache() {
 		}
 
 		if ksTokenOperator != nil {
-			ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
-			ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
+			err = ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
+			if err != nil {
+				continue
+			}
+
+			err = ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
+			if err != nil {
+				continue
+			}
 		}
 
 		// create provider.

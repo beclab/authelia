@@ -124,13 +124,16 @@ func NewTokenOperator() (*Operator, error) {
 	}, nil
 }
 
-func (o *Operator) RestoreToken(username, token string, duration time.Duration) {
+func (o *Operator) RestoreToken(username, token string, duration time.Duration) error {
 	key := fmt.Sprintf("kubesphere:user:%s:token:%s", username, token)
 	if exist, err := o.client.Exists(key); err != nil {
 		klog.Error("validate token error, ", err, " : ", key)
+		return err
 	} else if !exist {
 		if err := o.client.Set(key, token, duration); err != nil {
 			klog.Error("set token error, ", err)
+			return err
 		}
 	}
+	return nil
 }
