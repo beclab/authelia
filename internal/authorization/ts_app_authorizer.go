@@ -578,11 +578,24 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		}
 		ruleAddResources(othersResources, ruleOthers)
 		ruleAddDomain(domains, ruleOthers)
-		if entrance.AuthLevel == "private" {
+		if entrance.AuthLevel != internal {
 			ruleAddDomain(localDomains, ruleOthers)
 		}
 
 		appendRule(ruleOthers)
+
+		// if policy is internal, local and non-local must add two individual rules
+		if entrance.AuthLevel == internal {
+			ruleOthersLocal := &AccessControlRule{
+				Position:    position,
+				Policy:      defaultLocalPolicy,
+				DefaultRule: true,
+			}
+
+			ruleAddResources(othersResources, ruleOthersLocal)
+			ruleAddDomain(localDomains, ruleOthersLocal)
+			appendRule(ruleOthersLocal)
+		}
 
 		// add app root path to default policy with options.
 		ruleRoot := &AccessControlRule{
@@ -593,19 +606,24 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			DefaultRule:   true,
 		}
 		ruleAddDomain(domains, ruleRoot)
-		if entrance.AuthLevel == "private" {
+		if entrance.AuthLevel != internal {
 			ruleAddDomain(localDomains, ruleRoot)
 		}
 
 		appendRule(ruleRoot)
+
+		// if policy is internal, local and non-local must add two individual rules
 		if entrance.AuthLevel == internal {
-			ruleOthersForLocal := &AccessControlRule{
-				Position:    position,
-				Policy:      NewLevel(public),
-				DefaultRule: true,
+			ruleRootLocal := &AccessControlRule{
+				Position:      position,
+				Policy:        defaultLocalPolicy,
+				OneTimeValid:  policy.OneTime,
+				ValidDuration: time.Duration(policy.Duration) * time.Second,
+				DefaultRule:   true,
 			}
-			ruleAddDomain(localDomains, ruleOthersForLocal)
-			appendRule(ruleOthersForLocal)
+
+			ruleAddDomain(localDomains, ruleRootLocal)
+			appendRule(ruleRootLocal)
 		}
 	}
 
