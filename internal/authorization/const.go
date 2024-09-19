@@ -36,6 +36,7 @@ const (
 	deny      = "deny"
 	public    = "public"
 	system    = "system"
+	internal  = "internal"
 )
 
 const (

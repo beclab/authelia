@@ -463,8 +463,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		if len(app.Spec.Entrances) > 1 {
 			entranceId += strconv.Itoa(index)
 		}
-		domains := []string{
+		localDomains := []string{
 			fmt.Sprintf("%s.local.%s", entranceId, userInfo.Zone),
+		}
+		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
 		}
 
@@ -472,10 +474,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			entranceCustomDomain, ok := customDomain[entrance.Name]
 			if ok {
 				if entranceCustomDomain.ThirdLevelDomain != "" {
-					domains = append(domains, []string{
-						fmt.Sprintf("%s.local.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone),
-						fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone),
-					}...)
+					localDomains = append(localDomains, fmt.Sprintf("%s.local.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone))
+					domains = append(domains, fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone))
 				}
 
 				if entranceCustomDomain.ThirdPartyDomain != "" {
@@ -491,29 +491,35 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			}
 		}
 
-		nonPolicy := func(p Level) {
+		nonPolicy := func(p Level, domains []string) {
 			rule := &AccessControlRule{
 				Position: position,
 				Policy:   p,
 			}
 			ruleAddDomain(domains, rule)
-
 			rules = append(rules, rule)
+			position++
 		}
 
-		defaulPolicy := userAuth.appDefaultPolicy
-		if entrance.AuthLevel != "" && entrance.AuthLevel == "public" {
-			defaulPolicy = NewLevel(entrance.AuthLevel)
+		defaultPolicy := userAuth.appDefaultPolicy
+		defaultLocalPolicy := userAuth.appDefaultPolicy
+		if entrance.AuthLevel != "" && entrance.AuthLevel == public {
+			defaultPolicy = NewLevel(entrance.AuthLevel)
+		}
+		if entrance.AuthLevel != "" && entrance.AuthLevel == internal {
+			defaultLocalPolicy = NewLevel(public)
 		}
 
 		if !policyExists {
-			nonPolicy(defaulPolicy)
+			nonPolicy(defaultPolicy, domains)
+			nonPolicy(defaultLocalPolicy, localDomains)
 			continue
 		}
 
 		policy, ok := policies[entrance.Name]
 		if !ok {
-			nonPolicy(defaulPolicy)
+			nonPolicy(defaultPolicy, domains)
+			nonPolicy(defaultLocalPolicy, localDomains)
 			continue
 		}
 
@@ -524,6 +530,11 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			default:
 				return NewLevel(policy)
 			}
+		}
+
+		appendRule := func(rule *AccessControlRule) {
+			rules = append(rules, rule)
+			position++
 		}
 
 		if policy.SubPolicies != nil {
@@ -546,10 +557,9 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 				}
 				ruleAddResources(resources, rule)
 				ruleAddDomain(domains, rule)
+				ruleAddDomain(localDomains, rule)
 
-				rules = append(rules, rule)
-
-				position++
+				appendRule(rule)
 			} // end for policy.SubPolicies.
 		} // end if.
 
@@ -557,34 +567,46 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		othersExp := regexp.MustCompile("^/.+")
 		othersResources := []regexp.Regexp{*othersExp}
 
-		if entrance.AuthLevel != "public" {
-			defaulPolicy = getLevel(policy.DefaultPolicy)
+		if entrance.AuthLevel != public {
+			defaultPolicy = getLevel(policy.DefaultPolicy)
 		}
 
 		ruleOthers := &AccessControlRule{
 			Position:    position,
-			Policy:      defaulPolicy,
+			Policy:      defaultPolicy,
 			DefaultRule: true,
 		}
 		ruleAddResources(othersResources, ruleOthers)
 		ruleAddDomain(domains, ruleOthers)
+		if entrance.AuthLevel == "private" {
+			ruleAddDomain(localDomains, ruleOthers)
+		}
 
-		rules = append(rules, ruleOthers)
-
-		position++
+		appendRule(ruleOthers)
 
 		// add app root path to default policy with options.
 		ruleRoot := &AccessControlRule{
 			Position:      position,
-			Policy:        defaulPolicy,
+			Policy:        defaultPolicy,
 			OneTimeValid:  policy.OneTime,
 			ValidDuration: time.Duration(policy.Duration) * time.Second,
 			DefaultRule:   true,
 		}
 		ruleAddDomain(domains, ruleRoot)
+		if entrance.AuthLevel == "private" {
+			ruleAddDomain(localDomains, ruleRoot)
+		}
 
-		rules = append(rules, ruleRoot)
-
+		appendRule(ruleRoot)
+		if entrance.AuthLevel == internal {
+			ruleOthersForLocal := &AccessControlRule{
+				Position:    position,
+				Policy:      NewLevel(public),
+				DefaultRule: true,
+			}
+			ruleAddDomain(localDomains, ruleOthersForLocal)
+			appendRule(ruleOthersForLocal)
+		}
 	}
 
 	return rules, nil
