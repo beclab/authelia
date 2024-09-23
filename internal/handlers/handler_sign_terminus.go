@@ -261,8 +261,8 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	if err = sendNotification(userSession.Username, nonce, payload, message); err != nil {
 		ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", userSession.Username)
 
-		ctx.ReplyError(err, "Unable to send notification")
-		return
+		// ctx.ReplyError(err, "Unable to send notification")
+		// return
 	}
 
 	ctx.ReplyCode0()

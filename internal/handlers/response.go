@@ -249,8 +249,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			if err = sendNotification(session.Username, nonce, payload, string(messageData)); err != nil {
 				ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", session.Username)
 
-				ctx.ReplyError(err, "Unable to send notification")
-				return
+				// ctx.ReplyError(err, "Unable to send notification")
+				// return
 			}
 		}
 
