@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -92,11 +93,13 @@ func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetai
 		return nil, err
 	}
 
+	domain := strings.TrimLeft(info.Zone, username+".")
+
 	details = &UserDetails{
 		Username:    username,
 		DisplayName: username,
 		Groups:      []string{info.OwnerRole},
-		Emails:      []string{username + "@myterminus.com"}, // FIXME:
+		Emails:      []string{username + "@" + domain}, // FIXME:
 	}
 
 	return details, nil
