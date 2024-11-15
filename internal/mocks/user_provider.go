@@ -54,7 +54,7 @@ func (mr *MockUserProviderMockRecorder) CheckUserPassword(arg0, arg1 interface{}
 }
 
 // GetDetails mocks base method.
-func (m *MockUserProvider) GetDetails(arg0 string) (*authentication.UserDetails, error) {
+func (m *MockUserProvider) GetDetails(arg0,_ string) (*authentication.UserDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDetails", arg0)
 	ret0, _ := ret[0].(*authentication.UserDetails)

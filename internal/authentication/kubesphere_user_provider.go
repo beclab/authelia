@@ -87,7 +87,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 	return true, res, nil
 }
 
-func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetails, err error) {
+func (p *KubesphereUserProvider) GetDetails(username, _ string) (details *UserDetails, err error) {
 	info, err := utils.GetUserInfoFromBFL(p.client, username)
 	if err != nil {
 		return nil, err

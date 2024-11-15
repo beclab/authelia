@@ -22,7 +22,7 @@ func ctxLogEvent(ctx *middlewares.AutheliaCtx, username, description string, eve
 	ctx.Logger.Debugf("Getting user details for notification")
 
 	// Send Notification.
-	if details, err = ctx.Providers.UserProvider.GetDetails(username); err != nil {
+	if details, err = ctx.Providers.UserProvider.GetDetails(username, ""); err != nil {
 		ctx.Logger.Error(err)
 		return
 	}

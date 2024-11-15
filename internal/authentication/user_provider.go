@@ -23,7 +23,7 @@ type UserProvider interface {
 	model.StartupCheck
 
 	CheckUserPassword(username string, password string) (valid bool, result *ValidResult, err error)
-	GetDetails(username string) (details *UserDetails, err error)
+	GetDetails(username string, token string) (details *UserDetails, err error)
 	UpdatePassword(username, accessToken string, newPassword string) (err error)
 	Refresh(username, token string) (*ValidResult, error)
 }

@@ -188,7 +188,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		}
 
 		// Get the details of the given user from the user provider.
-		userDetails, err := ctx.Providers.UserProvider.GetDetails(bodyJSON.Username)
+		userDetails, err := ctx.Providers.UserProvider.GetDetails(bodyJSON.Username, validRes.AccessToken)
 		if err != nil {
 			ctx.Logger.Errorf(logFmtErrObtainProfileDetails, regulation.AuthType1FA, bodyJSON.Username, err)
 

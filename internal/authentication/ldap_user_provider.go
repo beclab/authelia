@@ -119,7 +119,7 @@ func (p *LDAPUserProvider) CheckUserPassword(username string, password string) (
 }
 
 // GetDetails retrieve the groups a user belongs to.
-func (p *LDAPUserProvider) GetDetails(username string) (details *UserDetails, err error) {
+func (p *LDAPUserProvider) GetDetails(username, _ string) (details *UserDetails, err error) {
 	var (
 		client  LDAPClient
 		profile *ldapUserProfile

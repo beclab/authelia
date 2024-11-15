@@ -110,6 +110,8 @@ const (
 		"'%s' must contain enclosing parenthesis: '%s' should probably be '(%s)'"
 	errFmtLDAPAuthBackendFilterMissingPlaceholder = "authentication_backend: ldap: option " +
 		"'%s' must contain the placeholder '{%s}' but it is required"
+
+	errFmtLLDAPAuthBackendServerNotConfigured = "authentication_backend: LLDAP: option 'server' is required"
 )
 
 // TOTP Error constants.
