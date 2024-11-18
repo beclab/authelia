@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,13 +19,16 @@ import (
 )
 
 type LLDAPUserProvider struct {
-	LDAPUserProvider
+	*LDAPUserProvider
 	config     schema.LLDAPAuthenticationBackend
 	restClient *resty.Client
 }
 
-func NewLLDAPUserProvider(conf schema.LLDAPAuthenticationBackend) *LLDAPUserProvider {
-	p := &LLDAPUserProvider{config: conf}
+func NewLLDAPUserProvider(conf schema.AuthenticationBackend, certPool *x509.CertPool) *LLDAPUserProvider {
+	conf.LDAP = &conf.LLDAP.LDAPAuthenticationBackend
+	ldap := NewLDAPUserProvider(conf, certPool)
+
+	p := &LLDAPUserProvider{config: *conf.LLDAP, LDAPUserProvider: ldap}
 
 	p.restClient = resty.New().SetTimeout(5 * time.Second)
 
