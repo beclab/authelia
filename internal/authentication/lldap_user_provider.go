@@ -18,6 +18,7 @@ import (
 )
 
 type LLDAPUserProvider struct {
+	LDAPUserProvider
 	config     schema.LLDAPAuthenticationBackend
 	restClient *resty.Client
 }
@@ -126,18 +127,31 @@ func (l *LLDAPUserProvider) GetDetails(username, token string) (details *UserDet
 }
 
 // Refresh implements UserProvider.
-func (l *LLDAPUserProvider) Refresh(username string, token string) (*ValidResult, error) {
-	panic("unimplemented")
-}
+func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string) (*ValidResult, error) {
+	port := 80
+	if l.config.Port != nil && *l.config.Port != 0 {
+		port = *l.config.Port
+	}
 
-// StartupCheck implements UserProvider.
-func (l *LLDAPUserProvider) StartupCheck() (err error) {
-	panic("unimplemented")
-}
+	url := fmt.Sprintf("http://%s:%d/auth/refresh", l.config.Server, port)
 
-// UpdatePassword implements UserProvider.
-func (l *LLDAPUserProvider) UpdatePassword(username string, accessToken string, newPassword string) (err error) {
-	panic("unimplemented")
+	resp, err := l.restClient.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", "Bearer "+token).
+		SetHeader("refresh-token", ""+refreshToken).
+		SetBody(&RefreshTokenResponse{}).
+		Get(url)
+	if err != nil {
+		klog.Errorf("Error sending POST request: %v", err)
+		return nil, err
+	}
+
+	refreshTokenResp := resp.Result().(*RefreshTokenResponse)
+
+	return &ValidResult{
+		AccessToken:  refreshTokenResp.Token,
+		RefreshToken: refreshTokenResp.RefreshToken,
+	}, nil
 }
 
 var _ UserProvider = &LLDAPUserProvider{}

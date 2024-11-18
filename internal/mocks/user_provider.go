@@ -90,7 +90,7 @@ func (m *MockUserProvider) UpdatePassword(arg0, _, arg1 string) error {
 	return ret0
 }
 
-func (m *MockUserProvider) Refresh(arg0, arg1 string) (*authentication.ValidResult, error) {
+func (m *MockUserProvider) Refresh(arg0, _,arg1 string) (*authentication.ValidResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
 	ret0, _ := ret[0].(error)

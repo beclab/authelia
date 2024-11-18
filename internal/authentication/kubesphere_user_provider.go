@@ -137,7 +137,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username, token string, newPassw
 	return nil
 }
 
-func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult, err error) {
+func (p *KubesphereUserProvider) Refresh(username, _, token string) (res *ValidResult, err error) {
 	refreshUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/refresh-token", utils.BFL_NAME, username)
 
 	reqBody := utils.UserToken{

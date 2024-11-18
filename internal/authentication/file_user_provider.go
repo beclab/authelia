@@ -128,7 +128,7 @@ func (p *FileUserProvider) UpdatePassword(username, _ string, newPassword string
 	return nil
 }
 
-func (p *FileUserProvider) Refresh(username, toke string) (res *ValidResult, err error) {
+func (p *FileUserProvider) Refresh(username, _, _ string) (res *ValidResult, err error) {
 	return res, err
 }
 

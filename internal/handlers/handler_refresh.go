@@ -55,7 +55,7 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	validRes, err := ctx.Providers.UserProvider.Refresh(userSession.Username, bodyJSON.RefreshToken)
+	validRes, err := ctx.Providers.UserProvider.Refresh(userSession.Username, userSession.AccessToken, bodyJSON.RefreshToken)
 	if err != nil {
 		switch err {
 		case authentication.ErrInvalidUserPwd, authentication.ErrInvalidToken:

@@ -9,7 +9,22 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Token        string `json:"token"`
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshTokenResponse struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type ResetPasswordRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type ResetPasswordResponse struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type authedTransport struct {

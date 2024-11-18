@@ -235,7 +235,7 @@ func (p *LDAPUserProvider) UpdatePassword(username, _, password string) (err err
 	return nil
 }
 
-func (p *LDAPUserProvider) Refresh(username, token string) (res *ValidResult, err error) {
+func (p *LDAPUserProvider) Refresh(username, _, _ string) (res *ValidResult, err error) {
 	return res, err
 }
 

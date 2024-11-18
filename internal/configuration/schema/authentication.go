@@ -126,6 +126,7 @@ type LDAPAuthenticationBackend struct {
 // LLDAPAuthenticationBackend represents the configuration related to LLDAP server
 // to connect with REST API and GraphQL API (not LDAP protocol).
 type LLDAPAuthenticationBackend struct {
+	LDAPAuthenticationBackend
 	Server string `koanf:"server"`
 	Port   *int   `koanf:"port"`
 }
