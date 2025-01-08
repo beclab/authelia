@@ -849,28 +849,28 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		return ""
 	}
 
-	// TODO: redirect by frontend
-	// uri := ctx.Request.URI()
-	// host := string(uri.Host())
-	// hostToken := strings.Split(host, ".")
+	uri := ctx.Request.URI()
+	host := string(uri.Host())
+	hostToken := strings.Split(host, ".")
 
-	// loginPortal := userAuth.LoginPortal
+	loginPortal := userAuth.LoginPortal
 
-	// // local domain
-	// if hostToken[1] == "local" {
-	// 	loginUri, err := url.ParseRequestURI(loginPortal)
-	// 	if err != nil {
-	// 		klog.Error("parse loginUri error, ", err, ", ", loginPortal)
-	// 		return loginPortal
-	// 	}
+	// local domain
+	if len(hostToken) > 2 &&
+		hostToken[2] == user && hostToken[1] == "local" {
+		loginUri, err := url.ParseRequestURI(loginPortal)
+		if err != nil {
+			klog.Error("parse loginUri error, ", err, ", ", loginPortal)
+			return loginPortal
+		}
 
-	// 	loginToken := strings.Split(loginUri.Host, ".")
-	// 	loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
+		loginToken := strings.Split(loginUri.Host, ".")
+		loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
 
-	// 	loginPortal = loginUri.String()
-	// }
+		loginPortal = loginUri.String()
+	}
 
-	return userAuth.LoginPortal
+	return loginPortal
 }
 
 // clients config example
