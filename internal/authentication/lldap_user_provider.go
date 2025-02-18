@@ -51,7 +51,7 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 	resp, err := l.restClient.R().
 		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
 		SetBody(reqBody).
-		SetResult(&utils.Response{Data: &utils.TokenResponse{}}).
+		SetResult(&LoginResponse{}).
 		Post(url)
 
 	if err != nil {
@@ -62,24 +62,13 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 		return false, nil, errors.New(string(resp.Body()))
 	}
 
-	responseData := resp.Result().(*utils.Response)
+	responseData := resp.Result().(*LoginResponse)
+	klog.Infof("responseData: %#v", responseData)
 
-	if responseData.Code != 0 {
-		switch responseData.Code {
-		case http.StatusBadRequest:
-			return false, nil, ErrInvalidUserPwd
-		case http.StatusTooManyRequests:
-			return false, nil, ErrTooManyRetries
-		}
-		return false, nil, errors.New(responseData.Message)
-	}
-
-	tokens := responseData.Data.(*LoginResponse)
 	result = &ValidResult{
-		AccessToken:  tokens.Token,
-		RefreshToken: tokens.RefreshToken,
+		AccessToken:  responseData.Token,
+		RefreshToken: responseData.RefreshToken,
 	}
-
 	return true, result, nil
 
 }
@@ -93,7 +82,9 @@ func (l *LLDAPUserProvider) GetDetails(username, token string) (details *UserDet
 
 	if token != "" {
 		klog.Info("get user detail from LLDAP")
-		graphqlClient := createGraphClient(l.config.Server, token)
+		url := fmt.Sprintf("http://%s:%d", l.config.Server, *l.config.Port)
+		klog.Infof("getDetails:url:%s", url)
+		graphqlClient := createGraphClient(url, token)
 		var viewerResp *generated.GetUserDetailsResponse
 		viewerResp, err = generated.GetUserDetails(context.Background(), graphqlClient, username)
 		if err != nil {
@@ -156,6 +147,10 @@ func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string)
 		AccessToken:  refreshTokenResp.Token,
 		RefreshToken: refreshTokenResp.RefreshToken,
 	}, nil
+}
+
+func (l *LLDAPUserProvider) StartupCheck() (err error) {
+	return nil
 }
 
 var _ UserProvider = &LLDAPUserProvider{}

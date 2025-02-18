@@ -9,7 +9,7 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Token        string `json:"token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 type RefreshTokenResponse struct {
