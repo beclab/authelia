@@ -35,7 +35,18 @@ func ValidateAuthenticationBackend(config *schema.AuthenticationBackend, validat
 		}
 	}
 
-	if config.LDAP != nil && config.File != nil {
+	configCount := 0
+	if config.File != nil {
+		configCount++
+	}
+	if config.LDAP != nil {
+		configCount++
+	}
+	if config.LLDAP != nil {
+		configCount++
+	}
+
+	if configCount > 1 {
 		validator.Push(fmt.Errorf(errFmtAuthBackendMultipleConfigured))
 	}
 
@@ -46,6 +57,11 @@ func ValidateAuthenticationBackend(config *schema.AuthenticationBackend, validat
 	if config.LDAP != nil {
 		validateLDAPAuthenticationBackend(config, validator)
 	}
+
+	if config.LLDAP != nil {
+		validateLLDAPAuthenticationBackend(config.LLDAP, validator)
+	}
+
 }
 
 // validateFileAuthenticationBackend validates and updates the file authentication backend configuration.
@@ -491,5 +507,11 @@ func validateLDAPRequiredParameters(config *schema.AuthenticationBackend, valida
 		validator.Push(fmt.Errorf(errFmtLDAPAuthBackendMissingOption, "groups_filter"))
 	} else if !strings.HasPrefix(config.LDAP.GroupsFilter, "(") || !strings.HasSuffix(config.LDAP.GroupsFilter, ")") {
 		validator.Push(fmt.Errorf(errFmtLDAPAuthBackendFilterEnclosingParenthesis, "groups_filter", config.LDAP.GroupsFilter, config.LDAP.GroupsFilter))
+	}
+}
+
+func validateLLDAPAuthenticationBackend(config *schema.LLDAPAuthenticationBackend, validator *schema.StructValidator) {
+	if config.Server == "" {
+		validator.Push(fmt.Errorf(errFmtLLDAPAuthBackendServerNotConfigured))
 	}
 }

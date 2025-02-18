@@ -161,6 +161,8 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 	switch {
 	case ctx.config.AuthenticationBackend.File != nil:
 		ctx.providers.UserProvider = authentication.NewFileUserProvider(ctx.config.AuthenticationBackend.File)
+	case ctx.config.AuthenticationBackend.LLDAP != nil:
+		ctx.providers.UserProvider = authentication.NewLLDAPUserProvider(ctx.config.AuthenticationBackend, ctx.trusted)
 	case ctx.config.AuthenticationBackend.LDAP != nil:
 		ctx.providers.UserProvider = authentication.NewLDAPUserProvider(ctx.config.AuthenticationBackend, ctx.trusted)
 	default:

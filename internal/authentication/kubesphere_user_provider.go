@@ -87,7 +87,7 @@ func (p *KubesphereUserProvider) CheckUserPassword(username string, password str
 	return true, res, nil
 }
 
-func (p *KubesphereUserProvider) GetDetails(username string) (details *UserDetails, err error) {
+func (p *KubesphereUserProvider) GetDetails(username, _ string) (details *UserDetails, err error) {
 	info, err := utils.GetUserInfoFromBFL(p.client, username)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (p *KubesphereUserProvider) UpdatePassword(username, token string, newPassw
 	return nil
 }
 
-func (p *KubesphereUserProvider) Refresh(username, token string) (res *ValidResult, err error) {
+func (p *KubesphereUserProvider) Refresh(username, _, token string) (res *ValidResult, err error) {
 	refreshUrl := fmt.Sprintf("http://%s.user-space-%s/bfl/iam/v1alpha1/refresh-token", utils.BFL_NAME, username)
 
 	reqBody := utils.UserToken{

@@ -877,7 +877,7 @@ func TestShouldNotCrashWhenGroupsAreNotRetrievedFromLDAP(t *testing.T) {
 
 	gomock.InOrder(dialURL, connBind, searchProfile, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{})
@@ -939,7 +939,7 @@ func TestShouldNotCrashWhenEmailsAreNotRetrievedFromLDAP(t *testing.T) {
 
 	gomock.InOrder(dialURL, connBind, searchProfile, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{"group1", "group2"})
@@ -1010,7 +1010,7 @@ func TestShouldReturnUsernameFromLDAP(t *testing.T) {
 
 	gomock.InOrder(dialURL, connBind, searchProfile, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{"group1", "group2"})
@@ -1101,7 +1101,7 @@ func TestShouldReturnUsernameFromLDAPWithReferrals(t *testing.T) {
 
 	gomock.InOrder(dialURL, connBind, searchProfile, dialURLReferral, connBindReferral, searchProfileReferral, connCloseReferral, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{"group1", "group2"})
@@ -1227,7 +1227,7 @@ func TestShouldReturnUsernameFromLDAPWithReferralsInErrorAndResult(t *testing.T)
 
 	gomock.InOrder(dialURL, connBind, searchProfile, dialURLReferral, connBindReferral, searchProfileReferral, connCloseReferral, dialURLReferralAlt, connBindReferralAlt, searchProfileReferralAlt, connCloseReferralAlt, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{"group1", "group2"})
@@ -1315,7 +1315,7 @@ func TestShouldReturnUsernameFromLDAPWithReferralsErr(t *testing.T) {
 
 	gomock.InOrder(dialURL, connBind, searchProfile, dialURLReferral, connBindReferral, searchProfileReferral, connCloseReferral, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{"group1", "group2"})
@@ -3800,7 +3800,7 @@ func TestShouldCallStartTLSWhenEnabled(t *testing.T) {
 
 	gomock.InOrder(dialURL, connStartTLS, connBind, searchProfile, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{})
@@ -3931,7 +3931,7 @@ func TestShouldCallStartTLSWithInsecureSkipVerifyWhenSkipVerifyTrue(t *testing.T
 
 	gomock.InOrder(dialURL, connStartTLS, connBind, searchProfile, searchGroups, connClose)
 
-	details, err := provider.GetDetails("john")
+	details, err := provider.GetDetails("john", "")
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, details.Groups, []string{})
@@ -3977,6 +3977,6 @@ func TestShouldReturnLDAPSAlreadySecuredWhenStartTLSAttempted(t *testing.T) {
 
 	gomock.InOrder(dialURL, connStartTLS, mockClient.EXPECT().Close())
 
-	_, err := provider.GetDetails("john")
+	_, err := provider.GetDetails("john", "")
 	assert.EqualError(t, err, "starttls failed with error: LDAP Result Code 200 \"Network Error\": ldap: already encrypted")
 }

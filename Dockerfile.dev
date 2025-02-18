@@ -40,7 +40,8 @@ RUN \
 	touch internal/server/public_html/api/index.html && \
 	touch internal/server/public_html/api/openapi.yml && \
 	chmod 0666 /go/src/app/.healthcheck.env && \
-	echo ">> Starting go build..." && \
+	echo ">> Starting go build..."
+RUN \
 	CGO_ENABLED=1 CGO_CPPFLAGS="-D_FORTIFY_SOURCE=2 -fstack-protector-strong" CGO_LDFLAGS="-Wl,-z,relro,-z,now" go build \
 	-ldflags "-linkmode=external -s -w ${LDFLAGS_EXTRA}" -trimpath -buildmode=pie -o authelia ./cmd/authelia
 

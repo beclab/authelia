@@ -17,7 +17,7 @@ func identityRetrieverFromStorage(ctx *middlewares.AutheliaCtx) (*session.Identi
 		return nil, err
 	}
 
-	details, err := ctx.Providers.UserProvider.GetDetails(requestBody.Username)
+	details, err := ctx.Providers.UserProvider.GetDetails(requestBody.Username, "")
 
 	if err != nil {
 		return nil, err

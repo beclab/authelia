@@ -139,7 +139,7 @@ func TestShouldRetrieveUserDetails(t *testing.T) {
 
 		assert.NoError(t, provider.StartupCheck())
 
-		details, err := provider.GetDetails("john")
+		details, err := provider.GetDetails("john", "")
 		assert.NoError(t, err)
 		assert.Equal(t, "john", details.Username)
 		assert.Equal(t, []string{"john.doe@authelia.com"}, details.Emails)

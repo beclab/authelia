@@ -83,7 +83,7 @@ func (p *FileUserProvider) CheckUserPassword(username string, password string) (
 }
 
 // GetDetails retrieve the groups a user belongs to.
-func (p *FileUserProvider) GetDetails(username string) (details *UserDetails, err error) {
+func (p *FileUserProvider) GetDetails(username, _ string) (details *UserDetails, err error) {
 	var d DatabaseUserDetails
 
 	if d, err = p.database.GetUserDetails(username); err != nil {
@@ -128,7 +128,7 @@ func (p *FileUserProvider) UpdatePassword(username, _ string, newPassword string
 	return nil
 }
 
-func (p *FileUserProvider) Refresh(username, toke string) (res *ValidResult, err error) {
+func (p *FileUserProvider) Refresh(username, _, _ string) (res *ValidResult, err error) {
 	return res, err
 }
 

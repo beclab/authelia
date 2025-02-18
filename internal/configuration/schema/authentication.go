@@ -12,8 +12,9 @@ type AuthenticationBackend struct {
 
 	RefreshInterval string `koanf:"refresh_interval"`
 
-	File *FileAuthenticationBackend `koanf:"file"`
-	LDAP *LDAPAuthenticationBackend `koanf:"ldap"`
+	File  *FileAuthenticationBackend  `koanf:"file"`
+	LDAP  *LDAPAuthenticationBackend  `koanf:"ldap"`
+	LLDAP *LLDAPAuthenticationBackend `koanf:"lldap"`
 }
 
 // PasswordResetAuthenticationBackend represents the configuration related to password reset functionality.
@@ -120,6 +121,14 @@ type LDAPAuthenticationBackend struct {
 
 	User     string `koanf:"user"`
 	Password string `koanf:"password"`
+}
+
+// LLDAPAuthenticationBackend represents the configuration related to LLDAP server
+// to connect with REST API and GraphQL API (not LDAP protocol).
+type LLDAPAuthenticationBackend struct {
+	LDAPAuthenticationBackend
+	Server string `koanf:"server"`
+	Port   *int   `koanf:"port"`
 }
 
 // DefaultPasswordConfig represents the default configuration related to Argon2id hashing.

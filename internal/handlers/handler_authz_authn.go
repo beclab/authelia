@@ -213,7 +213,7 @@ func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Sessi
 		return authn, fmt.Errorf("validated parsed credentials of %s header but they are not valid for user '%s': %w", s.headerAuthorize, username, err)
 	}
 
-	if details, err = ctx.Providers.UserProvider.GetDetails(username); err != nil {
+	if details, err = ctx.Providers.UserProvider.GetDetails(username, res.AccessToken); err != nil {
 		if errors.Is(err, authentication.ErrUserNotFound) {
 			ctx.Logger.Errorf("Error occurred while attempting to get user details for user '%s': the user was not found indicating they were deleted, disabled, or otherwise no longer authorized to login", username)
 
@@ -289,9 +289,10 @@ func (s *HeaderLegacyAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session
 	var (
 		valid   bool
 		details *authentication.UserDetails
+		res     *authentication.ValidResult
 	)
 
-	if valid, _, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
+	if valid, res, err = ctx.Providers.UserProvider.CheckUserPassword(username, password); err != nil {
 		return authn, fmt.Errorf("failed to validate parsed credentials of %s header for user '%s': %w", header, username, err)
 	}
 
@@ -299,7 +300,7 @@ func (s *HeaderLegacyAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session
 		return authn, fmt.Errorf("validated parsed credentials of %s header but they are not valid for user '%s': %w", header, username, err)
 	}
 
-	if details, err = ctx.Providers.UserProvider.GetDetails(username); err != nil {
+	if details, err = ctx.Providers.UserProvider.GetDetails(username, res.AccessToken); err != nil {
 		if errors.Is(err, authentication.ErrUserNotFound) {
 			ctx.Logger.Errorf("Error occurred while attempting to get user details for user '%s': the user was not found indicating they were deleted, disabled, or otherwise no longer authorized to login", username)
 
@@ -386,7 +387,7 @@ func handleVerifyGETAuthnCookieValidateUpdate(ctx *middlewares.AutheliaCtx, user
 		err     error
 	)
 
-	if details, err = ctx.Providers.UserProvider.GetDetails(userSession.Username); err != nil {
+	if details, err = ctx.Providers.UserProvider.GetDetails(userSession.Username, userSession.AccessToken); err != nil {
 		if errors.Is(err, authentication.ErrUserNotFound) {
 			ctx.Logger.Errorf("Error occurred while attempting to update user details for user '%s': the user was not found indicating they were deleted, disabled, or otherwise no longer authorized to login", userSession.Username)
 

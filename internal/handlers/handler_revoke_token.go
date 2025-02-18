@@ -49,7 +49,7 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	userInfo, err := ctx.Providers.UserProvider.GetDetails(userSession.Username)
+	userInfo, err := ctx.Providers.UserProvider.GetDetails(userSession.Username, userSession.AccessToken)
 	if err != nil {
 		ctx.Logger.Error(err)
 		respondUnauthorized(ctx, messageMFAValidationFailed)
