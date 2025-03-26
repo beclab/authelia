@@ -80,8 +80,8 @@ func (m *memcachedRedisSessionProvider) Count() int {
 	return m.redis.Count()
 }
 func (m *memcachedRedisSessionProvider) NeedGC() bool {
-	return m.redis.NeedGC()
+	return m.cache.NeedGC()
 }
 func (m *memcachedRedisSessionProvider) GC() error {
-	return m.redis.GC()
+	return m.cache.GC()
 }
