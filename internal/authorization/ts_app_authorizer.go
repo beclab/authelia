@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -48,8 +47,9 @@ import (
 )
 
 var (
-	TerminusUserHeader = []byte("X-BFL-USER")
-	AdminUser          = ""
+	TerminusUserHeader                 = []byte("X-BFL-USER")
+	AdminUser                          = ""
+	UserAnnotationLocalDomainDNSRecord = "bytetrade.io/local-domain-dns-record"
 
 	tmpUserCustomDomain map[string]map[string]string
 	UserCustomDomain    map[string]map[string]string
@@ -83,6 +83,8 @@ type userAuthorizer struct {
 
 	UserTerminusNonce string
 	UserZone          string
+
+	localDomainIpDnsRecord string
 }
 
 func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)) Authorizer {
@@ -159,6 +161,11 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 		for _, rule := range auth.rules {
 			if rule.IsMatch(subject, object) {
 				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
+
+				if rule.Internal && auth.localDomainIpDnsRecord == object.RealIP {
+					t.log.Debug("internal policy rule matched, set policy public")
+					return rule.HasSubjects, Bypass, rule
+				}
 
 				return rule.HasSubjects, rule.Policy, rule
 			}
@@ -242,7 +249,6 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 		ruleAddDomain(
 			[]string{
 				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.Zone),
-				fmt.Sprintf("wizard-%s.local.%s", userInfo.Name, userInfo.Zone),
 			},
 			rule,
 		)
@@ -295,7 +301,6 @@ func (t *TsAuthorizer) addDomainBypassRules(subdomain, domain string, rules []*A
 
 func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain string, level Level, rules []*AccessControlRule) []*AccessControlRule {
 	domains := []string{
-		subdomain + "local." + domain,
 		subdomain + domain,
 	}
 
@@ -317,7 +322,6 @@ func (t *TsAuthorizer) addPortalRules(domain string, rules []*AccessControlRule)
 func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
 	// apply the `bypass` policy to `OPTIONS` CORS preflight requests.
 	domains := []string{
-		"*.local." + domain,
 		"*." + domain,
 	}
 
@@ -337,7 +341,6 @@ func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) [
 func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string,
 	rules []*AccessControlRule, userData *unstructured.Unstructured, userAuth *userAuthorizer) []*AccessControlRule {
 	domains := []string{
-		"desktop.local." + domain,
 		"desktop." + domain,
 	}
 
@@ -351,28 +354,6 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 	userAuth.appDefaultPolicy = userAuth.desktopPolicy
 
 	position := len(rules)
-
-	// if !userAuth.userIsIniting {
-	// 	// add loginn portal to bypass.
-	// 	resources := t.getResourceExps([]string{
-	// 		"^/login",
-	// 		"^/assets/.*",
-	// 		"^/avatar/.*",
-	// 		"^/icons/.*",
-	// 		"^/bfl/backend/.*",
-	// 		"^/api/.*",
-	// 	})
-
-	// 	loginPortalRule := &AccessControlRule{
-	// 		Position: position,
-	// 		Policy:   Bypass,
-	// 	}
-	// 	ruleAddDomain(domains, loginPortalRule)
-	// 	ruleAddResources(resources, loginPortalRule)
-
-	// 	rules = append(rules, loginPortalRule)
-	// 	position++
-	// }
 
 	desktopRule := &AccessControlRule{
 		Position: position,
@@ -463,9 +444,6 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		if len(app.Spec.Entrances) > 1 {
 			entranceId += strconv.Itoa(index)
 		}
-		localDomains := []string{
-			fmt.Sprintf("%s.local.%s", entranceId, userInfo.Zone),
-		}
 		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
 		}
@@ -474,7 +452,6 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			entranceCustomDomain, ok := customDomain[entrance.Name]
 			if ok {
 				if entranceCustomDomain.ThirdLevelDomain != "" {
-					localDomains = append(localDomains, fmt.Sprintf("%s.local.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone))
 					domains = append(domains, fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone))
 				}
 
@@ -491,35 +468,40 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			}
 		}
 
+		newRule := func(r *AccessControlRule) *AccessControlRule {
+			return r
+		}
+
 		nonPolicy := func(p Level, domains []string) {
-			rule := &AccessControlRule{
+			rule := newRule(&AccessControlRule{
 				Position: position,
 				Policy:   p,
-			}
+			})
 			ruleAddDomain(domains, rule)
 			rules = append(rules, rule)
 			position++
 		}
 
 		defaultPolicy := userAuth.appDefaultPolicy
-		defaultLocalPolicy := userAuth.appDefaultPolicy
 		if entrance.AuthLevel != "" && entrance.AuthLevel == public {
 			defaultPolicy = NewLevel(entrance.AuthLevel)
 		}
 		if entrance.AuthLevel != "" && entrance.AuthLevel == internal {
-			defaultLocalPolicy = NewLevel(public)
+			newRule = func(r *AccessControlRule) *AccessControlRule {
+				newR := newRule(r)
+				newR.Internal = true
+				return newR
+			}
 		}
 
 		if !policyExists {
 			nonPolicy(defaultPolicy, domains)
-			nonPolicy(defaultLocalPolicy, localDomains)
 			continue
 		}
 
 		policy, ok := policies[entrance.Name]
 		if !ok {
 			nonPolicy(defaultPolicy, domains)
-			nonPolicy(defaultLocalPolicy, localDomains)
 			continue
 		}
 
@@ -549,15 +531,14 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 				resources := []regexp.Regexp{*resExp}
 
-				rule := &AccessControlRule{
+				rule := newRule(&AccessControlRule{
 					Position:      position,
 					Policy:        getLevel(sp.Policy),
 					OneTimeValid:  sp.OneTime,
 					ValidDuration: time.Duration(sp.Duration) * time.Second,
-				}
+				})
 				ruleAddResources(resources, rule)
 				ruleAddDomain(domains, rule)
-				ruleAddDomain(localDomains, rule)
 
 				appendRule(rule)
 			} // end for policy.SubPolicies.
@@ -571,60 +552,27 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			defaultPolicy = getLevel(policy.DefaultPolicy)
 		}
 
-		ruleOthers := &AccessControlRule{
+		ruleOthers := newRule(&AccessControlRule{
 			Position:    position,
 			Policy:      defaultPolicy,
 			DefaultRule: true,
-		}
+		})
 		ruleAddResources(othersResources, ruleOthers)
 		ruleAddDomain(domains, ruleOthers)
-		if entrance.AuthLevel != internal {
-			ruleAddDomain(localDomains, ruleOthers)
-		}
 
 		appendRule(ruleOthers)
 
-		// if policy is internal, local and non-local must add two individual rules
-		if entrance.AuthLevel == internal {
-			ruleOthersLocal := &AccessControlRule{
-				Position:    position,
-				Policy:      defaultLocalPolicy,
-				DefaultRule: true,
-			}
-
-			ruleAddResources(othersResources, ruleOthersLocal)
-			ruleAddDomain(localDomains, ruleOthersLocal)
-			appendRule(ruleOthersLocal)
-		}
-
 		// add app root path to default policy with options.
-		ruleRoot := &AccessControlRule{
+		ruleRoot := newRule(&AccessControlRule{
 			Position:      position,
 			Policy:        defaultPolicy,
 			OneTimeValid:  policy.OneTime,
 			ValidDuration: time.Duration(policy.Duration) * time.Second,
 			DefaultRule:   true,
-		}
+		})
 		ruleAddDomain(domains, ruleRoot)
-		if entrance.AuthLevel != internal {
-			ruleAddDomain(localDomains, ruleRoot)
-		}
 
 		appendRule(ruleRoot)
-
-		// if policy is internal, local and non-local must add two individual rules
-		if entrance.AuthLevel == internal {
-			ruleRootLocal := &AccessControlRule{
-				Position:      position,
-				Policy:        defaultLocalPolicy,
-				OneTimeValid:  policy.OneTime,
-				ValidDuration: time.Duration(policy.Duration) * time.Second,
-				DefaultRule:   true,
-			}
-
-			ruleAddDomain(localDomains, ruleRootLocal)
-			appendRule(ruleRootLocal)
-		}
 	}
 
 	return rules, nil
@@ -667,6 +615,7 @@ func (t *TsAuthorizer) reloadRules() {
 
 		userAuth.userIsIniting = info.Zone == ""
 		userAuth.initialized = true
+		userAuth.localDomainIpDnsRecord = user.GetAnnotations()[UserAnnotationLocalDomainDNSRecord]
 
 		if info.IsEphemeral {
 			userAuth.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
@@ -849,26 +798,7 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		return ""
 	}
 
-	uri := ctx.Request.URI()
-	host := string(uri.Host())
-	hostToken := strings.Split(host, ".")
-
 	loginPortal := userAuth.LoginPortal
-
-	// local domain
-	if len(hostToken) > 2 &&
-		hostToken[2] == user && hostToken[1] == "local" {
-		loginUri, err := url.ParseRequestURI(loginPortal)
-		if err != nil {
-			klog.Error("parse loginUri error, ", err, ", ", loginPortal)
-			return loginPortal
-		}
-
-		loginToken := strings.Split(loginUri.Host, ".")
-		loginUri.Host = strings.Join(append([]string{loginToken[0], "local"}, loginToken[1:]...), ".")
-
-		loginPortal = loginUri.String()
-	}
 
 	return loginPortal
 }
@@ -939,25 +869,7 @@ func (t *TsAuthorizer) getOIDCClients() error {
 			klog.Errorf("%s oidc client redirect uri not found", app.Name)
 			continue
 		} else {
-			url, err := url.Parse(redirect_uri)
-			if err != nil {
-				klog.Errorf("%s oidc client redirect uri invalid, %s, %v", app.Name, redirect_uri, err)
-				continue
-			}
-			hostToken := strings.Split(url.Host, ".")
-			if len(hostToken) < 2 {
-				klog.Errorf("%s oidc client redirect uri host invalid, %s", app.Name, redirect_uri)
-				continue
-			}
-
-			var newHostToken []string
-			newHostToken = append(newHostToken, hostToken[0], "local")
-			newHostToken = append(newHostToken, hostToken[1:]...)
-
-			url.Host = strings.Join(newHostToken, ".")
-			local_redirect_uri := url.String()
-
-			conf.RedirectURIs = []string{redirect_uri, local_redirect_uri}
+			conf.RedirectURIs = []string{redirect_uri}
 		}
 
 		clients = append(clients, conf)
