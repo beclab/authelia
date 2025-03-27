@@ -53,6 +53,7 @@ type Object struct {
 	Domain string
 	Path   string
 	Method string
+	RealIP string
 }
 
 // String is a string representation of the Object.
