@@ -487,8 +487,9 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			defaultPolicy = NewLevel(entrance.AuthLevel)
 		}
 		if entrance.AuthLevel != "" && entrance.AuthLevel == internal {
+			oldRule := newRule
 			newRule = func(r *AccessControlRule) *AccessControlRule {
-				newR := newRule(r)
+				newR := oldRule(r)
 				newR.Internal = true
 				return newR
 			}
