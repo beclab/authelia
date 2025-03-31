@@ -4,17 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/emicklei/go-restful/v3"
-	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/valyala/fasthttp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -67,96 +65,48 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 	}
 }
 
-func sendNotification(user, nonce, payload, message string) error {
-	namespace := "user-system-" + user
-	alert := Alert{
-		Labels: KV{
-			"namespace": namespace,
-			"type":      "notification",
-			"version":   "v1",
-			"payload":   payload,
-		},
-		Annotations: KV{
-			"message": message,
-		},
-	}
+func sendNotification(user, _, payload, message string) error {
+	NATS_HOST := os.Getenv("NATS_HOST")
+	NATS_PORT := os.Getenv("NATS_PORT")
+	NATS_USERNAME := os.Getenv("NATS_USERNAME")
+	NATS_PASSWORD := os.Getenv("NATS_PASSWORD")
+	NATS_SUBJECT := os.Getenv("NATS_SUBJECT")
 
-	// Set the webhook receiver to notification server for kubeshpere notification manager
-	// and send the notification message to Notification Mananger
-	// Notification Mananger will pick the webhook receiver to send message
-	enableWebhook := true
-	notificationServiceUrl := fmt.Sprintf("http://notifications-service.%s/notification/system/push", strings.Replace(namespace, "user-system-", "user-space-", 1))
-	request := NotificationManagerRequest{
-		Alert: &struct {
-			Alerts Alerts `json:"alerts"`
-		}{
-			Alerts: Alerts{
-				alert,
-			},
-		},
-		Receiver: &Receiver{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "notification.kubesphere.io/v2beta2",
-				Kind:       "Receiver",
-			},
-
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "sys-receiver",
-				Labels: map[string]string{
-					"app":  "notification-manager",
-					"type": "global",
-				},
-			},
-
-			Spec: ReceiverSpec{
-				Webhook: &WebhookReceiver{
-					Enabled: &enableWebhook,
-					URL:     &notificationServiceUrl,
-					HTTPConfig: &HTTPClientConfig{
-						BasicAuth: &BasicAuth{
-							Username: "Terminus-Nonce",
-							Password: &Credential{
-								Value: nonce,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	data, err := json.Marshal(request)
+	nc, err := nats.Connect(fmt.Sprintf("nats://%s:%s", NATS_HOST, NATS_PORT), nats.UserInfo(NATS_USERNAME, NATS_PASSWORD))
 	if err != nil {
+		return fmt.Errorf("error connecting to NATS: %v", err)
+	}
+	klog.Infoln("Connected to NATS", NATS_HOST, NATS_PORT, NATS_USERNAME)
+
+	msgData := map[string]interface{}{
+		"user": user,
+	}
+
+	addData := func(name, data string) {
+		decodeData := make(map[string]interface{})
+
+		if err = json.Unmarshal([]byte(data), &decodeData); err != nil {
+			msgData[name] = data
+		} else {
+			msgData[name] = decodeData
+		}
+	}
+
+	addData("message", message)
+	addData("payload", payload)
+
+	msg, err := json.Marshal(msgData)
+	if err != nil {
+		klog.Error("encode msg error, ", err)
 		return err
 	}
 
-	klog.Info("send alert to notification manager, ", string(data))
-
-	postUrl := fmt.Sprintf("http://%s/api/v2/notifications", NM_URL)
-	client := resty.New().SetTimeout(2 * time.Second)
-	res, err := client.R().
-		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
-		SetBody(data).
-		Post(postUrl)
-
+	err = nc.Publish(NATS_SUBJECT, []byte(msg))
 	if err != nil {
-		return err
+		klog.Error("publish message to nats error, ", err)
 	}
 
-	klog.Info("send alert to notification manager, get response: ", string(res.Body()))
-
-	var nmResp NotificationManagerResponse
-	err = json.Unmarshal(res.Body(), &nmResp)
-	if err != nil {
-		return err
-	}
-
-	if nmResp.Status != http.StatusOK {
-		return errors.New(nmResp.Message)
-	}
-
-	return nil
-
+	return err
 }
 
 // Handle1FAResponse handle the redirection upon 1FA authentication.
