@@ -1,13 +1,15 @@
 package storage
 
 import (
-	"database/sql"
 	"encoding/base64"
 
-	"github.com/mattn/go-sqlite3"
+	// "github.com/mattn/go-sqlite3"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
+
+// FIXME:
+// github.com/mattn/go-sqlite3 support golang 1.23.0
 
 // SQLiteProvider is a SQLite3 provider.
 type SQLiteProvider struct {
@@ -35,17 +37,17 @@ func sqlite3TEXTBase64ToBLOB(b64 string) (data []byte, err error) {
 }
 
 func init() {
-	sql.Register("sqlite3e", &sqlite3.SQLiteDriver{
-		ConnectHook: func(conn *sqlite3.SQLiteConn) (err error) {
-			if err = conn.RegisterFunc("BIN2B64", sqlite3BLOBToTEXTBase64, true); err != nil {
-				return err
-			}
+	// sql.Register("sqlite3e", &sqlite3.SQLiteDriver{
+	// 	ConnectHook: func(conn *sqlite3.SQLiteConn) (err error) {
+	// 		if err = conn.RegisterFunc("BIN2B64", sqlite3BLOBToTEXTBase64, true); err != nil {
+	// 			return err
+	// 		}
 
-			if err = conn.RegisterFunc("B642BIN", sqlite3TEXTBase64ToBLOB, true); err != nil {
-				return err
-			}
+	// 		if err = conn.RegisterFunc("B642BIN", sqlite3TEXTBase64ToBLOB, true); err != nil {
+	// 			return err
+	// 		}
 
-			return nil
-		},
-	})
+	// 		return nil
+	// 	},
+	// })
 }

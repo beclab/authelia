@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -46,7 +47,6 @@ func newWebauthn(ctx *middlewares.AutheliaCtx) (w *webauthn.WebAuthn, err error)
 		RPDisplayName: ctx.Configuration.Webauthn.DisplayName,
 		RPID:          rpID,
 		RPOrigins:     []string{origin},
-		RPIcon:        "",
 
 		AttestationPreference: ctx.Configuration.Webauthn.ConveyancePreference,
 		AuthenticatorSelection: protocol.AuthenticatorSelection{
@@ -55,7 +55,10 @@ func newWebauthn(ctx *middlewares.AutheliaCtx) (w *webauthn.WebAuthn, err error)
 			RequireResidentKey:      protocol.ResidentKeyNotRequired(),
 		},
 
-		Timeout: int(ctx.Configuration.Webauthn.Timeout.Milliseconds()),
+		Timeouts: webauthn.TimeoutsConfig{
+			Login:        webauthn.TimeoutConfig{Timeout: time.Duration(ctx.Configuration.Webauthn.Timeout.Milliseconds()) * time.Millisecond},
+			Registration: webauthn.TimeoutConfig{Timeout: time.Duration(ctx.Configuration.Webauthn.Timeout.Milliseconds()) * time.Millisecond},
+		},
 	}
 
 	ctx.Logger.Tracef("Creating new Webauthn RP instance with ID %s and Origins %s", config.RPID, strings.Join(config.RPOrigins, ", "))
