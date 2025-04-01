@@ -109,6 +109,29 @@ func sendNotification(user, _, payload, message string) error {
 	return err
 }
 
+func sendLoginSuccess(ctx *middlewares.AutheliaCtx, session *sess.UserSession) {
+	payload := &struct {
+		Type string      `json:"eventType"`
+		Data interface{} `json:"eventData,omitempty"`
+	}{
+		Type: "user.login",
+		Data: map[string]interface{}{
+			"user": session.Username,
+		},
+	}
+
+	payloadStr, err := json.Marshal(payload)
+	if err != nil {
+		ctx.Logger.Errorf("parse user %s notification payload error, %+v", session.Username, err)
+		return
+	}
+
+	message := fmt.Sprintf("%s login from %s", session.Username, ctx.RemoteIP().String())
+	if err := sendNotification(session.Username, "", string(payloadStr), message); err != nil {
+		ctx.Logger.Errorf("send notification to user %s error, %+v", session.Username, err)
+	}
+}
+
 // Handle1FAResponse handle the redirection upon 1FA authentication.
 func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	targetURI, requestMethod string,
@@ -274,6 +297,9 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 
 		return
 	}
+
+	// login successful in requiredLevel first factor
+	sendLoginSuccess(ctx, session)
 
 	if !ctx.IsSafeRedirectionTargetURI(targetURL) {
 		ctx.Logger.Debugf("Redirection URL %s is not safe", targetURI)
@@ -599,26 +625,8 @@ func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, ses
 		return nil
 	}
 
-	payload := &struct {
-		Type string      `json:"eventType"`
-		Data interface{} `json:"eventData,omitempty"`
-	}{
-		Type: "user.login",
-		Data: map[string]interface{}{
-			"user": session.Username,
-		},
-	}
-
-	payloadStr, err := json.Marshal(payload)
-	if err != nil {
-		ctx.Logger.Errorf("parse user %s notification payload error, %+v", session.Username, err)
-		return nil
-	}
-
-	message := fmt.Sprintf("%s login from %s", session.Username, ctx.RemoteIP().String())
-	if err := sendNotification(session.Username, nonce, string(payloadStr), message); err != nil {
-		ctx.Logger.Errorf("send notification to user %s error, %+v", session.Username, err)
-	}
+	// send login notification
+	sendLoginSuccess(ctx, session)
 
 	return nil
 }
