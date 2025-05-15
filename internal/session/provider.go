@@ -22,7 +22,6 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
-	kubesphere "github.com/authelia/authelia/v4/internal/session/kubesphere/v3.3"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
 
@@ -238,6 +237,10 @@ func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
 			continue
 		}
 
+		if sess.KV[userSessionStorerKey] == nil {
+			continue
+		}
+
 		var us UserSession
 		err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
 
@@ -296,12 +299,12 @@ func (p *Provider) reloadTokenToCache() {
 		panic(err)
 	}
 
-	ksTokenOperator, err := kubesphere.NewTokenOperator()
+	// ksTokenOperator, err := kubesphere.NewTokenOperator()
 
-	if err != nil {
-		klog.Error("connect to kubesphere token cache error, ", err)
-		panic(err)
-	}
+	// if err != nil {
+	// 	klog.Error("connect to kubesphere token cache error, ", err)
+	// 	panic(err)
+	// }
 
 	for key, data := range dataList {
 		var sess session.Dict
@@ -346,17 +349,17 @@ func (p *Provider) reloadTokenToCache() {
 			continue
 		}
 
-		if ksTokenOperator != nil {
-			err = ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
-			if err != nil {
-				continue
-			}
+		// if ksTokenOperator != nil {
+		// 	err = ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
+		// 	if err != nil {
+		// 		continue
+		// 	}
 
-			err = ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
-			if err != nil {
-				continue
-			}
-		}
+		// 	err = ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
+		// 	if err != nil {
+		// 		continue
+		// 	}
+		// }
 
 		// create provider.
 		if func() bool {
@@ -396,9 +399,9 @@ func (p *Provider) reloadTokenToCache() {
 		p.SetByToken(token, s)
 	}
 
-	if ksTokenOperator != nil {
-		ksTokenOperator.Close()
-	}
+	// if ksTokenOperator != nil {
+	// 	ksTokenOperator.Close()
+	// }
 }
 
 func (p *Provider) listUserData() ([]unstructured.Unstructured, error) {
