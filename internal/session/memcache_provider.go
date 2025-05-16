@@ -111,7 +111,7 @@ func newPooledRedisProvider(cfg *redis.Config) (*redisProvider, error) {
 
 	p := &redisProvider{
 		keyPrefix: cfg.KeyPrefix,
-		pool:      newRedisPool(cfg),
+		pool:      NewRedisPool(cfg),
 	}
 
 	// check redis conn
@@ -181,7 +181,7 @@ func (p *redisProvider) Regenerate(id, newID []byte, expiration time.Duration) e
 		return err
 	}
 
-	if existed == 0 {
+	if existed > 0 {
 		_, err = conn.Do("RENAME", key, newKey)
 		if err != nil {
 			return err
@@ -228,13 +228,15 @@ func (p *Provider) GC() error {
 	return nil
 }
 
-func newRedisPool(config *redis.Config) *redispool.Pool {
+func NewRedisPool(config *redis.Config) *redispool.Pool {
 
 	server := config.Addr
 
 	return &redispool.Pool{
-		MaxIdle:     config.PoolSize,
+		MaxIdle:     config.MinIdleConns,
+		MaxActive:   config.PoolSize,
 		IdleTimeout: time.Duration(config.IdleTimeout) * time.Second,
+		Wait:        true,
 		Dial: func() (redispool.Conn, error) {
 			c, err := redispool.Dial("tcp", server)
 			if err != nil {

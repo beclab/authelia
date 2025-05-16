@@ -19,6 +19,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/templates"
 	"github.com/authelia/authelia/v4/internal/totp"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"github.com/jellydator/ttlcache/v3"
 )
 
 // AutheliaCtx contains all server variables related to Authelia.
@@ -76,6 +77,7 @@ type BridgeBuilder struct {
 	providers       *Providers
 	preMiddlewares  []Middleware
 	postMiddlewares []AutheliaMiddleware
+	userCache       *ttlcache.Cache[string, *utils.UserInfo]
 }
 
 // Basic represents a middleware applied to a fasthttp.RequestHandler.

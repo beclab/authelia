@@ -22,18 +22,19 @@ import (
 	"fmt"
 
 	"github.com/fasthttp/session/v2/providers/redis"
-	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/bytebufferpool"
 
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/utils"
+
+	redispool "github.com/gomodule/redigo/redis"
 )
 
 type Lister struct {
 	keyPrefix string
-	db        redisv8.Cmdable
+	db        *redispool.Pool
 }
 
 var errConfigAddrEmpty = errors.New("config Addr must not be empty")
@@ -42,9 +43,9 @@ var all = []byte("*")
 
 // var errConfigMasterNameEmpty = errors.New("config MasterName must not be empty").
 
-func errRedisConnection(err error) error {
-	return fmt.Errorf("redis connection error: %v", err)
-}
+// func errRedisConnection(err error) error {
+// 	return fmt.Errorf("redis connection error: %v", err)
+// }
 
 func NewLister(config schema.SessionConfiguration, certPool *x509.CertPool) (*Lister, error) {
 	network := TCP
@@ -64,7 +65,7 @@ func NewLister(config schema.SessionConfiguration, certPool *x509.CertPool) (*Li
 		addr = fmt.Sprintf("%s:%d", config.Redis.Host, config.Redis.Port)
 	}
 
-	return newLister(redis.Config{
+	return newLister(&redis.Config{
 		Logger:       logging.LoggerCtxPrintf(logrus.TraceLevel),
 		Network:      network,
 		Addr:         addr,
@@ -79,51 +80,32 @@ func NewLister(config schema.SessionConfiguration, certPool *x509.CertPool) (*Li
 	})
 }
 
-func newLister(cfg redis.Config) (*Lister, error) {
+func newLister(cfg *redis.Config) (*Lister, error) {
 	if cfg.Addr == "" {
 		return nil, errConfigAddrEmpty
 	}
 
-	if cfg.Logger != nil {
-		redisv8.SetLogger(cfg.Logger)
-	}
-
-	db := redisv8.NewClient(&redisv8.Options{
-		Network:            cfg.Network,
-		Addr:               cfg.Addr,
-		Username:           cfg.Username,
-		Password:           cfg.Password,
-		DB:                 cfg.DB,
-		MaxRetries:         cfg.MaxRetries,
-		MinRetryBackoff:    cfg.MinRetryBackoff,
-		MaxRetryBackoff:    cfg.MaxRetryBackoff,
-		DialTimeout:        cfg.DialTimeout,
-		ReadTimeout:        cfg.ReadTimeout,
-		WriteTimeout:       cfg.WriteTimeout,
-		PoolSize:           cfg.PoolSize,
-		MinIdleConns:       cfg.MinIdleConns,
-		MaxConnAge:         cfg.MaxConnAge,
-		PoolTimeout:        cfg.PoolTimeout,
-		IdleTimeout:        cfg.IdleTimeout,
-		IdleCheckFrequency: cfg.IdleCheckFrequency,
-		TLSConfig:          cfg.TLSConfig,
-		Limiter:            cfg.Limiter,
-	})
-
-	if err := db.Ping(context.Background()).Err(); err != nil {
-		return nil, errRedisConnection(err)
-	}
-
 	l := &Lister{
 		keyPrefix: cfg.KeyPrefix,
-		db:        db,
+		db:        NewRedisPool(cfg),
+	}
+
+	// check redis conn
+	conn := l.db.Get()
+	defer conn.Close()
+	_, err := conn.Do("PING")
+	if err != nil {
+		return nil, errors.New("session redis provider init error, " + err.Error())
 	}
 
 	return l, nil
 }
 
 func (l *Lister) List() (map[string][]byte, error) {
-	reply, err := l.db.Keys(context.Background(), l.getRedisSessionKey(all)).Result()
+	conn := l.db.Get()
+	defer conn.Close()
+
+	reply, err := redispool.Strings(conn.Do("KEYS", l.getRedisSessionKey(all)))
 
 	if err != nil {
 		return nil, err
@@ -137,9 +119,8 @@ func (l *Lister) List() (map[string][]byte, error) {
 
 	for _, k := range reply {
 
-		item, err := l.db.Get(context.Background(), k).Bytes()
-
-		if err != nil && err != redisv8.Nil {
+		item, err := redispool.Bytes(conn.Do("GET", k))
+		if err != nil && err != redispool.ErrNil {
 			return nil, err
 		}
 
@@ -173,6 +154,9 @@ func (l *Lister) GetSessionIDFromKey(key string) string {
 }
 
 func (l *Lister) Destroy(ctx context.Context, key string) error {
-	_, err := l.db.Del(ctx, key).Result()
+	conn := l.db.Get()
+	defer conn.Close()
+	_, err := conn.Do("DEL", key)
+
 	return err
 }
