@@ -13,7 +13,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/oidc"
 )
 
-func newTestSession() (*Session, error) {
+func newTestSession() (SessionProvider, error) {
 	config := schema.SessionConfiguration{}
 	config.Cookies = []schema.SessionCookieConfiguration{
 		{

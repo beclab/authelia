@@ -71,7 +71,7 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 			ctx.Logger.Error("Unable to retrieve user session provider, ", err)
 		}
 
-		sessionId := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+		sessionId := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
 
 		userSession, err := ctx.GetSession()
 

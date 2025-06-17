@@ -136,11 +136,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if bodyJSON.AcceptCookie != nil && !*bodyJSON.AcceptCookie {
 			// client does not accept cookie
 			// ignore cookie from client
-			cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+			cookie := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
 
 			if len(cookie) > 0 {
 				klog.Info("clear session cookie, cause accept cookie is ", *bodyJSON.AcceptCookie)
-				ctx.RequestCtx.Request.Header.DelCookie(provider.Config.Name)
+				ctx.RequestCtx.Request.Header.DelCookie(provider.GetConfig().Name)
 			}
 		}
 
@@ -173,11 +173,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		}
 
 		// Check if bodyJSON.KeepMeLoggedIn can be deref'd and derive the value based on the configuration and JSON data.
-		keepMeLoggedIn := !provider.Config.DisableRememberMe && bodyJSON.KeepMeLoggedIn != nil && *bodyJSON.KeepMeLoggedIn
+		keepMeLoggedIn := !provider.GetConfig().DisableRememberMe && bodyJSON.KeepMeLoggedIn != nil && *bodyJSON.KeepMeLoggedIn
 
 		// Set the cookie to expire if remember me is enabled and the user has asked us to.
 		if keepMeLoggedIn {
-			err = provider.UpdateExpiration(ctx.RequestCtx, provider.Config.RememberMe)
+			err = provider.UpdateExpiration(ctx.RequestCtx, provider.GetConfig().RememberMe)
 			if err != nil {
 				ctx.Logger.Errorf(logFmtErrSessionSave, "updated expiration", regulation.AuthType1FA, bodyJSON.Username, err)
 
@@ -209,7 +209,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			userSession.AccessToken = validRes.AccessToken
 			userSession.RefreshToken = validRes.RefreshToken
 			ctx.AccessToken = validRes.AccessToken
-			provider.TargetDomain = ctx.RequestTargetDomain
+			provider.SetTargetDomain(ctx.RequestTargetDomain)
 			ctx.Providers.SessionProvider.SetByToken(validRes.AccessToken, provider)
 		}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/regulation"
+	"github.com/authelia/authelia/v4/internal/session"
 	sess "github.com/authelia/authelia/v4/internal/session"
 )
 
@@ -45,7 +46,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		}
 
 		cookie := &fasthttp.Cookie{}
-		cookie.SetKey("auth_token")
+		cookie.SetKey(session.AUTH_TOKEN)
 		cookie.SetValue(tokenInfo.AccessToken)
 		cookie.SetDomain(domain)
 		cookie.SetPath("/")
@@ -321,7 +322,7 @@ func getSessionId(ctx *middlewares.AutheliaCtx) []byte {
 	if err != nil {
 		ctx.Logger.Errorf("unable to save user session: %s", err)
 	} else {
-		sessionId = ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+		sessionId = ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
 		if len(sessionId) == 0 {
 			sessionId = ctx.Request.Header.Peek(middlewares.DefaultSessionKeyName)
 			if len(sessionId) == 0 {

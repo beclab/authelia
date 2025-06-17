@@ -27,11 +27,11 @@ import (
 
 // Provider contains a list of domain sessions.
 type Provider struct {
-	sessions          map[string]*Session
-	sessionCreator    func(domain, targetDomain string) (*Session, error)
+	sessions          map[string]SessionProvider
+	sessionCreator    func(domain, targetDomain string) (SessionProvider, error)
 	lock              sync.Mutex
 	Config            schema.SessionConfiguration
-	providerWithToken *ttlcache.Cache[string, *Session]
+	providerWithToken *ttlcache.Cache[string, SessionProvider]
 
 	reloadLister *Lister
 }
@@ -81,11 +81,11 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 	log := logging.Logger()
 
 	provider := &Provider{
-		sessions: map[string]*Session{},
+		sessions: map[string]SessionProvider{},
 		Config:   config,
 		providerWithToken: ttlcache.New(
-			ttlcache.WithTTL[string, *Session](config.Expiration),
-			ttlcache.WithCapacity[string, *Session](1000),
+			ttlcache.WithTTL[string, SessionProvider](config.Expiration),
+			ttlcache.WithCapacity[string, SessionProvider](1000),
 		),
 	}
 
@@ -99,7 +99,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 		provider.reloadLister = lister
 	}
 
-	creator := func(domain, targetDomain string) (*Session, error) {
+	creator := func(domain, targetDomain string) (SessionProvider, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
 
@@ -116,7 +116,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 					return nil, err
 				}
 
-				provider.sessions[domain] = &Session{
+				provider.sessions[domain] = &internelSession{
 					Config:        dconfig,
 					sessionHolder: holder,
 					sessionWithToken: ttlcache.New(
@@ -143,7 +143,7 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 }
 
 // Get returns session information for specified domain.
-func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Session, error) {
+func (p *Provider) Get(domain, targetDomain, token string, backend bool) (SessionProvider, error) {
 	log := logging.Logger()
 
 	if domain == "" && !backend {
@@ -156,12 +156,12 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
 
 	var (
-		s     *Session
+		s     SessionProvider
 		found bool
 		err   error
 	)
 
-	if s = p.GetByToken(token); s != nil && (p.findDomain(s.TargetDomain) == domain || backend) { // TODO: install wizard.
+	if s = p.GetByToken(token); s != nil && (p.findDomain(s.GetTargetDomain()) == domain || backend) { // TODO: install wizard.
 		return s, nil
 	} else {
 		if domain != "" {
@@ -182,7 +182,7 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (*Sessi
 }
 
 // Get returns session information for specified token.
-func (p *Provider) GetByToken(token string) *Session {
+func (p *Provider) GetByToken(token string) SessionProvider {
 	if token == "" {
 		klog.Errorf("can not get session from an undefined token")
 		return nil
@@ -198,7 +198,7 @@ func (p *Provider) GetByToken(token string) *Session {
 }
 
 // Get returns session information for specified token.
-func (p *Provider) SetByToken(token string, session *Session) {
+func (p *Provider) SetByToken(token string, session SessionProvider) {
 	if token == "" {
 		klog.Warning("token is empty")
 		return
@@ -382,7 +382,7 @@ func (p *Provider) reloadTokenToCache() {
 
 		if err != nil {
 			klog.Error("reload user info error, ", err)
-			panic(err)
+			continue
 		}
 
 		// force target domain equals user's zone.

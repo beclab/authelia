@@ -86,7 +86,7 @@ func checkResourceAuthLevel(ctx *middlewares.AutheliaCtx, result AuthzResult,
 }
 
 func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
-	provider *session.Session,
+	provider session.SessionProvider,
 	userSession session.UserSession,
 	rule *authorization.AccessControlRule,
 ) (AuthzResult, error) {

@@ -60,7 +60,7 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 	if revokeSession := ctx.Providers.SessionProvider.GetByToken(body.RevokeToken); revokeSession != nil {
 		if sessionId := revokeSession.GetSessionID(body.RevokeToken); sessionId != "" {
 			// change context session to signed session
-			ctx.RequestCtx.Request.Header.SetCookie(revokeSession.Config.Name, sessionId)
+			ctx.RequestCtx.Request.Header.SetCookie(revokeSession.GetConfig().Name, sessionId)
 
 			revokeUserSession, err := revokeSession.GetSession(ctx.RequestCtx)
 			if err != nil {

@@ -61,11 +61,11 @@ func ServeTemplatedFile(t templates.Template, opts *TemplatedFileOptions) middle
 
 		var (
 			rememberMe string
-			provider   *session.Session
+			provider   session.SessionProvider
 		)
 
 		if provider, err = ctx.GetSessionProvider(); err == nil {
-			rememberMe = strconv.FormatBool(!provider.Config.DisableRememberMe)
+			rememberMe = strconv.FormatBool(!provider.GetConfig().DisableRememberMe)
 		}
 
 		data := &bytes.Buffer{}

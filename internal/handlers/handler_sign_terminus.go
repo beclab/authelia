@@ -205,7 +205,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	sessionId := session.GetSessionID(token)
 
 	// change context session to signed session
-	ctx.RequestCtx.Request.Header.SetCookie(session.Config.Name, sessionId)
+	ctx.RequestCtx.Request.Header.SetCookie(session.GetConfig().Name, sessionId)
 
 	if userSession, err = session.GetSession(ctx.RequestCtx); err != nil {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
@@ -232,11 +232,11 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	// ignore cookie from client
-	cookie := ctx.RequestCtx.Request.Header.Cookie(session.Config.Name)
+	cookie := ctx.RequestCtx.Request.Header.Cookie(session.GetConfig().Name)
 
 	if len(cookie) > 0 {
 		klog.Info("clear session cookie for termipass sign")
-		ctx.RequestCtx.Request.Header.DelCookie(session.Config.Name)
+		ctx.RequestCtx.Request.Header.DelCookie(session.GetConfig().Name)
 	}
 
 	// send notification to other termipass

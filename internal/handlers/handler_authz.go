@@ -17,7 +17,7 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	var (
 		object      authorization.Object
 		autheliaURL *url.URL
-		provider    *session.Session
+		provider    session.SessionProvider
 		err         error
 	)
 
@@ -132,7 +132,7 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	}
 }
 
-func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider *session.Session) (autheliaURL *url.URL, err error) {
+func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider session.SessionProvider) (autheliaURL *url.URL, err error) {
 	if authz.handleGetAutheliaURL == nil {
 		return nil, nil
 	}
@@ -159,12 +159,12 @@ func (authz *Authz) getAutheliaURL(ctx *middlewares.AutheliaCtx, provider *sessi
 		return autheliaURL, nil
 	}
 
-	if provider.Config.AutheliaURL != nil {
+	if provider.GetConfig().AutheliaURL != nil {
 		if authz.legacy {
 			return nil, nil
 		}
 
-		return provider.Config.AutheliaURL, nil
+		return provider.GetConfig().AutheliaURL, nil
 	}
 
 	return nil, fmt.Errorf("authelia url lookup failed")
@@ -190,7 +190,7 @@ func (authz *Authz) getRedirectionURL(object *authorization.Object, autheliaURL 
 	return redirectionURL
 }
 
-func (authz *Authz) authn(ctx *middlewares.AutheliaCtx, provider *session.Session) (authn Authn, strategy AuthnStrategy, err error) {
+func (authz *Authz) authn(ctx *middlewares.AutheliaCtx, provider session.SessionProvider) (authn Authn, strategy AuthnStrategy, err error) {
 	for _, strategy = range authz.strategies {
 		if authn, err = strategy.Get(ctx, provider); err != nil {
 			if strategy.CanHandleUnauthorized() {

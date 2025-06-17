@@ -141,6 +141,16 @@ func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string)
 		return nil, err
 	}
 
+	if resp.StatusCode() != http.StatusOK {
+		klog.Errorf("Error response from server: %s", resp.Body())
+		return nil, errors.New(string(resp.Body()))
+	}
+
+	if resp.Result() == nil {
+		klog.Error("Response result is nil")
+		return nil, errors.New("response result is nil")
+	}
+
 	refreshTokenResp := resp.Result().(*RefreshTokenResponse)
 
 	return &ValidResult{

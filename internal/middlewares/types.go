@@ -32,7 +32,7 @@ type AutheliaCtx struct {
 
 	Clock utils.Clock
 
-	session *session.Session
+	session session.SessionProvider
 
 	RequestTargetDomain string
 	BackendRequest      bool

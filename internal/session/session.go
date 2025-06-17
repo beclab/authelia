@@ -13,8 +13,10 @@ import (
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
 
+var _ SessionProvider = (*internelSession)(nil)
+
 // Session a session provider.
-type Session struct {
+type internelSession struct {
 	Config schema.SessionCookieConfiguration
 
 	sessionHolder *session.Session
@@ -25,7 +27,7 @@ type Session struct {
 }
 
 // NewDefaultUserSession returns a new default UserSession for this session provider.
-func (p *Session) NewDefaultUserSession() (userSession UserSession) {
+func (p *internelSession) NewDefaultUserSession() (userSession UserSession) {
 	userSession = NewDefaultUserSession()
 
 	userSession.CookieDomain = p.Config.Domain
@@ -34,7 +36,7 @@ func (p *Session) NewDefaultUserSession() (userSession UserSession) {
 }
 
 // GetSession return the user session from a request.
-func (p *Session) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
+func (p *internelSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
 	var store *session.Store
 
 	klog.Info("get ctx session cookie, ", string(ctx.Request.Header.Cookie("authelia_session")), " config domain: ", p.Config.Domain)
@@ -48,6 +50,8 @@ func (p *Session) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession,
 	// If userSession is not yet defined we create the new session with default values
 	// and save it in the store.
 	if !ok {
+		klog.Info("user session not found in store, create new session")
+
 		userSession = p.NewDefaultUserSession()
 
 		store.Set(userSessionStorerKey, userSession)
@@ -63,7 +67,7 @@ func (p *Session) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession,
 }
 
 // SaveSession save the user session.
-func (p *Session) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSession) (err error) {
+func (p *internelSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSession) (err error) {
 	var (
 		store           *session.Store
 		userSessionJSON []byte
@@ -99,17 +103,18 @@ func (p *Session) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSession)
 }
 
 // RegenerateSession regenerate a session ID.
-func (p *Session) RegenerateSession(ctx *fasthttp.RequestCtx) error {
+func (p *internelSession) RegenerateSession(ctx *fasthttp.RequestCtx) error {
 	return p.sessionHolder.Regenerate(ctx)
 }
 
 // DestroySession destroy a session ID and delete the cookie.
-func (p *Session) DestroySession(ctx *fasthttp.RequestCtx) error {
+func (p *internelSession) DestroySession(ctx *fasthttp.RequestCtx) error {
+	klog.Warning("destroy session cookie, ", string(ctx.Request.Header.Cookie(p.Config.SessionCookieCommonConfiguration.Name)))
 	return p.sessionHolder.Destroy(ctx)
 }
 
 // UpdateExpiration update the expiration of the cookie and session.
-func (p *Session) UpdateExpiration(ctx *fasthttp.RequestCtx, expiration time.Duration) (err error) {
+func (p *internelSession) UpdateExpiration(ctx *fasthttp.RequestCtx, expiration time.Duration) (err error) {
 	var store *session.Store
 
 	if store, err = p.sessionHolder.Get(ctx); err != nil {
@@ -126,7 +131,7 @@ func (p *Session) UpdateExpiration(ctx *fasthttp.RequestCtx, expiration time.Dur
 }
 
 // GetExpiration get the expiration of the current session.
-func (p *Session) GetExpiration(ctx *fasthttp.RequestCtx) (time.Duration, error) {
+func (p *internelSession) GetExpiration(ctx *fasthttp.RequestCtx) (time.Duration, error) {
 	store, err := p.sessionHolder.Get(ctx)
 
 	if err != nil {
@@ -136,7 +141,7 @@ func (p *Session) GetExpiration(ctx *fasthttp.RequestCtx) (time.Duration, error)
 	return store.GetExpiration(), nil
 }
 
-func (p *Session) GetSessionID(token string) string {
+func (p *internelSession) GetSessionID(token string) string {
 	item := p.sessionWithToken.Get(token)
 	if item == nil {
 		klog.Warning("cannot get cookie with token, ", token)
@@ -146,10 +151,22 @@ func (p *Session) GetSessionID(token string) string {
 	return item.Value()
 }
 
-func (p *Session) SaveSessionID(token, sessionId string) {
+func (p *internelSession) SaveSessionID(token, sessionId string) {
 	p.sessionWithToken.Set(token, sessionId, p.Config.Expiration)
 }
 
-func (p *Session) RemoveSessionID(token string) {
+func (p *internelSession) RemoveSessionID(token string) {
 	p.sessionWithToken.Delete(token)
+}
+
+func (p *internelSession) GetTargetDomain() string {
+	return p.TargetDomain
+}
+
+func (p *internelSession) GetConfig() *schema.SessionCookieConfiguration {
+	return &p.Config
+}
+
+func (p *internelSession) SetTargetDomain(domain string) {
+	p.TargetDomain = domain
 }
