@@ -1,13 +1,16 @@
 package session
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/utils"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/go-resty/resty/v2"
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
@@ -20,6 +23,9 @@ type lldapSession struct {
 	TargetDomain string
 	Config       *schema.SessionCookieConfiguration
 	tokenCache   *ttlcache.Cache[string, *UserSession]
+	lldapAddr    string
+
+	parseToken func(token string) (*Claims, error)
 }
 
 // DestroySession implements SessionProvider.
@@ -32,12 +38,17 @@ func (l *lldapSession) DestroySession(ctx *fasthttp.RequestCtx) error {
 
 	klog.Infof("destroying session with token %s", token)
 
+	// Delete the token from the lldap
+	_, err := TokenInvalidate(l.lldapAddr, token, token)
+	if err != nil {
+		klog.Errorf("failed to invalidate token %s: %v", token, err)
+		return fmt.Errorf("failed to invalidate token: %w", err)
+	}
+
 	// Remove the session from the cache.
 	if l.tokenCache != nil {
 		l.tokenCache.Delete(token)
 	}
-
-	// Delete the token from the lldap
 
 	return nil
 }
@@ -49,7 +60,23 @@ func (l *lldapSession) GetConfig() *schema.SessionCookieConfiguration {
 
 // GetExpiration implements SessionProvider.
 func (l *lldapSession) GetExpiration(ctx *fasthttp.RequestCtx) (time.Duration, error) {
-	panic("unimplemented")
+	token := l.getToken(ctx)
+	if len(token) == 0 {
+		klog.Error("no session token found in request context")
+		return 0, errors.New("no session token found in request context")
+	}
+
+	return l.getExpiration(token)
+}
+
+func (l *lldapSession) getExpiration(token string) (time.Duration, error) {
+	claims, err := l.parseToken(token)
+	if err != nil {
+		klog.Errorf("failed to parse token: %v", err)
+		return 0, fmt.Errorf("invalid token: %w", err)
+	}
+
+	return time.Until(time.Unix(claims.ExpiresAt, 0)), nil
 }
 
 // GetSession implements SessionProvider.
@@ -69,7 +96,19 @@ func (l *lldapSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSes
 	if item := l.tokenCache.Get(token); item != nil {
 		klog.Infof("session found in cache for token %s", token)
 		session := item.Value()
+		if session.InBlacklist {
+			klog.Infof("session for token %s is blacklisted, returning default session", token)
+			return l.NewDefaultUserSession(), nil
+		}
+
 		return *session, nil
+	}
+
+	klog.Infof("session not found in cache for token %s, verifing token", token)
+	_, err = TokenVerify(l.lldapAddr, token, token)
+	if err != nil {
+		klog.Errorf("failed to verify token %s: %v", token, err)
+		return l.NewDefaultUserSession(), fmt.Errorf("failed to verify token: %w", err)
 	}
 
 	// Token not found in cache, parse and validate the JWT token
@@ -80,11 +119,7 @@ func (l *lldapSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSes
 	}
 
 	// Create user session from claims
-	userSession = l.NewDefaultUserSession()
-	userSession.Username = claims.Username
-	userSession.DisplayName = claims.PreferredUsername
-	userSession.Emails = []string{claims.Email}
-	userSession.CookieDomain = l.Config.Domain
+	userSession = l.createSessionFromTokenClaims(token, claims)
 
 	// Store in cache for future requests
 	l.tokenCache.Set(token, &userSession, time.Until(time.Unix(claims.ExpiresAt, 0))) // Cache for 1 hour
@@ -113,12 +148,13 @@ func (l *lldapSession) NewDefaultUserSession() (userSession UserSession) {
 
 // RegenerateSession implements SessionProvider.
 func (l *lldapSession) RegenerateSession(ctx *fasthttp.RequestCtx) error {
-	panic("unimplemented")
+	return nil
 }
 
 // RemoveSessionID implements SessionProvider.
 func (l *lldapSession) RemoveSessionID(token string) {
-	panic("unimplemented")
+	l.tokenCache.Delete(token)
+	klog.Infof("removed session ID for token %s", token)
 }
 
 // SaveSession implements SessionProvider.
@@ -127,15 +163,55 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 	// The token itself contains all the necessary information
 	// We could optionally cache the session if needed
 	token := l.getToken(ctx)
+	if token != "" {
+		if userSession.AccessToken != "" {
+			c, err := l.parseToken(userSession.AccessToken)
+			if err != nil {
+				klog.Errorf("failed to parse user session access token: %v", err)
+				return fmt.Errorf("failed to parse user session access token: %w", err)
+			}
+
+			userSession = l.createSessionFromTokenClaims(userSession.AccessToken, c)
+		}
+
+		token = userSession.AccessToken
+	}
+
 	if token != "" && l.tokenCache != nil {
-		l.tokenCache.Set(token, &userSession, time.Hour)
+		if userSession.AccessToken != token {
+			klog.Infof("updating session token from %s to %s", token, userSession.AccessToken)
+
+			token = userSession.AccessToken
+			l.tokenCache.Delete(token) // Remove old token if it exists
+		}
+
+		exp, err := l.getExpiration(token)
+		if err != nil {
+			klog.Errorf("failed to get expiration for token %s: %v", token, err)
+			return fmt.Errorf("failed to get expiration for token %s: %w", token, err)
+		}
+
+		l.tokenCache.Set(token, &userSession, exp)
 	}
 	return nil
 }
 
 // SaveSessionID implements SessionProvider.
-func (l *lldapSession) SaveSessionID(token string, sessionId string) {
-	// do nothing, lldapSession does not use session ID
+func (l *lldapSession) SaveSessionID(token string, InBlacklist any) {
+	if token != "" {
+		claims, err := l.parseToken(token)
+		if err != nil {
+			klog.Errorf("failed to parse token: %v", err)
+			return
+		}
+
+		session := l.createSessionFromTokenClaims(token, claims)
+
+		session.InBlacklist = InBlacklist.(bool)
+
+		exp := time.Until(time.Unix(claims.ExpiresAt, 0))
+		l.tokenCache.Set(token, &session, exp)
+	}
 }
 
 // SetTargetDomain implements SessionProvider.
@@ -162,41 +238,73 @@ func (l *lldapSession) getToken(ctx *fasthttp.RequestCtx) string {
 	return ""
 }
 
-func (l *lldapSession) parseToken(token string) (*Claims, error) {
-	if len(token) == 0 {
-		return nil, errors.New("token is empty")
+func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims) UserSession {
+	userSession := l.NewDefaultUserSession()
+	userSession.Username = claims.Username
+	userSession.DisplayName = claims.Username
+	userSession.Emails = []string{claims.Username + "@olares.com"}
+	userSession.CookieDomain = l.Config.Domain
+	userSession.AuthenticationLevel = authentication.OneFactor
+	userSession.Groups = claims.Groups
+	userSession.AccessToken = token
+
+	if claims.Mfa > 0 {
+		userSession.AuthenticationLevel = authentication.TwoFactor
 	}
 
-	// Parse the JWT token with claims and without claims validation
-	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, nil, jwt.WithoutClaimsValidation())
+	return userSession
+}
 
+func TokenVerify(baseURL, accessToken, validToken string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/auth/token/verify", baseURL)
+	client := resty.New()
+
+	resp, err := client.SetTimeout(10*time.Second).R().
+		SetHeader("Content-Type", "application/json").SetAuthToken(accessToken).
+		SetBody(map[string]string{
+			"access_token": validToken,
+		}).Post(url)
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			switch {
-			case ve.Errors&jwt.ValidationErrorMalformed != 0:
-				return nil, fmt.Errorf("malformed token: %w", err)
-			case ve.Errors&jwt.ValidationErrorExpired != 0:
-				return nil, fmt.Errorf("token expired: %w", err)
-			case ve.Errors&jwt.ValidationErrorNotValidYet != 0:
-				return nil, fmt.Errorf("token not valid yet: %w", err)
-			case ve.Errors&jwt.ValidationErrorSignatureInvalid != 0:
-				return nil, fmt.Errorf("invalid token signature: %w", err)
-			default:
-				return nil, fmt.Errorf("token validation error: %w", err)
-			}
-		}
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		klog.Infof("send request failed: %v", err)
+		return nil, err
 	}
-
-	// Check if token is valid and extract claims
-	if !parsedToken.Valid {
-		return nil, errors.New("token is invalid")
+	if resp.StatusCode() != http.StatusOK {
+		klog.Infof("not 200, %v, body: %v", resp.StatusCode(), string(resp.Body()))
+		return nil, errors.New(resp.String())
 	}
-
-	claims, ok := parsedToken.Claims.(*Claims)
-	if !ok {
-		return nil, errors.New("failed to extract claims from token")
+	var response map[string]interface{}
+	err = json.Unmarshal(resp.Body(), &response)
+	if err != nil {
+		klog.Infof("unmarshal failed: %v", err)
+		return nil, err
 	}
+	klog.Infof("token verify res: %v", response)
+	return response, nil
+}
 
-	return claims, nil
+func TokenInvalidate(baseURL, accessToken, revokeToken string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s/auth/token/invalidate", baseURL)
+	client := resty.New()
+
+	resp, err := client.SetTimeout(10*time.Second).R().
+		SetHeader("Content-Type", "application/json").SetAuthToken(accessToken).
+		SetBody(map[string]string{
+			"access_token": revokeToken,
+		}).Post(url)
+	if err != nil {
+		klog.Infof("send request failed: %v", err)
+		return nil, err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		klog.Infof("not 200, %v, body: %v", resp.StatusCode(), string(resp.Body()))
+		return nil, errors.New(resp.String())
+	}
+	var response map[string]interface{}
+	err = json.Unmarshal(resp.Body(), &response)
+	if err != nil {
+		klog.Infof("unmarshal failed: %v", err)
+		return nil, err
+	}
+	klog.Infof("token invalidate res: %v", response)
+	return response, nil
 }

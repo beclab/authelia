@@ -201,13 +201,13 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	session := ctx.Providers.SessionProvider.GetByToken(token)
-	sessionId := session.GetSessionID(token)
+	sessionProvider := ctx.Providers.SessionProvider.GetByToken(token)
+	sessionId := sessionProvider.GetSessionID(token)
 
 	// change context session to signed session
-	ctx.RequestCtx.Request.Header.SetCookie(session.GetConfig().Name, sessionId)
+	ctx.RequestCtx.Request.Header.SetCookie(session.AUTH_TOKEN, sessionId)
 
-	if userSession, err = session.GetSession(ctx.RequestCtx); err != nil {
+	if userSession, err = sessionProvider.GetSession(ctx.RequestCtx); err != nil {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
 		respondUnauthorized(ctx, messageMFAValidationFailed)
@@ -217,7 +217,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 
 	userSession.SetTwoFactorTerminusPass(ctx.Clock.Now())
 
-	if err = session.SaveSession(ctx.RequestCtx, userSession); err != nil {
+	if err = sessionProvider.SaveSession(ctx.RequestCtx, userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)
 
 		respondUnauthorized(ctx, messageMFAValidationFailed)
@@ -232,11 +232,11 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	// ignore cookie from client
-	cookie := ctx.RequestCtx.Request.Header.Cookie(session.GetConfig().Name)
+	cookie := ctx.RequestCtx.Request.Header.Cookie(session.AUTH_TOKEN)
 
 	if len(cookie) > 0 {
 		klog.Info("clear session cookie for termipass sign")
-		ctx.RequestCtx.Request.Header.DelCookie(session.GetConfig().Name)
+		ctx.RequestCtx.Request.Header.DelCookie(session.AUTH_TOKEN)
 	}
 
 	// send notification to other termipass

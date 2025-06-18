@@ -12,7 +12,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/utils"
-	"k8s.io/klog/v2"
 )
 
 // FirstFactorPOST is the handler performing the first factory.
@@ -133,30 +132,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			return
 		}
 
-		if bodyJSON.AcceptCookie != nil && !*bodyJSON.AcceptCookie {
-			// client does not accept cookie
-			// ignore cookie from client
-			cookie := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
-
-			if len(cookie) > 0 {
-				klog.Info("clear session cookie, cause accept cookie is ", *bodyJSON.AcceptCookie)
-				ctx.RequestCtx.Request.Header.DelCookie(provider.GetConfig().Name)
-			}
-		}
-
-		userSession, err := provider.GetSession(ctx.RequestCtx)
-		if err != nil {
-			ctx.Logger.Errorf("%s", err)
-
-			respondUnauthorized(ctx, messageAuthenticationFailed)
-
-			return
-		}
-
-		newSession := provider.NewDefaultUserSession()
+		userSession := provider.NewDefaultUserSession()
+		userSession.AccessToken = validRes.AccessToken
 
 		// Reset all values from previous session except OIDC workflow before regenerating the cookie.
-		if err = ctx.SaveSession(newSession); err != nil {
+		if err = ctx.SaveSession(userSession); err != nil {
 			ctx.Logger.Errorf(logFmtErrSessionReset, regulation.AuthType1FA, bodyJSON.Username, err)
 
 			respondUnauthorized(ctx, messageAuthenticationFailed)

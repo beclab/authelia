@@ -88,21 +88,6 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 
 	var userSession session.UserSession
 
-	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
-
-	if len(cookie) == 0 {
-		// try to get session id from token header.
-		ctx.Logger.Info("try to get session id from token header")
-		token := ctx.RequestCtx.Request.Header.PeekBytes(middlewares.HeaderTerminusAuthorization)
-
-		if len(token) == 0 {
-			ctx.Logger.Error("Unable to retrieve user token")
-		} else {
-			c := provider.GetSessionID(string(token))
-			ctx.RequestCtx.Request.Header.SetCookie(provider.GetConfig().Name, c)
-		}
-	}
-
 	if userSession, err = provider.GetSession(ctx.RequestCtx); err != nil {
 		return authn, fmt.Errorf("failed to retrieve user session: %w", err)
 	}

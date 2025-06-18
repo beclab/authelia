@@ -360,18 +360,6 @@ func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error
 		return userSession, err
 	}
 
-	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
-	if len(cookie) == 0 {
-		// try to get cookie from token header.
-		token := ctx.RequestCtx.Request.Header.PeekBytes(HeaderTerminusAuthorization)
-		if len(token) == 0 {
-			ctx.Logger.Error("Unable to retrieve user token")
-		} else {
-			c := provider.GetSessionID(string(token))
-			ctx.RequestCtx.Request.Header.SetCookie(provider.GetConfig().Name, c)
-		}
-	}
-
 	if userSession, err = provider.GetSession(ctx.RequestCtx); err != nil {
 		ctx.Logger.Error("Unable to retrieve user session")
 		return provider.NewDefaultUserSession(), nil
@@ -404,19 +392,6 @@ func (ctx *AutheliaCtx) SaveSession(userSession session.UserSession) error {
 	err = provider.SaveSession(ctx.RequestCtx, userSession)
 	if err != nil {
 		return err
-	}
-
-	if userSession.AccessToken != "" {
-		cookie := ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
-		if len(cookie) == 0 {
-			cookie = ctx.Request.Header.Peek(DefaultSessionKeyName)
-			if len(cookie) == 0 {
-				ctx.Logger.Error("Unable to retrieve user cookie")
-				return errors.New("unable to retrieve user cookie")
-			}
-		}
-
-		provider.SaveSessionID(userSession.AccessToken, string(cookie))
 	}
 
 	return nil

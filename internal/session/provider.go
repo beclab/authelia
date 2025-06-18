@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/utils"
@@ -41,31 +44,11 @@ type Type string
 type Claims struct {
 	jwt.StandardClaims
 	// Private Claim Names
-	// TokenType defined the type of the token
-	TokenType Type `json:"token_type,omitempty"`
 	// Username user identity, deprecated field
 	Username string `json:"username,omitempty"`
-	// Extra contains the additional information
-	Extra map[string][]string `json:"extra,omitempty"`
 
-	// Used for issuing authorization code
-	// Scopes can be used to request that specific sets of information be made available as Claim Values.
-	Scopes []string `json:"scopes,omitempty"`
-
-	// The following is well-known ID Token fields
-
-	// End-User's full name in displayable form including all name parts,
-	// possibly including titles and suffixes, ordered according to the End-User's locale and preferences.
-	Name string `json:"name,omitempty"`
-	// String value used to associate a Client session with an ID Token, and to mitigate replay attacks.
-	// The value is passed through unmodified from the Authentication Request to the ID Token.
-	Nonce string `json:"nonce,omitempty"`
-	// End-User's preferred e-mail address.
-	Email string `json:"email,omitempty"`
-	// End-User's locale, represented as a BCP47 [RFC5646] language tag.
-	Locale string `json:"locale,omitempty"`
-	// Shorthand name by which the End-User wishes to be referred to at the RP,
-	PreferredUsername string `json:"preferred_username,omitempty"`
+	Groups []string `json:"groups,omitempty"`
+	Mfa    int64    `json:"mfa,omitempty"`
 }
 
 type SessionTokenInfo struct {
@@ -77,53 +60,65 @@ type SessionTokenInfo struct {
 }
 
 // NewProvider instantiate a session provider given a configuration.
-func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *Provider {
-	log := logging.Logger()
+func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provider {
+	// log := logging.Logger()
 
 	provider := &Provider{
 		sessions: map[string]SessionProvider{},
-		Config:   config,
+		Config:   config.Session,
 		providerWithToken: ttlcache.New(
-			ttlcache.WithTTL[string, SessionProvider](config.Expiration),
+			ttlcache.WithTTL[string, SessionProvider](config.Session.Expiration),
 			ttlcache.WithCapacity[string, SessionProvider](1000),
 		),
 	}
 
-	if config.Redis != nil {
-		// reload token from redis.
-		lister, err := NewLister(provider.Config, certPool)
-		if err != nil {
-			panic(err)
-		}
+	// if config.Session.Redis != nil {
+	// 	// reload token from redis.
+	// 	lister, err := NewLister(provider.Config, certPool)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 
-		provider.reloadLister = lister
-	}
+	// 	provider.reloadLister = lister
+	// }
 
+	lldapServer := fmt.Sprintf("http://%s:%d", config.AuthenticationBackend.LLDAP.Server, *config.AuthenticationBackend.LLDAP.Port)
 	creator := func(domain, targetDomain string) (SessionProvider, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
 
-			name, p, s, err := NewSessionProvider(provider.Config, certPool)
+			// name, p, s, err := NewSessionProvider(provider.Config, certPool)
 
-			if err != nil {
-				log.Fatal(err)
-			}
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
 
 			if dconfig.Domain == domain {
-				_, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
+				// _, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
 
-				if err != nil {
-					return nil, err
-				}
+				// if err != nil {
+				// 	return nil, err
+				// }
+				//
+				// provider.sessions[domain] = &internelSession{
+				// 	Config:        dconfig,
+				// 	sessionHolder: holder,
+				// 	sessionWithToken: ttlcache.New(
+				// 		ttlcache.WithTTL[string, string](dconfig.Expiration),
+				// 		ttlcache.WithCapacity[string, string](1000),
+				// 	),
+				// 	TargetDomain: targetDomain,
+				// }
 
-				provider.sessions[domain] = &internelSession{
-					Config:        dconfig,
-					sessionHolder: holder,
-					sessionWithToken: ttlcache.New(
-						ttlcache.WithTTL[string, string](dconfig.Expiration),
-						ttlcache.WithCapacity[string, string](1000),
-					),
+				provider.sessions[domain] = &lldapSession{
 					TargetDomain: targetDomain,
+					Config:       &dconfig,
+					tokenCache: ttlcache.New(
+						ttlcache.WithTTL[string, *UserSession](dconfig.Expiration),
+						ttlcache.WithCapacity[string, *UserSession](1000),
+					),
+					lldapAddr:  lldapServer,
+					parseToken: parseToken,
 				}
 
 				return provider.sessions[domain], nil
@@ -135,9 +130,8 @@ func NewProvider(config schema.SessionConfiguration, certPool *x509.CertPool) *P
 
 	provider.sessionCreator = creator
 
-	if provider.reloadLister != nil {
-		provider.reloadTokenToCache()
-	}
+	// if sesssion provider is lldap session
+	provider.reloadTokenToCache(lldapServer)
 
 	return provider
 }
@@ -150,9 +144,6 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (Sessio
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
 
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
 	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
 
 	var (
@@ -161,15 +152,27 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (Sessio
 		err   error
 	)
 
+	if domain != "" {
+		s, found = p.sessions[domain]
+	}
+
+	if found {
+		log.Debugf("found session provider by domain %s", domain)
+		return s, nil
+	}
+
 	if s = p.GetByToken(token); s != nil && (p.findDomain(s.GetTargetDomain()) == domain || backend) { // TODO: install wizard.
 		return s, nil
+	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	if domain != "" {
+		s, found = p.sessions[domain]
 	} else {
-		if domain != "" {
-			s, found = p.sessions[domain]
-		} else {
-			log.Error("domain is empty and is not a backend request")
-			return nil, fmt.Errorf("can not get session from an undefined domain")
-		}
+		log.Error("domain is empty and is not a backend request")
+		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
 
 	if !found {
@@ -282,7 +285,7 @@ func (p *Provider) findDomain(hostname string) string {
 	return hostname
 }
 
-func (p *Provider) reloadTokenToCache() {
+func (p *Provider) reloadTokenToCache(server string) {
 	klog.Info("start to reload token from session redis storage")
 
 	users, err := p.listUserData()
@@ -290,81 +293,44 @@ func (p *Provider) reloadTokenToCache() {
 		panic(err)
 	}
 
-	serializer := NewEncryptingSerializer(p.Config.Secret)
-
-	dataList, err := p.reloadLister.List()
+	dataList, err := p.tokenList(server)
 
 	if err != nil {
 		klog.Error("reload token list error, ", err)
 		panic(err)
 	}
 
-	// ksTokenOperator, err := kubesphere.NewTokenOperator()
-
-	// if err != nil {
-	// 	klog.Error("connect to kubesphere token cache error, ", err)
-	// 	panic(err)
-	// }
-
-	for key, data := range dataList {
-		var sess session.Dict
-		err := serializer.Decode(&sess, data)
-
+	for _, data := range dataList {
+		claims, err := parseToken(data.AccessToken)
 		if err != nil {
-			klog.Error("decode session data error, ", err)
+			klog.Error("parse token error, ", err, ", token: ", data.AccessToken)
 			continue
 		}
 
-		var us UserSession
-		err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
-
-		if err != nil {
-			klog.Error("json unmarshal session data error, ", err)
-			continue
-		}
-
-		if ok := func() bool {
+		var user *unstructured.Unstructured
+		if user = func() *unstructured.Unstructured {
 			for _, u := range users {
-				if u.GetName() == us.Username {
-					return true
+				if u.GetName() == claims.Username {
+					return &u
 				}
 			}
 
-			return false
-		}(); !ok {
-			klog.Info("clear unknown user, ", us.Username)
-			err := p.reloadLister.Destroy(context.Background(), key)
-			if err != nil {
-				klog.Error("destroy session error, ", err)
-			}
+			return nil
+		}(); user == nil {
+			klog.Info("clear unknown user, ", claims.Username)
 			continue
 		}
 
-		sid := p.reloadLister.GetSessionIDFromKey(key)
-		token := us.AccessToken
-		domain := us.CookieDomain
-
-		if token == "" {
-			klog.Info("ignore unauthorized session, ", sid)
+		userZone, ok := user.GetAnnotations()[authorization.UserAnnotationZoneKey]
+		if !ok {
+			klog.Error("user zone not found in user annotations, ", claims.Username)
 			continue
 		}
-
-		// if ksTokenOperator != nil {
-		// 	err = ksTokenOperator.RestoreToken(us.Username, us.AccessToken, p.Config.Expiration)
-		// 	if err != nil {
-		// 		continue
-		// 	}
-
-		// 	err = ksTokenOperator.RestoreToken(us.Username, us.RefreshToken, p.Config.Expiration)
-		// 	if err != nil {
-		// 		continue
-		// 	}
-		// }
 
 		// create provider.
 		if func() bool {
 			for _, c := range p.Config.Cookies {
-				if c.Domain == domain {
+				if c.Domain == userZone {
 					return false
 				}
 			}
@@ -373,35 +339,22 @@ func (p *Provider) reloadTokenToCache() {
 		}() {
 			if len(p.Config.Cookies) > 0 {
 				c := p.Config.Cookies[0]
-				c.Domain = domain
+				c.Domain = userZone
 				p.Config.Cookies = append(p.Config.Cookies, c)
 			}
 		}
 
-		info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2*time.Second), us.Username)
-
-		if err != nil {
-			klog.Error("reload user info error, ", err)
-			continue
-		}
-
-		// force target domain equals user's zone.
-		targetDomain := info.Zone
-
-		s, err := p.Get(domain, targetDomain, token, false)
+		s, err := p.Get(userZone, userZone, data.AccessToken, false)
 
 		if err != nil {
 			klog.Error("create provider error")
 			continue
 		}
 
-		s.SaveSessionID(token, sid)
-		p.SetByToken(token, s)
-	}
+		s.SaveSessionID(data.AccessToken, data.IsBlacklisted)
 
-	// if ksTokenOperator != nil {
-	// 	ksTokenOperator.Close()
-	// }
+		p.SetByToken(data.AccessToken, s)
+	}
 }
 
 func (p *Provider) listUserData() ([]unstructured.Unstructured, error) {
@@ -425,4 +378,69 @@ func (p *Provider) listUserData() ([]unstructured.Unstructured, error) {
 	}
 
 	return data.Items, nil
+}
+
+type tokenInfo struct {
+	AccessToken   string `json:"access_token"`
+	IsBlacklisted bool   `json:"is_blacklisted"`
+}
+
+func (p *Provider) tokenList(baseURL string) ([]tokenInfo, error) {
+	url := fmt.Sprintf("%s/auth/token/list", baseURL)
+	client := resty.New()
+
+	resp, err := client.SetTimeout(30*time.Second).R().
+		SetHeader("Content-Type", "application/json").
+		Get(url)
+	if err != nil {
+		klog.Infof("send request failed: %v", err)
+		return nil, err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		klog.Infof("not 200, %v, body: %v", resp.StatusCode(), string(resp.Body()))
+		return nil, errors.New(resp.String())
+	}
+	var response []tokenInfo
+	err = json.Unmarshal(resp.Body(), &response)
+	if err != nil {
+		klog.Infof("unmarshal failed: %v", err)
+		return nil, err
+	}
+	klog.Infof("tokenList res: %v", response)
+	return response, nil
+}
+
+func parseToken(token string) (*Claims, error) {
+	if len(token) == 0 {
+		return nil, errors.New("token is empty")
+	}
+
+	// Parse the JWT token with claims and without claims validation
+	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, nil, jwt.WithoutClaimsValidation())
+
+	if err != nil {
+		if ve, ok := err.(*jwt.ValidationError); ok {
+			switch {
+			case ve.Errors&jwt.ValidationErrorMalformed != 0:
+				return nil, fmt.Errorf("malformed token: %w", err)
+			case ve.Errors&jwt.ValidationErrorExpired != 0:
+				return nil, fmt.Errorf("token expired: %w", err)
+			case ve.Errors&jwt.ValidationErrorSignatureInvalid != 0:
+				return nil, fmt.Errorf("invalid token signature: %w", err)
+			case ve.Errors&jwt.ValidationErrorUnverifiable != 0:
+				// do not need verify the token signature
+			default:
+				return nil, fmt.Errorf("token validation error: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to parse token: %w", err)
+		}
+	}
+
+	claims, ok := parsedToken.Claims.(*Claims)
+	if !ok {
+		return nil, errors.New("failed to extract claims from token")
+	}
+
+	return claims, nil
 }

@@ -16,7 +16,7 @@ type SessionProvider interface {
 	UpdateExpiration(ctx *fasthttp.RequestCtx, expiration time.Duration) (err error)
 	GetExpiration(ctx *fasthttp.RequestCtx) (time.Duration, error)
 	GetSessionID(token string) string
-	SaveSessionID(token, sessionId string)
+	SaveSessionID(token string, param any)
 	RemoveSessionID(token string)
 	GetTargetDomain() string
 	SetTargetDomain(domain string)

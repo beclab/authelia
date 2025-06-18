@@ -1,9 +1,17 @@
 package handlers
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/session"
+	"github.com/go-resty/resty/v2"
+	"k8s.io/klog/v2"
 )
 
 // TimeBasedOneTimePasswordPOST validate the TOTP passcode provided by the user.
@@ -31,16 +39,10 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	config, err := ctx.Providers.StorageProvider.LoadTOTPConfiguration(ctx, userSession.Username)
-	if err != nil {
-		ctx.Logger.Errorf("Failed to load TOTP configuration: %+v", err)
-
-		respondUnauthorized(ctx, messageMFAValidationFailed)
-
-		return
-	}
-
-	isValid, err := ctx.Providers.TOTP.Validate(bodyJSON.Token, config)
+	isValid, err := totpVerify(fmt.Sprintf("http://%s:%d",
+		ctx.Configuration.AuthenticationBackend.LLDAP.Server,
+		*ctx.Configuration.AuthenticationBackend.LLDAP.Port),
+		userSession.AccessToken, bodyJSON.Token)
 	if err != nil {
 		ctx.Logger.Errorf("Failed to perform TOTP verification: %+v", err)
 
@@ -49,7 +51,8 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if !isValid {
+	if isValid == nil || isValid.Token == "" || isValid.RefreshToken == "" {
+		ctx.Logger.Errorf("Invalid TOTP verification response: is nil or missing tokens")
 		_ = markAuthenticationAttempt(ctx, false, nil, userSession.Username, regulation.AuthTypeTOTP, nil)
 
 		respondUnauthorized(ctx, messageMFAValidationFailed)
@@ -70,17 +73,9 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	config.UpdateSignInInfo(ctx.Clock.Now())
-
-	if err = ctx.Providers.StorageProvider.UpdateTOTPConfigurationSignIn(ctx, config.ID, config.LastUsedAt); err != nil {
-		ctx.Logger.Errorf("Unable to save %s device sign in metadata for user '%s': %v", regulation.AuthTypeTOTP, userSession.Username, err)
-
-		respondUnauthorized(ctx, messageMFAValidationFailed)
-
-		return
-	}
-
 	userSession.SetTwoFactorTOTP(ctx.Clock.Now())
+	userSession.AccessToken = isValid.Token
+	userSession.RefreshToken = isValid.RefreshToken
 
 	if err = ctx.SaveSession(userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)
@@ -95,4 +90,37 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 	} else {
 		Handle2FAResponse(ctx, bodyJSON.TargetURL, &userSession)
 	}
+}
+
+type loginResponse struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
+}
+
+func totpVerify(baseURL, accessToken, token string) (*loginResponse, error) {
+	url := fmt.Sprintf("%s/auth/totp/verify", baseURL)
+	client := resty.New()
+	m := map[string]string{
+		"token": token,
+	}
+	resp, err := client.SetTimeout(10*time.Second).R().
+		SetHeader("Content-Type", "application/json").SetAuthToken(accessToken).
+		SetBody(m).
+		Post(url)
+	if err != nil {
+		klog.Infof("send request failed: %v", err)
+		return nil, err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		klog.Infof("not 200, %v, body: %v", resp.StatusCode(), string(resp.Body()))
+		return nil, errors.New(resp.String())
+	}
+	var response loginResponse
+	err = json.Unmarshal(resp.Body(), &response)
+	if err != nil {
+		klog.Infof("unmarshal failed: %v", err)
+		return nil, err
+	}
+	klog.Infof("TotpVerify res: %v", response)
+	return &response, nil
 }

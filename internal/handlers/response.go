@@ -141,8 +141,6 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	requestTermiPass bool) {
 	var err error
 
-	sessionId := getSessionId(ctx)
-
 	require2FaResp := func(r *authorization.AccessControlRule, parsedURI *url.URL) {
 		if r != nil {
 			getRule := func(subject authorization.Subject, object authorization.Object) *authorization.AccessControlRule {
@@ -232,7 +230,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
 			FA2:          true,
-			SessionID:    string(sessionId),
+			SessionID:    session.AccessToken,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set token in body: %s", err)
 
@@ -246,7 +244,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
 			FA2:          false,
-			SessionID:    string(sessionId),
+			SessionID:    session.AccessToken,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
@@ -317,18 +315,9 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 func getSessionId(ctx *middlewares.AutheliaCtx) []byte {
 	var sessionId []byte
 
-	provider, err := ctx.GetSessionProvider()
-
-	if err != nil {
-		ctx.Logger.Errorf("unable to save user session: %s", err)
-	} else {
-		sessionId = ctx.RequestCtx.Request.Header.Cookie(provider.GetConfig().Name)
-		if len(sessionId) == 0 {
-			sessionId = ctx.Request.Header.Peek(middlewares.DefaultSessionKeyName)
-			if len(sessionId) == 0 {
-				ctx.Logger.Error("Unable to retrieve user cookie")
-			}
-		}
+	sessionId = ctx.RequestCtx.Request.Header.Cookie(session.AUTH_TOKEN)
+	if len(sessionId) == 0 {
+		ctx.Logger.Error("Unable to retrieve user cookie")
 	}
 
 	return sessionId

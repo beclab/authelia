@@ -91,7 +91,7 @@ func (s *AuthzSuite) TestShouldNotBeAbleToParseBasicAuth() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://test.example.com")
 
@@ -128,7 +128,7 @@ func (s *AuthzSuite) TestShouldApplyDefaultPolicy() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://test.example.com")
 
@@ -185,7 +185,7 @@ func (s *AuthzSuite) TestShouldDenyObject() {
 				mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 			}
 
-			mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+			mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 			targetURI := s.RequireParseRequestURI(tc.value)
 
@@ -213,7 +213,7 @@ func (s *AuthzSuite) TestShouldApplyPolicyOfBypassDomain() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
 
@@ -254,7 +254,7 @@ func (s *AuthzSuite) TestShouldVerifyFailureToGetDetailsUsingBasicScheme() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
 
@@ -303,7 +303,7 @@ func (s *AuthzSuite) TestShouldNotFailOnMissingEmail() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
 
@@ -344,7 +344,7 @@ func (s *AuthzSuite) TestShouldApplyPolicyOfOneFactorDomain() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -396,7 +396,7 @@ func (s *AuthzSuite) TestShouldHandleAnyCaseSchemeParameter() {
 				mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 			}
 
-			mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+			mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 			targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -439,7 +439,7 @@ func (s *AuthzSuite) TestShouldApplyPolicyOfTwoFactorDomain() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -487,7 +487,7 @@ func (s *AuthzSuite) TestShouldApplyPolicyOfDenyDomain() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://deny.example.com")
 
@@ -538,7 +538,7 @@ func (s *AuthzSuite) TestShouldApplyPolicyOfOneFactorDomainWithAuthorizationHead
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -588,7 +588,7 @@ func (s *AuthzSuite) TestShouldHandleAuthzWithoutHeaderNoCookie() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -625,7 +625,7 @@ func (s *AuthzSuite) TestShouldHandleAuthzWithEmptyAuthorizationHeader() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -664,7 +664,7 @@ func (s *AuthzSuite) TestShouldHandleAuthzWithAuthorizationHeaderInvalidPassword
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -704,7 +704,7 @@ func (s *AuthzSuite) TestShouldHandleAuthzWithIncorrectAuthHeader() { // TestSho
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -748,7 +748,7 @@ func (s *AuthzSuite) TestShouldDestroySessionWhenInactiveForTooLong() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -800,7 +800,7 @@ func (s *AuthzSuite) TestShouldNotDestroySessionWhenInactiveForTooLongRememberMe
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -854,7 +854,7 @@ func (s *AuthzSuite) TestShouldNotDestroySessionWhenNotInactiveForTooLong() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -909,7 +909,7 @@ func (s *AuthzSuite) TestShouldUpdateInactivityTimestampEvenWhenHittingForbidden
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://deny.example.com")
 
@@ -975,7 +975,7 @@ func (s *AuthzSuite) TestShouldNotRefreshUserDetailsFromBackendWhenRefreshDisabl
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -1061,7 +1061,7 @@ func (s *AuthzSuite) TestShouldDestroySessionWhenUserDoesNotExist() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://two-factor.example.com")
 
@@ -1153,7 +1153,7 @@ func (s *AuthzSuite) TestShouldUpdateRemovedUserGroupsFromBackendAndDeny() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://admin.example.com")
 
@@ -1243,7 +1243,7 @@ func (s *AuthzSuite) TestShouldUpdateAddedUserGroupsFromBackendAndDeny() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://admin.example.com")
 
@@ -1332,7 +1332,7 @@ func (s *AuthzSuite) TestShouldCheckValidSessionUsernameHeaderAndReturn200() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -1389,7 +1389,7 @@ func (s *AuthzSuite) TestShouldCheckInvalidSessionUsernameHeaderAndReturn401AndD
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
@@ -1466,7 +1466,7 @@ func (s *AuthzSuite) TestShouldNotRedirectRequestsForBypassACLWhenInactiveForToo
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
 
@@ -1542,7 +1542,7 @@ func (s *AuthzSuite) TestShouldFailToParsePortalURL() {
 		mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 	}
 
-	mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
 

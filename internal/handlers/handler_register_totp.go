@@ -1,9 +1,15 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 
@@ -13,6 +19,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/storage"
 )
 
+// Deprecated
 // identityRetrieverFromSession retriever computing the identity from the cookie session.
 func identityRetrieverFromSession(ctx *middlewares.AutheliaCtx) (identity *session.Identity, err error) {
 	var userSession session.UserSession
@@ -38,6 +45,7 @@ func isTokenUserValidFor2FARegistration(ctx *middlewares.AutheliaCtx, username s
 	return err == nil && userSession.Username == username
 }
 
+// Deprecated
 // TOTPIdentityStart the handler for initiating the identity validation.
 var TOTPIdentityStart = middlewares.IdentityVerificationStart(middlewares.IdentityVerificationStartArgs{
 	MailTitle:             "Register your mobile",
@@ -47,6 +55,7 @@ var TOTPIdentityStart = middlewares.IdentityVerificationStart(middlewares.Identi
 	IdentityRetrieverFunc: identityRetrieverFromSession,
 }, nil)
 
+// Deprecated
 func totpIdentityFinish(ctx *middlewares.AutheliaCtx, username string) (err error) {
 	var (
 		config *model.TOTPConfiguration
@@ -82,6 +91,7 @@ var TOTPIdentityFinish = middlewares.IdentityVerificationFinish(
 		IsTokenUserValidFunc: isTokenUserValidFor2FARegistration,
 	}, func(ctx *middlewares.AutheliaCtx, username string) { totpIdentityFinish(ctx, username) })
 
+// Deprecated
 // TOTP All in one register api.
 func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
 	var (
@@ -166,4 +176,84 @@ func TOTPIdentityVerificationAll(ctx *middlewares.AutheliaCtx) {
 	}
 
 	err = totpIdentityFinish(ctx, verification.Username)
+}
+
+type TotpBindResponse struct {
+	Base32Secret string `json:"base32_secret"`
+}
+
+func totpURI(ctx *middlewares.AutheliaCtx, username, secret string) (uri string) {
+	v := url.Values{}
+	v.Set("secret", secret)
+	v.Set("issuer", ctx.Configuration.TOTP.Issuer)
+	v.Set("period", strconv.FormatUint(uint64(ctx.Configuration.TOTP.Period), 10))
+	v.Set("algorithm", ctx.Configuration.TOTP.Algorithm)
+	v.Set("digits", strconv.Itoa(int(ctx.Configuration.TOTP.Digits)))
+
+	u := url.URL{
+		Scheme:   "otpauth",
+		Host:     "totp",
+		Path:     "/" + ctx.Configuration.TOTP.Issuer + ":" + username,
+		RawQuery: v.Encode(),
+	}
+
+	return u.String()
+}
+
+// TOTP bind with lldap
+func TOTPIdentityVerificationBindLldap(ctx *middlewares.AutheliaCtx) {
+	var (
+		userSession session.UserSession
+		err         error
+	)
+
+	if userSession, err = ctx.GetSession(); err != nil {
+		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
+
+		// In that case we reply ok to avoid user enumeration.
+		ctx.Logger.Error(err)
+		ctx.ReplyOK()
+
+		return
+	}
+
+	url := fmt.Sprintf("http://%s:%d/auth/totp/bind",
+		ctx.Configuration.AuthenticationBackend.LLDAP.Server,
+		*ctx.Configuration.AuthenticationBackend.LLDAP.Port)
+
+	client := resty.New()
+	resp, err := client.SetTimeout(5*time.Second).R().
+		SetHeader("Content-Type", "application/json").SetAuthToken(userSession.AccessToken).
+		Post(url)
+	if err != nil {
+		ctx.Logger.Errorf("Failed to bind TOTP with LLDAP: %v", err)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetJSONError("Could not find TOTP Configuration for user.")
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetJSONError("Could not find TOTP Configuration for user.")
+		ctx.Logger.Errorf("Failed to bind TOTP with LLDAP: %s", resp.String())
+		return
+	}
+
+	var response TotpBindResponse
+	err = json.Unmarshal(resp.Body(), &response)
+	if err != nil {
+		ctx.Error(err, "Failed to parse TOTP bind response")
+		return
+	}
+
+	r := TOTPKeyResponse{
+		OTPAuthURL:   totpURI(ctx, userSession.Username, response.Base32Secret),
+		Base32Secret: response.Base32Secret,
+	}
+
+	if err = ctx.SetJSONBody(r); err != nil {
+		ctx.Logger.Errorf("Unable to set TOTP key response in body: %s", err)
+	}
+
+	ctxLogEvent(ctx, userSession.Username, "Second Factor Method Added", map[string]any{"Action": "Second Factor Method Added", "Category": "Time-based One Time Password"})
 }

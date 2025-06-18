@@ -197,7 +197,7 @@ func NewMockAutheliaCtx(t *testing.T) *MockAutheliaCtx {
 		&config)
 
 	providers.SessionProvider = session.NewProvider(
-		config.Session, nil)
+		&config, nil)
 
 	providers.Regulator = regulation.NewRegulator(config.Regulation, providers.StorageProvider, &mockAuthelia.Clock)
 

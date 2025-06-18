@@ -151,8 +151,8 @@ func (p *internelSession) GetSessionID(token string) string {
 	return item.Value()
 }
 
-func (p *internelSession) SaveSessionID(token, sessionId string) {
-	p.sessionWithToken.Set(token, sessionId, p.Config.Expiration)
+func (p *internelSession) SaveSessionID(token string, sessionId any) {
+	p.sessionWithToken.Set(token, sessionId.(string), p.Config.Expiration)
 }
 
 func (p *internelSession) RemoveSessionID(token string) {
