@@ -39,7 +39,7 @@ func (l *lldapSession) DestroySession(ctx *fasthttp.RequestCtx) error {
 	klog.Infof("destroying session with token %s", token)
 
 	// Delete the token from the lldap
-	_, err := TokenInvalidate(l.lldapAddr, token, token)
+	err := TokenInvalidate(l.lldapAddr, token, token)
 	if err != nil {
 		klog.Errorf("failed to invalidate token %s: %v", token, err)
 		return fmt.Errorf("failed to invalidate token: %w", err)
@@ -83,8 +83,8 @@ func (l *lldapSession) getExpiration(token string) (time.Duration, error) {
 func (l *lldapSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
 	token := l.getToken(ctx)
 	if len(token) == 0 {
-		klog.Error("no session token found in request context")
-		return l.NewDefaultUserSession(), errors.New("no session token found in request context")
+		klog.Warning("no session token found in request context for lldapSession, returning default session")
+		return l.NewDefaultUserSession(), nil
 	}
 
 	// validate token
@@ -108,14 +108,14 @@ func (l *lldapSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSes
 	_, err = TokenVerify(l.lldapAddr, token, token)
 	if err != nil {
 		klog.Errorf("failed to verify token %s: %v", token, err)
-		return l.NewDefaultUserSession(), fmt.Errorf("failed to verify token: %w", err)
+		return l.NewDefaultUserSession(), nil
 	}
 
 	// Token not found in cache, parse and validate the JWT token
 	claims, err := l.parseToken(token)
 	if err != nil {
 		klog.Errorf("failed to parse token: %v", err)
-		return l.NewDefaultUserSession(), fmt.Errorf("invalid token: %w", err)
+		return l.NewDefaultUserSession(), err
 	}
 
 	// Create user session from claims
@@ -163,7 +163,7 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 	// The token itself contains all the necessary information
 	// We could optionally cache the session if needed
 	token := l.getToken(ctx)
-	if token != "" {
+	if token == "" {
 		if userSession.AccessToken != "" {
 			c, err := l.parseToken(userSession.AccessToken)
 			if err != nil {
@@ -247,6 +247,8 @@ func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims
 	userSession.AuthenticationLevel = authentication.OneFactor
 	userSession.Groups = claims.Groups
 	userSession.AccessToken = token
+	userSession.KeepMeLoggedIn = true // Assuming we want to keep the session alive
+	userSession.LastActivity = time.Now().Unix()
 
 	if claims.Mfa > 0 {
 		userSession.AuthenticationLevel = authentication.TwoFactor
@@ -279,10 +281,15 @@ func TokenVerify(baseURL, accessToken, validToken string) (map[string]interface{
 		return nil, err
 	}
 	klog.Infof("token verify res: %v", response)
+
+	if status, ok := response["status"]; ok && status == "invalid token" {
+		klog.Infof("token verify failed, status: %s", status)
+		return nil, errors.New("token verification failed")
+	}
 	return response, nil
 }
 
-func TokenInvalidate(baseURL, accessToken, revokeToken string) (map[string]interface{}, error) {
+func TokenInvalidate(baseURL, accessToken, revokeToken string) error {
 	url := fmt.Sprintf("%s/auth/token/invalidate", baseURL)
 	client := resty.New()
 
@@ -293,18 +300,11 @@ func TokenInvalidate(baseURL, accessToken, revokeToken string) (map[string]inter
 		}).Post(url)
 	if err != nil {
 		klog.Infof("send request failed: %v", err)
-		return nil, err
+		return err
 	}
 	if resp.StatusCode() != http.StatusOK {
 		klog.Infof("not 200, %v, body: %v", resp.StatusCode(), string(resp.Body()))
-		return nil, errors.New(resp.String())
+		return errors.New(resp.String())
 	}
-	var response map[string]interface{}
-	err = json.Unmarshal(resp.Body(), &response)
-	if err != nil {
-		klog.Infof("unmarshal failed: %v", err)
-		return nil, err
-	}
-	klog.Infof("token invalidate res: %v", response)
-	return response, nil
+	return nil
 }
