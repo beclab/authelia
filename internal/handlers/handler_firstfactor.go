@@ -12,7 +12,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/utils"
-	"k8s.io/klog/v2"
 )
 
 // FirstFactorPOST is the handler performing the first factory.
@@ -133,30 +132,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			return
 		}
 
-		if bodyJSON.AcceptCookie != nil && !*bodyJSON.AcceptCookie {
-			// client does not accept cookie
-			// ignore cookie from client
-			cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
-
-			if len(cookie) > 0 {
-				klog.Info("clear session cookie, cause accept cookie is ", *bodyJSON.AcceptCookie)
-				ctx.RequestCtx.Request.Header.DelCookie(provider.Config.Name)
-			}
-		}
-
-		userSession, err := provider.GetSession(ctx.RequestCtx)
-		if err != nil {
-			ctx.Logger.Errorf("%s", err)
-
-			respondUnauthorized(ctx, messageAuthenticationFailed)
-
-			return
-		}
-
-		newSession := provider.NewDefaultUserSession()
+		userSession := provider.NewDefaultUserSession()
+		userSession.AccessToken = validRes.AccessToken
 
 		// Reset all values from previous session except OIDC workflow before regenerating the cookie.
-		if err = ctx.SaveSession(newSession); err != nil {
+		if err = ctx.SaveSession(userSession); err != nil {
 			ctx.Logger.Errorf(logFmtErrSessionReset, regulation.AuthType1FA, bodyJSON.Username, err)
 
 			respondUnauthorized(ctx, messageAuthenticationFailed)
@@ -173,11 +153,11 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		}
 
 		// Check if bodyJSON.KeepMeLoggedIn can be deref'd and derive the value based on the configuration and JSON data.
-		keepMeLoggedIn := !provider.Config.DisableRememberMe && bodyJSON.KeepMeLoggedIn != nil && *bodyJSON.KeepMeLoggedIn
+		keepMeLoggedIn := !provider.GetConfig().DisableRememberMe && bodyJSON.KeepMeLoggedIn != nil && *bodyJSON.KeepMeLoggedIn
 
 		// Set the cookie to expire if remember me is enabled and the user has asked us to.
 		if keepMeLoggedIn {
-			err = provider.UpdateExpiration(ctx.RequestCtx, provider.Config.RememberMe)
+			err = provider.UpdateExpiration(ctx.RequestCtx, provider.GetConfig().RememberMe)
 			if err != nil {
 				ctx.Logger.Errorf(logFmtErrSessionSave, "updated expiration", regulation.AuthType1FA, bodyJSON.Username, err)
 
@@ -209,7 +189,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			userSession.AccessToken = validRes.AccessToken
 			userSession.RefreshToken = validRes.RefreshToken
 			ctx.AccessToken = validRes.AccessToken
-			provider.TargetDomain = ctx.RequestTargetDomain
+			provider.SetTargetDomain(ctx.RequestTargetDomain)
 			ctx.Providers.SessionProvider.SetByToken(validRes.AccessToken, provider)
 		}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/regulation"
+	"github.com/authelia/authelia/v4/internal/session"
 	sess "github.com/authelia/authelia/v4/internal/session"
 )
 
@@ -45,7 +46,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		}
 
 		cookie := &fasthttp.Cookie{}
-		cookie.SetKey("auth_token")
+		cookie.SetKey(session.AUTH_TOKEN)
 		cookie.SetValue(tokenInfo.AccessToken)
 		cookie.SetDomain(domain)
 		cookie.SetPath("/")
@@ -61,7 +62,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		// ctx.Response.Header.SetCookie(refreshCookie)
 
 		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, tokenInfo.AccessToken)
-		ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, tokenInfo.RefreshToken)
+		// ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, tokenInfo.RefreshToken)
 	}
 }
 
@@ -139,8 +140,6 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	acceptCookie bool,
 	requestTermiPass bool) {
 	var err error
-
-	sessionId := getSessionId(ctx)
 
 	require2FaResp := func(r *authorization.AccessControlRule, parsedURI *url.URL) {
 		if r != nil {
@@ -231,11 +230,16 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
 			FA2:          true,
-			SessionID:    string(sessionId),
+			SessionID:    session.AccessToken,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set token in body: %s", err)
 
 			ctx.ReplyError(err, "Unable to set token in body")
+		} else {
+			setTokenToCookie(ctx, &AccessTokenCookieInfo{
+				AccessToken: session.AccessToken,
+				Username:    session.Username,
+			})
 		}
 	}
 
@@ -245,15 +249,14 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			AccessToken:  session.AccessToken,
 			RefreshToken: session.RefreshToken,
 			FA2:          false,
-			SessionID:    string(sessionId),
+			SessionID:    session.AccessToken,
 		}); err != nil {
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
 			if acceptCookie {
 				setTokenToCookie(ctx, &AccessTokenCookieInfo{
-					AccessToken:  session.AccessToken,
-					RefreshToken: session.RefreshToken,
-					Username:     session.Username,
+					AccessToken: session.AccessToken,
+					Username:    session.Username,
 				})
 			}
 		}
@@ -313,26 +316,6 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	redirectResp(targetURI)
 }
 
-func getSessionId(ctx *middlewares.AutheliaCtx) []byte {
-	var sessionId []byte
-
-	provider, err := ctx.GetSessionProvider()
-
-	if err != nil {
-		ctx.Logger.Errorf("unable to save user session: %s", err)
-	} else {
-		sessionId = ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
-		if len(sessionId) == 0 {
-			sessionId = ctx.Request.Header.Peek(middlewares.DefaultSessionKeyName)
-			if len(sessionId) == 0 {
-				ctx.Logger.Error("Unable to retrieve user cookie")
-			}
-		}
-	}
-
-	return sessionId
-}
-
 // Handle2FAResponse handle the redirection upon 2FA authentication.
 func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *sess.UserSession) {
 	var err error
@@ -358,9 +341,8 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 			ctx.Logger.Errorf("Unable to set default redirection URL in body: %s", err)
 		} else {
 			setTokenToCookie(ctx, &AccessTokenCookieInfo{
-				AccessToken:  session.AccessToken,
-				RefreshToken: session.RefreshToken,
-				Username:     session.Username,
+				AccessToken: session.AccessToken,
+				Username:    session.Username,
 			})
 		}
 
@@ -395,9 +377,8 @@ func Handle2FAResponse(ctx *middlewares.AutheliaCtx, targetURI string, session *
 			ctx.Logger.Errorf("Unable to set redirection URL in body: %s", err)
 		} else {
 			setTokenToCookie(ctx, &AccessTokenCookieInfo{
-				AccessToken:  session.AccessToken,
-				RefreshToken: session.RefreshToken,
-				Username:     session.Username,
+				AccessToken: session.AccessToken,
+				Username:    session.Username,
 			})
 		}
 

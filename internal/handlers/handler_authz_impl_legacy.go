@@ -11,6 +11,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
+	"github.com/authelia/authelia/v4/internal/session"
 )
 
 func handleAuthzGetObjectLegacy(ctx *middlewares.AutheliaCtx) (object authorization.Object, err error) {
@@ -65,13 +66,7 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 			mode = ctx.RequestCtx.Request.Header.Cookie(string(headerUnauthError))
 		}
 
-		provider, err := ctx.GetSessionProvider()
-
-		if err != nil {
-			ctx.Logger.Error("Unable to retrieve user session provider, ", err)
-		}
-
-		sessionId := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
+		sessionId := ctx.RequestCtx.Request.Header.Cookie(session.AUTH_TOKEN)
 
 		userSession, err := ctx.GetSession()
 

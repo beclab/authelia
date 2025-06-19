@@ -80,7 +80,7 @@ type CookieSessionAuthnStrategy struct {
 }
 
 // Get returns the Authn information for this AuthnStrategy.
-func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider *session.Session) (authn Authn, err error) {
+func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider session.SessionProvider) (authn Authn, err error) {
 	authn = Authn{
 		Type:  AuthnTypeCookie,
 		Level: authentication.NotAuthenticated,
@@ -88,27 +88,12 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 
 	var userSession session.UserSession
 
-	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
-
-	if len(cookie) == 0 {
-		// try to get session id from token header.
-		ctx.Logger.Info("try to get session id from token header")
-		token := ctx.RequestCtx.Request.Header.PeekBytes(middlewares.HeaderTerminusAuthorization)
-
-		if len(token) == 0 {
-			ctx.Logger.Error("Unable to retrieve user token")
-		} else {
-			c := provider.GetSessionID(string(token))
-			ctx.RequestCtx.Request.Header.SetCookie(provider.Config.Name, c)
-		}
-	}
-
 	if userSession, err = provider.GetSession(ctx.RequestCtx); err != nil {
 		return authn, fmt.Errorf("failed to retrieve user session: %w", err)
 	}
 
-	if userSession.CookieDomain != provider.Config.Domain {
-		ctx.Logger.Warnf("Destroying session cookie as the cookie domain '%s' does not match the requests detected cookie domain '%s' which may be a sign a user tried to move this cookie from one domain to another", userSession.CookieDomain, provider.Config.Domain)
+	if userSession.CookieDomain != provider.GetConfig().Domain {
+		ctx.Logger.Warnf("Destroying session cookie as the cookie domain '%s' does not match the requests detected cookie domain '%s' which may be a sign a user tried to move this cookie from one domain to another", userSession.CookieDomain, provider.GetConfig().Domain)
 
 		if err = provider.DestroySession(ctx.RequestCtx); err != nil {
 			ctx.Logger.WithError(err).Error("Error occurred trying to destroy the session cookie")
@@ -125,6 +110,8 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 		if err = ctx.DestroySession(); err != nil {
 			ctx.Logger.Errorf("Unable to destroy user session: %+v", err)
 		}
+
+		ctx.Logger.Infof("Session for user '%s' is invalid, creating a new session", userSession.Username)
 
 		userSession = provider.NewDefaultUserSession()
 		userSession.LastActivity = ctx.Clock.Now().Unix()
@@ -176,7 +163,7 @@ type HeaderAuthnStrategy struct {
 }
 
 // Get returns the Authn information for this AuthnStrategy.
-func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Session) (authn Authn, err error) {
+func (s *HeaderAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ session.SessionProvider) (authn Authn, err error) {
 	var (
 		username, password string
 		value              []byte
@@ -251,7 +238,7 @@ func (s *HeaderAuthnStrategy) HandleUnauthorized(ctx *middlewares.AutheliaCtx, _
 type HeaderLegacyAuthnStrategy struct{}
 
 // Get returns the Authn information for this AuthnStrategy.
-func (s *HeaderLegacyAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ *session.Session) (authn Authn, err error) {
+func (s *HeaderLegacyAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, _ session.SessionProvider) (authn Authn, err error) {
 	var (
 		username, password string
 		value, header      []byte
@@ -327,7 +314,7 @@ func (s *HeaderLegacyAuthnStrategy) HandleUnauthorized(ctx *middlewares.Authelia
 	handleAuthzUnauthorizedAuthorizationBasic(ctx, authn)
 }
 
-func handleVerifyGETAuthnCookieValidate(ctx *middlewares.AutheliaCtx, provider *session.Session, userSession *session.UserSession, profileRefreshEnabled bool, profileRefreshInterval time.Duration) (invalid bool) {
+func handleVerifyGETAuthnCookieValidate(ctx *middlewares.AutheliaCtx, provider session.SessionProvider, userSession *session.UserSession, profileRefreshEnabled bool, profileRefreshInterval time.Duration) (invalid bool) {
 	isAnonymous := userSession.Username == ""
 
 	if isAnonymous && userSession.AuthenticationLevel != authentication.NotAuthenticated {
@@ -359,14 +346,14 @@ func handleVerifyGETAuthnCookieValidate(ctx *middlewares.AutheliaCtx, provider *
 	return false
 }
 
-func handleVerifyGETAuthnCookieValidateInactivity(ctx *middlewares.AutheliaCtx, provider *session.Session, userSession *session.UserSession, isAnonymous bool) (invalid bool) {
-	if isAnonymous || userSession.KeepMeLoggedIn || int64(provider.Config.Inactivity.Seconds()) == 0 {
+func handleVerifyGETAuthnCookieValidateInactivity(ctx *middlewares.AutheliaCtx, provider session.SessionProvider, userSession *session.UserSession, isAnonymous bool) (invalid bool) {
+	if isAnonymous || userSession.KeepMeLoggedIn || int64(provider.GetConfig().Inactivity.Seconds()) == 0 {
 		return false
 	}
 
-	ctx.Logger.Tracef("Inactivity report for user '%s'. Current Time: %d, Last Activity: %d, Maximum Inactivity: %d.", userSession.Username, ctx.Clock.Now().Unix(), userSession.LastActivity, int(provider.Config.Inactivity.Seconds()))
+	ctx.Logger.Tracef("Inactivity report for user '%s'. Current Time: %d, Last Activity: %d, Maximum Inactivity: %d.", userSession.Username, ctx.Clock.Now().Unix(), userSession.LastActivity, int(provider.GetConfig().Inactivity.Seconds()))
 
-	return time.Unix(userSession.LastActivity, 0).Add(provider.Config.Inactivity).Before(ctx.Clock.Now())
+	return time.Unix(userSession.LastActivity, 0).Add(provider.GetConfig().Inactivity).Before(ctx.Clock.Now())
 }
 
 func handleVerifyGETAuthnCookieValidateUpdate(ctx *middlewares.AutheliaCtx, userSession *session.UserSession, isAnonymous, enabled bool, interval time.Duration) (invalid bool) {

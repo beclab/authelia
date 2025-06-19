@@ -13,7 +13,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/oidc"
 )
 
-func newTestSession() (*Session, error) {
+func newTestSession() (SessionProvider, error) {
 	config := schema.SessionConfiguration{}
 	config.Cookies = []schema.SessionCookieConfiguration{
 		{
@@ -25,7 +25,7 @@ func newTestSession() (*Session, error) {
 		},
 	}
 
-	provider := NewProvider(config, nil)
+	provider := NewProvider(&schema.Configuration{Session: config}, nil)
 
 	return provider.Get(testDomain, "", "", false)
 }

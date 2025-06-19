@@ -178,7 +178,7 @@ func (s *AuthRequestAuthzSuite) TestShouldHandleAllMethodsWithMethodsACL() {
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 					}
 
-					mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+					mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 					s.setRequest(mock.Ctx, method, targetURI, true, false)
 
@@ -259,7 +259,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleExtAuthzAllMethodsAllow() {
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 					}
 
-					mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+					mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 					setRequestExtAuthz(mock.Ctx, method, targetURI, true, false)
 
@@ -295,7 +295,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleExtAuthzAllMethodsAllowXHR() 
 								mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 							}
 
-							mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+							mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 							setRequestExtAuthz(mock.Ctx, method, targetURI, x, x)
 
@@ -327,7 +327,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleExtAuthzAllMethodsWithMethods
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 					}
 
-					mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+					mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 					setRequestExtAuthz(mock.Ctx, method, targetURI, true, false)
 
@@ -361,7 +361,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleForwardAuthAllMethodsAllow() 
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 					}
 
-					mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+					mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 					setRequestForwardAuth(mock.Ctx, method, targetURI, true, false)
 
@@ -397,7 +397,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleForwardAuthAllMethodsAllowXHR
 								mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 							}
 
-							mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+							mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 							setRequestForwardAuth(mock.Ctx, method, targetURI, x, x)
 
@@ -429,7 +429,7 @@ func (s *AuthRequestAuthzSuite) TestShouldNotHandleForwardAuthAllMethodsWithMeth
 						mock.Ctx.Configuration.Session.Cookies[i].AutheliaURL = s.RequireParseRequestURI(fmt.Sprintf("https://auth.%s", cookie.Domain))
 					}
 
-					mock.Ctx.Providers.SessionProvider = session.NewProvider(mock.Ctx.Configuration.Session, nil)
+					mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
 					setRequestForwardAuth(mock.Ctx, method, targetURI, true, false)
 

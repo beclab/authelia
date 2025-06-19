@@ -46,15 +46,6 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if userSession.RefreshToken != bodyJSON.RefreshToken {
-		msg := "Invalid refresh token"
-		ctx.Logger.WithError(err).Error(msg)
-
-		respondInvalidToken(ctx)
-
-		return
-	}
-
 	validRes, err := ctx.Providers.UserProvider.Refresh(userSession.Username, userSession.AccessToken, bodyJSON.RefreshToken)
 	if err != nil {
 		switch err {
@@ -105,12 +96,10 @@ func RefreshSessionAndTokenPOST(ctx *middlewares.AutheliaCtx) {
 		}
 	}
 
-	sessionId := getSessionId(ctx)
-
 	if err = ctx.SetJSONBody(redirectResponse{
 		AccessToken:  userSession.AccessToken,
 		RefreshToken: userSession.RefreshToken,
-		SessionID:    string(sessionId),
+		SessionID:    userSession.AccessToken,
 	}); err != nil {
 		ctx.Logger.Errorf("Unable to response new token : %s", err)
 	} else {

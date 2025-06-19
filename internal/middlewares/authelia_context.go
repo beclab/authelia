@@ -303,7 +303,7 @@ func (ctx *AutheliaCtx) GetCookieDomain() (domain string, err error) {
 }
 
 // GetSessionProviderByTargetURL returns the session provider for the Request's domain.
-func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provider *session.Session, err error) {
+func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provider session.SessionProvider, err error) {
 	domain := ctx.GetTargetURICookieDomain(targetURL)
 
 	if domain == "" && !ctx.BackendRequest {
@@ -320,7 +320,7 @@ func (ctx *AutheliaCtx) GetSessionProviderByTargetURL(targetURL *url.URL) (provi
 }
 
 // GetSessionProvider returns the session provider for the Request's domain.
-func (ctx *AutheliaCtx) GetSessionProvider() (provider *session.Session, err error) {
+func (ctx *AutheliaCtx) GetSessionProvider() (provider session.SessionProvider, err error) {
 	if ctx.session == nil {
 		var domain string
 
@@ -337,7 +337,7 @@ func (ctx *AutheliaCtx) GetSessionProvider() (provider *session.Session, err err
 }
 
 // GetCookieDomainSessionProvider returns the session provider for the provided domain.
-func (ctx *AutheliaCtx) GetCookieDomainSessionProvider(domain string) (provider *session.Session, err error) {
+func (ctx *AutheliaCtx) GetCookieDomainSessionProvider(domain string) (provider session.SessionProvider, err error) {
 	if domain == "" && !ctx.BackendRequest {
 		return nil, fmt.Errorf("unable to retrieve domain session: %w", err)
 	}
@@ -354,22 +354,10 @@ func (ctx *AutheliaCtx) GetCookieDomainSessionProvider(domain string) (provider 
 // GetSession returns the user session provided the cookie provider could be discovered. It is recommended to get the
 // provider itself if you also need to update or destroy sessions.
 func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error) {
-	var provider *session.Session
+	var provider session.SessionProvider
 
 	if provider, err = ctx.GetSessionProvider(); err != nil {
 		return userSession, err
-	}
-
-	cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
-	if len(cookie) == 0 {
-		// try to get cookie from token header.
-		token := ctx.RequestCtx.Request.Header.PeekBytes(HeaderTerminusAuthorization)
-		if len(token) == 0 {
-			ctx.Logger.Error("Unable to retrieve user token")
-		} else {
-			c := provider.GetSessionID(string(token))
-			ctx.RequestCtx.Request.Header.SetCookie(provider.Config.Name, c)
-		}
 	}
 
 	if userSession, err = provider.GetSession(ctx.RequestCtx); err != nil {
@@ -377,8 +365,8 @@ func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error
 		return provider.NewDefaultUserSession(), nil
 	}
 
-	if userSession.CookieDomain != provider.Config.Domain {
-		ctx.Logger.Warnf("Destroying session cookie as the cookie domain '%s' does not match the requests detected cookie domain '%s' which may be a sign a user tried to move this cookie from one domain to another", userSession.CookieDomain, provider.Config.Domain)
+	if userSession.CookieDomain != provider.GetConfig().Domain {
+		ctx.Logger.Warnf("Destroying session cookie as the cookie domain '%s' does not match the requests detected cookie domain '%s' which may be a sign a user tried to move this cookie from one domain to another", userSession.CookieDomain, provider.GetConfig().Domain)
 
 		if err = provider.DestroySession(ctx.RequestCtx); err != nil {
 			ctx.Logger.WithError(err).Error("Error occurred trying to destroy the session cookie")
@@ -404,19 +392,6 @@ func (ctx *AutheliaCtx) SaveSession(userSession session.UserSession) error {
 	err = provider.SaveSession(ctx.RequestCtx, userSession)
 	if err != nil {
 		return err
-	}
-
-	if userSession.AccessToken != "" {
-		cookie := ctx.RequestCtx.Request.Header.Cookie(provider.Config.Name)
-		if len(cookie) == 0 {
-			cookie = ctx.Request.Header.Peek(DefaultSessionKeyName)
-			if len(cookie) == 0 {
-				ctx.Logger.Error("Unable to retrieve user cookie")
-				return errors.New("unable to retrieve user cookie")
-			}
-		}
-
-		provider.SaveSessionID(userSession.AccessToken, string(cookie))
 	}
 
 	return nil
