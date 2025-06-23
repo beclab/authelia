@@ -52,7 +52,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		cookie.SetPath("/")
 		cookie.SetMaxAge(int(ctx.Providers.SessionProvider.Config.Expiration))
 		cookie.SetSecure(true)
-		cookie.SetHTTPOnly(true)
+		// cookie.SetHTTPOnly(true)
 		cookie.SetSameSite(fasthttp.CookieSameSiteNoneMode)
 
 		ctx.Response.Header.SetCookie(cookie)
