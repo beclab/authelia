@@ -13,22 +13,40 @@ import (
 	"github.com/authelia/authelia/v4/generated"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"github.com/beclab/lldap-client/pkg/cache"
+	"github.com/beclab/lldap-client/pkg/cache/memory"
+	"github.com/beclab/lldap-client/pkg/client"
+	"github.com/beclab/lldap-client/pkg/config"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-resty/resty/v2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type LLDAPUserProvider struct {
 	*LDAPUserProvider
 	config     schema.LLDAPAuthenticationBackend
 	restClient *resty.Client
+	tokenCache cache.TokenCacheInterface
 }
 
 func NewLLDAPUserProvider(conf schema.AuthenticationBackend, certPool *x509.CertPool) *LLDAPUserProvider {
+	lldapAdminUsername, lldapAdminPassword, err := getLldapCredentials()
+	if err != nil {
+		klog.Errorf("Failed to get LLDAP credentials: %v", err)
+		return nil
+	}
+
 	conf.LDAP = &conf.LLDAP.LDAPAuthenticationBackend
+	conf.LDAP.User = lldapAdminUsername
+	conf.LDAP.Password = lldapAdminPassword
+
 	ldap := NewLDAPUserProvider(conf, certPool)
 
-	p := &LLDAPUserProvider{config: *conf.LLDAP, LDAPUserProvider: ldap}
+	p := &LLDAPUserProvider{config: *conf.LLDAP, LDAPUserProvider: ldap, tokenCache: memory.New()}
 
 	p.restClient = resty.New().SetTimeout(5 * time.Second)
 
@@ -163,6 +181,34 @@ func (l *LLDAPUserProvider) StartupCheck() (err error) {
 	return nil
 }
 
+// backend api, list user wuth lldap admin user.
+func (l *LLDAPUserProvider) ListUser(ctx context.Context) ([]*UserDetails, error) {
+	var users []*UserDetails
+
+	url := fmt.Sprintf("http://%s:%d", l.config.Server, *l.config.Port)
+	graphqlClient, err := l.createGraphClientWithUser(url, l.config.User, l.config.Password)
+	if err != nil {
+		klog.Errorf("Failed to create GraphQL client: %v", err)
+		return nil, err
+	}
+
+	list, err := generated.ListUsersQuery(ctx, graphqlClient, generated.RequestFilter{})
+	if err != nil {
+		klog.Errorf("Failed to list users: %v", err)
+		return nil, err
+	}
+
+	for _, user := range list.GetUsers() {
+		users = append(users, &UserDetails{
+			Username:    user.DisplayName,
+			DisplayName: user.DisplayName,
+			Emails:      []string{user.Email},
+		})
+	}
+
+	return users, nil
+}
+
 var _ UserProvider = &LLDAPUserProvider{}
 
 func createGraphClient(base_url, token string) graphql.Client {
@@ -173,4 +219,57 @@ func createGraphClient(base_url, token string) graphql.Client {
 		},
 	}
 	return graphql.NewClient(base_url+"/api/graphql", &httpClient)
+}
+
+func (l *LLDAPUserProvider) createGraphClientWithUser(base_url, user, password string) (graphql.Client, error) {
+	lldapClient, err := client.New(&config.Config{
+		Host:       base_url,
+		Username:   user,
+		Password:   password,
+		TokenCache: l.tokenCache,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return lldapClient, nil
+}
+
+func getLldapCredentials() (username, password string, err error) {
+	kubeConfig, err := ctrl.GetConfig()
+	if err != nil {
+		klog.Errorf("Failed to get kube config: %v", err)
+		return "", "", err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		klog.Errorf("Failed to create kubernetes client: %v", err)
+		return "", "", err
+	}
+
+	secret, err := clientSet.CoreV1().Secrets("os-platform").Get(context.TODO(), "lldap-credentials", metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("Failed to get lldap credentials: %v", err)
+		return "", "", err
+	}
+
+	bindUsername, err := getCredentialVal(secret, "lldap-ldap-user-dn")
+	if err != nil {
+		klog.Errorf("Failed to get bind username: %v", err)
+		return "", "", err
+	}
+	bindPassword, err := getCredentialVal(secret, "lldap-ldap-user-pass")
+	if err != nil {
+		klog.Errorf("Failed to get bind password: %v", err)
+		return "", "", err
+	}
+
+	return bindUsername, bindPassword, nil
+}
+
+func getCredentialVal(secret *corev1.Secret, key string) (string, error) {
+	if value, ok := secret.Data[key]; ok {
+		return string(value), nil
+	}
+	return "", fmt.Errorf("can not find credentialval for key %s", key)
 }
