@@ -31,10 +31,10 @@ type LDAPClient interface {
 
 // UserDetails represent the details retrieved for a given user.
 type UserDetails struct {
-	Username    string
-	DisplayName string
-	Emails      []string
-	Groups      []string
+	Username    string   `json:"username"`
+	DisplayName string   `json:"display_name"`
+	Emails      []string `json:"emails,omitempty"`
+	Groups      []string `json:"groups,omitempty"`
 }
 
 // Addresses returns the Emails []string as []mail.Address formatted with DisplayName as the Name attribute.
