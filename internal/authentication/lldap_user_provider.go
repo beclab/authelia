@@ -177,6 +177,61 @@ func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string)
 	}, nil
 }
 
+func (l *LLDAPUserProvider) ResetPassword(username, oldPassword, newPassword, token string) error {
+	port := 80
+	if l.config.Port != nil && *l.config.Port != 0 {
+		port = *l.config.Port
+	}
+	valid, _, err := l.CheckUserPassword(username, oldPassword)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return fmt.Errorf("reset password: verfiy password hash err %v", err)
+	}
+
+	url := fmt.Sprintf("http://%s:%d/auth/simple/register", l.config.Server, port)
+	resp, err := l.restClient.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", "Bearer "+token).
+		SetBody(&ResetPasswordRequest{
+			Username: username,
+			Password: newPassword,
+		}).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		klog.Errorf("reset password: response from server: %s", resp.Body())
+		return errors.New(string(resp.Body()))
+	}
+	err = l.RevokeUserToken(username, token)
+	if err != nil {
+		klog.Errorf("revoke user: %s token failed: %v", username, err)
+	}
+
+	return nil
+}
+
+func (l *LLDAPUserProvider) RevokeUserToken(username, token string) error {
+	port := 80
+	if l.config.Port != nil && *l.config.Port != 0 {
+		port = *l.config.Port
+	}
+	url := fmt.Sprintf("http://%s:%d/auth/revoke/%s/token", l.config.Server, port, username)
+	resp, err := l.restClient.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", "Bearer "+token).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != http.StatusOK {
+		klog.Errorf("revoke user: response from server: %s", resp.Body())
+		return errors.New(string(resp.Body()))
+	}
+	return nil
+}
+
 func (l *LLDAPUserProvider) StartupCheck() (err error) {
 	return nil
 }
