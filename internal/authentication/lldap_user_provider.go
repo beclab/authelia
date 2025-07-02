@@ -152,7 +152,7 @@ func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string)
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Authorization", "Bearer "+token).
 		SetHeader("refresh-token", ""+refreshToken).
-		SetBody(&RefreshTokenResponse{}).
+		SetResult(&RefreshTokenResponse{}).
 		Get(url)
 	if err != nil {
 		klog.Errorf("Error sending POST request: %v", err)
