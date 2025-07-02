@@ -238,6 +238,22 @@ func (l *lldapSession) getToken(ctx *fasthttp.RequestCtx) string {
 	return ""
 }
 
+func (l *lldapSession) ClearUserTokenCache(username string) {
+	if l.tokenCache == nil {
+		return
+	}
+	klog.Infof("clearing token for user %s", username)
+	for _, key := range l.tokenCache.Keys() {
+		if item := l.tokenCache.Get(key); item != nil {
+			session := item.Value()
+			if session.Username == username {
+				l.tokenCache.Delete(key)
+			}
+		}
+	}
+	return
+}
+
 func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims) UserSession {
 	userSession := l.NewDefaultUserSession()
 	userSession.Username = claims.Username

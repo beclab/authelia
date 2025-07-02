@@ -48,6 +48,11 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		ctx.SetJSONError(err.Error())
 		return
 	}
+	sess := ctx.Providers.SessionProvider.GetByToken(userSession.AccessToken)
+	if sess != nil {
+		sess.ClearUserTokenCache(username)
+	}
+
 	ctx.SetStatusCode(http.StatusOK)
 	return
 }

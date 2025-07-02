@@ -170,3 +170,7 @@ func (p *internelSession) GetConfig() *schema.SessionCookieConfiguration {
 func (p *internelSession) SetTargetDomain(domain string) {
 	p.TargetDomain = domain
 }
+
+func (p *internelSession) ClearUserTokenCache(string) {
+	return
+}
