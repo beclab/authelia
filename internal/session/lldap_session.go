@@ -163,26 +163,37 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 	// The token itself contains all the necessary information
 	// We could optionally cache the session if needed
 	token := l.getToken(ctx)
+
+	regenerateNewSession := func() error {
+		c, err := l.parseToken(userSession.AccessToken)
+		if err != nil {
+			klog.Errorf("failed to parse user session access token: %v", err)
+			return fmt.Errorf("failed to parse user session access token: %w", err)
+		}
+
+		userSession = l.createSessionFromTokenClaims(userSession.AccessToken, c)
+
+		return nil
+	}
+
 	if token == "" {
 		if userSession.AccessToken != "" {
-			c, err := l.parseToken(userSession.AccessToken)
-			if err != nil {
-				klog.Errorf("failed to parse user session access token: %v", err)
-				return fmt.Errorf("failed to parse user session access token: %w", err)
+			if err := regenerateNewSession(); err != nil {
+				return err
 			}
-
-			userSession = l.createSessionFromTokenClaims(userSession.AccessToken, c)
 		}
 
 		token = userSession.AccessToken
 	}
 
 	if token != "" && l.tokenCache != nil {
-		if userSession.AccessToken != token {
+		if userSession.AccessToken != "" && userSession.AccessToken != token {
 			klog.Infof("updating session token from %s to %s", token, userSession.AccessToken)
+			if err := regenerateNewSession(); err != nil {
+				return err
+			}
 
 			token = userSession.AccessToken
-			l.tokenCache.Delete(token) // Remove old token if it exists
 		}
 
 		exp, err := l.getExpiration(token)
