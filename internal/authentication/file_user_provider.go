@@ -132,6 +132,10 @@ func (p *FileUserProvider) Refresh(username, _, _ string) (res *ValidResult, err
 	return res, err
 }
 
+func (p *FileUserProvider) ResetPassword(_, _, _, _ string) (err error) {
+	return nil
+}
+
 // StartupCheck implements the startup check provider interface.
 func (p *FileUserProvider) StartupCheck() (err error) {
 	if err = checkDatabase(p.config.Path); err != nil {

@@ -21,6 +21,7 @@ type SessionProvider interface {
 	GetTargetDomain() string
 	SetTargetDomain(domain string)
 	GetConfig() *schema.SessionCookieConfiguration
+	ClearUserTokenCache(username string)
 }
 
 const AUTH_TOKEN = "auth_token"

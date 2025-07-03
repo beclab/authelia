@@ -181,3 +181,8 @@ type TermipassSignBody struct {
 	AuthTokenMd5 string `json:"authTokenMd5"`
 	TargetUrl    string `json:"targetUrl"`
 }
+
+type PasswordReset struct {
+	CurrentPassword string `json:"current_password"`
+	Password        string `json:"password"`
+}
