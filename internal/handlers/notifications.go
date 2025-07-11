@@ -32,7 +32,7 @@ func sendNotification(user string, data interface{}) error {
 	natsPort := os.Getenv("NATS_PORT")
 	natsUsername := os.Getenv("NATS_USERNAME")
 	natsPassword := os.Getenv("NATS_PASSWORD")
-	natsSubject := fmt.Sprintf("%s.%s", os.Getenv("NATS_SUBJECT_FOR_USERS"), user)
+	natsSubject := os.Getenv("NATS_SUBJECT_FOR_USERS")
 
 	nc, err := nats.Connect(fmt.Sprintf("nats://%s:%s", natsHost, natsPort), nats.UserInfo(natsUsername, natsPassword))
 	if err != nil {
