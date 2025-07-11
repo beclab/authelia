@@ -25,6 +25,11 @@ func LogoutPOST(ctx *middlewares.AutheliaCtx) {
 		ctx.Error(fmt.Errorf("unable to parse body during logout: %s", err), messageOperationFailed)
 	}
 
+	userSession, err := ctx.GetSession()
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Error occurred retrieving user session during logout")
+	}
+
 	err = ctx.DestroySession()
 	if err != nil {
 		ctx.Error(fmt.Errorf("unable to destroy session during logout: %s", err), messageOperationFailed)
@@ -42,5 +47,12 @@ func LogoutPOST(ctx *middlewares.AutheliaCtx) {
 	err = ctx.SetJSONBody(responseBody)
 	if err != nil {
 		ctx.Error(fmt.Errorf("unable to set body during logout: %s", err), messageOperationFailed)
+	}
+
+	if userSession.Username != "" {
+		ctx.Logger.Infof("User %s logged out successfully", userSession.Username)
+		TopicLogout.send(ctx, userSession.Username)
+	} else {
+		ctx.Logger.Info("User logged out successfully")
 	}
 }
