@@ -1,16 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 
@@ -20,7 +17,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/model"
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/regulation"
-	"github.com/authelia/authelia/v4/internal/session"
 	sess "github.com/authelia/authelia/v4/internal/session"
 )
 
@@ -29,10 +25,6 @@ type AccessTokenCookieInfo struct {
 	RefreshToken string
 	Username     string
 }
-
-var (
-	NM_URL = "notification-manager-svc.kubesphere-monitoring-system:19093"
-)
 
 func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookieInfo) {
 	if tokenInfo.AccessToken != "" {
@@ -45,7 +37,7 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		}
 
 		cookie := &fasthttp.Cookie{}
-		cookie.SetKey(session.AUTH_TOKEN)
+		cookie.SetKey(sess.AUTH_TOKEN)
 		cookie.SetValue(tokenInfo.AccessToken)
 		cookie.SetDomain(domain)
 		cookie.SetPath("/")
@@ -65,55 +57,6 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 
 		ctx.Response.Header.SetBytesK(headerRemoteAccessToken, tokenInfo.AccessToken)
 		// ctx.Response.Header.SetBytesK(headerRemoteRefreshToken, tokenInfo.RefreshToken)
-	}
-}
-
-func sendNotification(user string, data interface{}) error {
-	natsHost := os.Getenv("NATS_HOST")
-	natsPort := os.Getenv("NATS_PORT")
-	natsUsername := os.Getenv("NATS_USERNAME")
-	natsPassword := os.Getenv("NATS_PASSWORD")
-	natsSubject := fmt.Sprintf("%s.%s", os.Getenv("NATS_SUBJECT_FOR_USERS"), user)
-
-	nc, err := nats.Connect(fmt.Sprintf("nats://%s:%s", natsHost, natsPort), nats.UserInfo(natsUsername, natsPassword))
-	if err != nil {
-		return fmt.Errorf("error connecting to NATS: %v", err)
-	}
-	klog.Infoln("Connected to NATS", natsHost, natsPort, natsUsername)
-
-	msg, err := json.Marshal(data)
-	if err != nil {
-		klog.Error("encode msg error, ", err)
-		return err
-	}
-	klog.Infof("message... %s", string(msg))
-
-	err = nc.Publish(natsSubject, msg)
-	if err != nil {
-		klog.Error("publish message to nats error, ", err)
-		return err
-	}
-
-	klog.Infof("published to subject: %s success ", natsSubject)
-	return nil
-}
-
-func sendLoginSuccess(ctx *middlewares.AutheliaCtx, session *sess.UserSession) {
-	payload := &struct {
-		User string `json:"user"`
-		IP   string `json:"ip"`
-	}{
-		User: session.Username,
-		IP:   ctx.RemoteIP().String(),
-	}
-
-	data := map[string]interface{}{
-		"payload":   payload,
-		"eventType": "user.login",
-	}
-
-	if err := sendNotification(session.Username, data); err != nil {
-		ctx.Logger.Errorf("send notification to user %s error, %+v", session.Username, err)
 	}
 }
 
@@ -160,54 +103,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 				return
 			}
 
-			type sign struct {
-				CallbackUrl string            `json:"callback_url"`
-				SignBody    TermipassSignBody `json:"sign_body"`
-			}
-
-			type vars struct {
-				TerminusName string `json:"terminusName"`
-			}
-
 			// send notification to termipass
-			//payload := `{"eventType": "system.second.verification"}`
-			//zone := authorizer.GetUserZone(session.Username)
-			//terminusName := session.Username + "@" + strings.Join(strings.Split(zone, ".")[1:], ".")
-			//message := &struct {
-			//	ID   string `json:"id"`
-			//	Sign sign   `json:"sign"`
-			//	Vars vars   `json:"vars"`
-			//}{
-			//	ID: time.Now().String(),
-			//	Sign: sign{
-			//		CallbackUrl: fmt.Sprintf("https://auth.%s/api/secondfactor/termipass", zone),
-			//		SignBody: TermipassSignBody{
-			//			TerminusName: terminusName,
-			//			AuthTokenID:  session.AccessToken,
-			//			AuthTokenMd5: md5(session.AccessToken + AuthTokenSalt),
-			//			TargetUrl:    targetURI,
-			//		},
-			//	},
-			//	Vars: vars{
-			//		TerminusName: terminusName,
-			//	},
-			//}
-
-			//messageData, err := json.Marshal(message)
-			//if err != nil {
-			//	ctx.Logger.Errorf("Unable to parse notification message , %s", err)
-			//
-			//	ctx.ReplyError(err, "unable to parse notification message")
-			//	return
-			//
-			//}
-
-			//if err = sendNotification(session.Username, nonce, payload, string(messageData)); err != nil {
-			//	ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", session.Username)
-			//
-			//	// ctx.ReplyError(err, "Unable to send notification")
-			//	// return
-			//}
+			TopicOnFirstFactor.send(ctx, session.Username)
 		}
 
 		if err = ctx.SetJSONBody(redirectResponse{
@@ -286,7 +183,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 	}
 
 	// login successful in requiredLevel first factor
-	sendLoginSuccess(ctx, session)
+	TopicLogin.send(ctx, session.Username)
 
 	if !ctx.IsSafeRedirectionTargetURI(targetURL) {
 		ctx.Logger.Debugf("Redirection URL %s is not safe", targetURI)
@@ -591,7 +488,7 @@ func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, ses
 	}
 
 	// send login notification
-	sendLoginSuccess(ctx, session)
+	TopicLogin.send(ctx, session.Username)
 
 	return nil
 }

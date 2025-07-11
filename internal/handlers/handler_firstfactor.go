@@ -44,6 +44,8 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 				ctx.SetStatusCode(http.StatusTooManyRequests)
 				ctx.SetJSONError(authentication.ErrTooManyRetries.Error())
 
+				TopicLoginFailed.send(ctx, bodyJSON.Username)
+
 				return
 			}
 
