@@ -48,7 +48,7 @@ func NewLLDAPUserProvider(conf schema.AuthenticationBackend, certPool *x509.Cert
 
 	p := &LLDAPUserProvider{config: *conf.LLDAP, LDAPUserProvider: ldap, tokenCache: memory.New()}
 
-	p.restClient = resty.New().SetTimeout(5 * time.Second)
+	p.restClient = resty.New().SetTimeout(5 * time.Second).SetCookieJar(nil)
 
 	return p
 }
