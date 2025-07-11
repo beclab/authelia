@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fasthttp/session/v2"
 	"github.com/go-resty/resty/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/jellydator/ttlcache/v3"
@@ -22,6 +21,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
@@ -36,7 +36,7 @@ type Provider struct {
 	Config            schema.SessionConfiguration
 	providerWithToken *ttlcache.Cache[string, SessionProvider]
 
-	reloadLister *Lister
+	lldapServer string
 }
 
 type Type string
@@ -62,6 +62,7 @@ type SessionTokenInfo struct {
 // NewProvider instantiate a session provider given a configuration.
 func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provider {
 	// log := logging.Logger()
+	lldapServer := fmt.Sprintf("http://%s:%d", config.AuthenticationBackend.LLDAP.Server, *config.AuthenticationBackend.LLDAP.Port)
 
 	provider := &Provider{
 		sessions: map[string]SessionProvider{},
@@ -70,6 +71,7 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 			ttlcache.WithTTL[string, SessionProvider](config.Session.Expiration),
 			ttlcache.WithCapacity[string, SessionProvider](1000),
 		),
+		lldapServer: lldapServer,
 	}
 
 	// if config.Session.Redis != nil {
@@ -82,7 +84,6 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 	// 	provider.reloadLister = lister
 	// }
 
-	lldapServer := fmt.Sprintf("http://%s:%d", config.AuthenticationBackend.LLDAP.Server, *config.AuthenticationBackend.LLDAP.Port)
 	creator := func(domain, targetDomain string) (SessionProvider, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
@@ -221,9 +222,7 @@ func (p *Provider) RevokeByToken(token string) {
 }
 
 func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
-	serializer := NewEncryptingSerializer(p.Config.Secret)
-
-	dataList, err := p.reloadLister.List()
+	dataList, err := p.tokenList(p.lldapServer)
 
 	if err != nil {
 		klog.Error("get token list error, ", err)
@@ -232,39 +231,35 @@ func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
 
 	var infos []*SessionTokenInfo
 	for _, data := range dataList {
-		var sess session.Dict
-		err := serializer.Decode(&sess, data)
+		if data.IsBlacklisted {
+			klog.Warning("token is blacklisted, ", data.AccessToken)
+			continue
+		}
 
+		claims, err := parseToken(data.AccessToken)
 		if err != nil {
-			klog.Error("decode session data error, ", err)
+			klog.Error("parse token error, ", err, ", token: ", data.AccessToken)
 			continue
 		}
 
-		if sess.KV[userSessionStorerKey] == nil {
-			continue
-		}
-
-		var us UserSession
-		err = json.Unmarshal(sess.KV[userSessionStorerKey].([]byte), &us)
-
-		if err != nil {
-			klog.Error("json unmarshal session data error, ", err)
-			continue
-		}
-
-		if us.Username == user {
-			token := strings.Split(us.AccessToken, ".")
+		if claims.Username == user {
+			token := strings.Split(data.AccessToken, ".")
 			if len(token) != 3 {
-				klog.Error("invalid access token in session data, ", us.AccessToken)
+				klog.Error("invalid access token in session data, ", data.AccessToken)
 				continue
 			}
 
+			authenticationLevel := authentication.OneFactor
+			if claims.Mfa > 0 {
+				authenticationLevel = authentication.TwoFactor
+			}
+
 			info := &SessionTokenInfo{
-				Token:                 us.AccessToken,
-				Username:              us.Username,
-				AuthLevel:             us.AuthenticationLevel.String(),
-				FirstFactorTimestamp:  us.FirstFactorAuthnTimestamp,
-				SecondFactorTimestamp: us.SecondFactorAuthnTimestamp,
+				Token:                 data.AccessToken,
+				Username:              claims.Username,
+				AuthLevel:             authenticationLevel.String(),
+				FirstFactorTimestamp:  claims.IssuedAt,
+				SecondFactorTimestamp: claims.IssuedAt,
 			}
 
 			infos = append(infos, info)
