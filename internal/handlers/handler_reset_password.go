@@ -5,7 +5,8 @@ import (
 
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
-	"k8s.io/klog/v2"
+	"github.com/authelia/authelia/v4/internal/utils"
+	"github.com/go-resty/resty/v2"
 )
 
 func ResetPassword(ctx *middlewares.AutheliaCtx) {
@@ -35,13 +36,16 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		ctx.ReplyOK()
 		return
 	}
+	info, err := utils.GetUserInfoFromBFL(resty.New(), username)
+	if err != nil {
+		ctx.Logger.Errorf(logFmtErrParseRequestBody, "get user info ", err)
+		ctx.SetStatusCode(http.StatusBadRequest)
+		ctx.SetJSONError(err.Error())
+	}
 
-	klog.V(0).Infof("username: %s", username)
-	klog.Infof("username2: %s", username)
-
-	klog.Infof("usersession: %s,token: %s", userSession.Username, userSession.AccessToken)
-
-	err = ctx.Providers.UserProvider.ResetPassword(username, bodyJSON.CurrentPassword, bodyJSON.Password, userSession.AccessToken)
+	err = ctx.Providers.UserProvider.ResetPassword(username, bodyJSON.CurrentPassword, bodyJSON.Password, userSession.AccessToken, func() bool {
+		return CanChangePasswordWithoutCurrentPassword(userSession.Groups, info.OwnerRole)
+	}())
 	if err != nil {
 		ctx.Logger.Errorf(logFmtErrParseRequestBody, "password reset", err)
 		ctx.SetStatusCode(http.StatusBadRequest)
@@ -55,4 +59,28 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 
 	ctx.SetStatusCode(http.StatusOK)
 	return
+}
+
+const (
+	Owner  string = "owner"
+	Admin  string = "admin"
+	Normal string = "normal"
+)
+
+func CanChangePasswordWithoutCurrentPassword(operatorPermissions []string, targetPermission string) bool {
+	for _, perm := range operatorPermissions {
+		switch perm {
+		case Owner:
+			if targetPermission == Admin || targetPermission == Normal {
+				return true
+			}
+		case Admin:
+			if targetPermission == Normal {
+				return true
+			}
+		case Normal:
+			continue
+		}
+	}
+	return false
 }

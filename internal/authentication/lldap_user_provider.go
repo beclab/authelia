@@ -177,17 +177,19 @@ func (l *LLDAPUserProvider) Refresh(username string, token, refreshToken string)
 	}, nil
 }
 
-func (l *LLDAPUserProvider) ResetPassword(username, oldPassword, newPassword, token string) error {
+func (l *LLDAPUserProvider) ResetPassword(username, oldPassword, newPassword, token string, isAdmin bool) error {
 	port := 80
 	if l.config.Port != nil && *l.config.Port != 0 {
 		port = *l.config.Port
 	}
-	valid, _, err := l.CheckUserPassword(username, oldPassword)
-	if err != nil {
-		return err
-	}
-	if !valid {
-		return fmt.Errorf("reset password: verfiy password hash err %v", err)
+	if !isAdmin {
+		valid, _, err := l.CheckUserPassword(username, oldPassword)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return fmt.Errorf("reset password: verfiy password hash err %v", err)
+		}
 	}
 
 	url := fmt.Sprintf("http://%s:%d/auth/simple/register", l.config.Server, port)
