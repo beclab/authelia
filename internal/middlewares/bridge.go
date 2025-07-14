@@ -110,7 +110,7 @@ func (b *BridgeBuilder) Build() Bridge {
 					return
 				}
 
-				if !info.IsEphemeral {
+				if !info.IsEphemeral && info.Zone != "" {
 					b.userCache.Set(userName, info, time.Minute)
 				}
 			} else {
