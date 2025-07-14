@@ -240,6 +240,6 @@ func (p *KubesphereUserProvider) ValiidateUserPassword(username string, password
 	return nil
 }
 
-func (l *KubesphereUserProvider) ResetPassword(username, oldPassword, newPassword, token string) error {
+func (l *KubesphereUserProvider) ResetPassword(username, oldPassword, newPassword, token string, _ bool) error {
 	return nil
 }

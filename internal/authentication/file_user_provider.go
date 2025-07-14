@@ -132,7 +132,7 @@ func (p *FileUserProvider) Refresh(username, _, _ string) (res *ValidResult, err
 	return res, err
 }
 
-func (p *FileUserProvider) ResetPassword(_, _, _, _ string) (err error) {
+func (p *FileUserProvider) ResetPassword(_, _, _, _ string, _ bool) (err error) {
 	return nil
 }
 
