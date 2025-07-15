@@ -22,7 +22,6 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		userSession session.UserSession
 		err         error
 	)
-	ctx.Logger.Errorf(logFmtErrParseRequestBody, "xxxxxpassword reset request data", string(ctx.PostBody()))
 	if err = ctx.ParseBody(&bodyJSON); err != nil {
 		ctx.Logger.Errorf(logFmtErrParseRequestBody, "password reset request data", err)
 		ctx.SetStatusCode(http.StatusBadRequest)
