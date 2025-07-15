@@ -72,7 +72,7 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 				return
 			}
 
-			if revokeUserSession.Username == userInfo.Username || userInfo.Groups[0] == "platform-admin" {
+			if revokeUserSession.Username == userInfo.Username || userInfo.Groups[0] == "owner" || userInfo.Groups[0] == "admin" {
 				switch p := ctx.Providers.UserProvider.(type) {
 				case *authentication.KubesphereUserProvider:
 					err = p.Logout(revokeUserSession.Username, revokeUserSession.AccessToken)
