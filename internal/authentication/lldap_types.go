@@ -27,6 +27,12 @@ type ResetPasswordResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type CredentialVerifyResponse struct {
+	Username string `json:"username"`
+	Valid    bool   `json:"valid"`
+	Message  string `json:"message"`
+}
+
 type authedTransport struct {
 	key     string
 	wrapped http.RoundTripper
