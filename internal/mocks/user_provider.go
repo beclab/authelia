@@ -14,7 +14,6 @@ import (
 
 var _ authentication.UserProvider = &MockUserProvider{}
 
-
 // MockUserProvider is a mock of UserProvider interface.
 type MockUserProvider struct {
 	ctrl     *gomock.Controller
@@ -54,7 +53,7 @@ func (mr *MockUserProviderMockRecorder) CheckUserPassword(arg0, arg1 interface{}
 }
 
 // GetDetails mocks base method.
-func (m *MockUserProvider) GetDetails(arg0,_ string) (*authentication.UserDetails, error) {
+func (m *MockUserProvider) GetDetails(arg0, _ string) (*authentication.UserDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDetails", arg0)
 	ret0, _ := ret[0].(*authentication.UserDetails)
@@ -90,17 +89,16 @@ func (m *MockUserProvider) UpdatePassword(arg0, _, arg1 string) error {
 	return ret0
 }
 
-func (m *MockUserProvider) Refresh(arg0, _,arg1 string) (*authentication.ValidResult, error) {
+func (m *MockUserProvider) Refresh(arg0, _, arg1 string) (*authentication.ValidResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return nil, ret0
 }
 
-func (m *MockUserProvider) ResetPassword(username, oldPassword, newPassword, token string) (err error) {
+func (m *MockUserProvider) ResetPassword(username, oldPassword, newPassword, token string, _ bool) (err error) {
 	return nil
 }
-
 
 // UpdatePassword indicates an expected call of UpdatePassword.
 func (mr *MockUserProviderMockRecorder) UpdatePassword(arg0, arg1 interface{}) *gomock.Call {

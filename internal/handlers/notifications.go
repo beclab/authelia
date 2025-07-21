@@ -17,14 +17,15 @@ const (
 	TopicLogout        Topic = "Logout"
 	TopicOnFirstFactor Topic = "OnFirstFactor"
 	TopicLoginFailed   Topic = "LoginFailed"
+	TopicSignCancel    Topic = "SignCancel"
 )
 
 func (t Topic) String() string {
 	return string(t)
 }
 
-func (t Topic) send(ctx *middlewares.AutheliaCtx, username string) {
-	sendWithTopic(ctx, username, t)
+func (t Topic) send(ctx *middlewares.AutheliaCtx, username string, additional ...map[string]interface{}) {
+	sendWithTopic(ctx, username, t, additional...)
 }
 
 func sendNotification(user string, data interface{}) error {
@@ -57,7 +58,7 @@ func sendNotification(user string, data interface{}) error {
 	return nil
 }
 
-func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic) {
+func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic, additionals ...map[string]interface{}) {
 	payload := &struct {
 		User string `json:"user"`
 		IP   string `json:"ip"`
@@ -69,6 +70,12 @@ func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic) {
 	data := map[string]interface{}{
 		"payload": payload,
 		"topic":   topic,
+	}
+
+	for _, additional := range additionals {
+		for k, v := range additional {
+			data[k] = v
+		}
 	}
 
 	if err := sendNotification(username, data); err != nil {

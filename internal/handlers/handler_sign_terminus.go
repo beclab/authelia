@@ -256,14 +256,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	//payload := `{"eventType": "system.cancel.sign"}`
-	//message := `{"id": "` + bodyJSON.ID + `"}`
-	//if err = sendNotification(userSession.Username, nonce, payload, message); err != nil {
-	//	ctx.Logger.Errorf("Unable to send notification to user' termipass , %s", userSession.Username)
-	//
-	//	// ctx.ReplyError(err, "Unable to send notification")
-	//	// return
-	//}
+	TopicSignCancel.send(ctx, userSession.Username)
 
 	ctx.ReplyCode0()
 }
