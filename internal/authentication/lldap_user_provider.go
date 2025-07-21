@@ -183,7 +183,7 @@ func (l *LLDAPUserProvider) ResetPassword(username, oldPassword, newPassword, to
 		port = *l.config.Port
 	}
 	if !isAdmin {
-		valid, _, err := l.CheckUserPassword(username, oldPassword)
+		valid, err := l.CheckUserPasswordWithoutLogin(username, oldPassword)
 		if err != nil {
 			return err
 		}
@@ -264,6 +264,40 @@ func (l *LLDAPUserProvider) ListUser(ctx context.Context) ([]*UserDetails, error
 	}
 
 	return users, nil
+}
+
+// CheckUserPasswordWithoutLogin implements UserProvider.
+func (l *LLDAPUserProvider) CheckUserPasswordWithoutLogin(username string, password string) (valid bool, err error) {
+	port := 80
+	if l.config.Port != nil && *l.config.Port != 0 {
+		port = *l.config.Port
+	}
+
+	url := fmt.Sprintf("http://%s:%d/auth/credentials/verify", l.config.Server, port)
+	reqBody := LoginRequest{
+		Username: username,
+		Password: password,
+	}
+
+	resp, err := l.restClient.R().
+		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
+		SetBody(reqBody).
+		SetResult(&CredentialVerifyResponse{}).
+		Post(url)
+
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return false, errors.New(string(resp.Body()))
+	}
+
+	responseData := resp.Result().(*CredentialVerifyResponse)
+	klog.Infof("responseData: %#v", responseData)
+
+	return responseData.Valid, nil
+
 }
 
 var _ UserProvider = &LLDAPUserProvider{}
