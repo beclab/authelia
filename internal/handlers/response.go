@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,8 +104,35 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 				return
 			}
 
+			type sign struct {
+				CallbackUrl string            `json:"callback_url"`
+				SignBody    TermipassSignBody `json:"sign_body"`
+			}
+
+			type vars struct {
+				TerminusName string `json:"terminusName"`
+			}
+
+			zone := authorizer.GetUserZone(session.Username)
+			terminusName := session.Username + "@" + strings.Join(strings.Split(zone, ".")[1:], ".")
+			message := map[string]interface{}{
+				"id": time.Now().String(),
+				"sign": sign{
+					CallbackUrl: fmt.Sprintf("https://auth.%s/api/secondfactor/termipass", zone),
+					SignBody: TermipassSignBody{
+						TerminusName: terminusName,
+						AuthTokenID:  session.AccessToken,
+						AuthTokenMd5: md5(session.AccessToken + AuthTokenSalt),
+						TargetUrl:    targetURI,
+					},
+				},
+				"vars": vars{
+					TerminusName: terminusName,
+				},
+			}
+
 			// send notification to termipass
-			TopicOnFirstFactor.send(ctx, session.Username)
+			TopicOnFirstFactor.send(ctx, session.Username, message)
 		}
 
 		if err = ctx.SetJSONBody(redirectResponse{
