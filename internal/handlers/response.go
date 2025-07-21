@@ -110,7 +110,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			}
 
 			type vars struct {
-				TerminusName string `json:"terminusName"`
+				User string `json:"user"`
 			}
 
 			zone := authorizer.GetUserZone(session.Username)
@@ -127,7 +127,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 					},
 				},
 				"vars": vars{
-					TerminusName: terminusName,
+					User: terminusName,
 				},
 			}
 
