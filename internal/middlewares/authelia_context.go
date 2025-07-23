@@ -519,6 +519,15 @@ func (ctx *AutheliaCtx) RemoteIP() net.IP {
 	return ctx.RequestCtx.RemoteIP()
 }
 
+func (ctx *AutheliaCtx) GetXForwardedFor() []string {
+	XForwardedFor := ctx.Request.Header.PeekBytes(headerXForwardedFor)
+	if XForwardedFor != nil {
+		return strings.Split(string(XForwardedFor), ",")
+	}
+
+	return nil
+}
+
 // GetXForwardedURL returns the parsed X-Forwarded-Proto, X-Forwarded-Host, and X-Forwarded-URI request header as a
 // *url.URL.
 func (ctx *AutheliaCtx) GetXForwardedURL() (requestURI *url.URL, err error) {

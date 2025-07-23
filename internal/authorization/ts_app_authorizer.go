@@ -162,7 +162,7 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 			if rule.IsMatch(subject, object) {
 				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
 
-				if rule.Internal && auth.localDomainIpDnsRecord == object.RealIP {
+				if rule.Internal && object.ViaVPN() {
 					t.log.Debug("internal policy rule matched, set policy public")
 					return rule.HasSubjects, Bypass, rule
 				}

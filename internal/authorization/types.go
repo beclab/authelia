@@ -6,7 +6,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/authelia/authelia/v4/internal/utils"
+	"k8s.io/klog/v2"
 )
 
 // SubjectMatcher is a matcher that takes a subject.
@@ -50,15 +52,36 @@ func (s Subject) IsAnonymous() bool {
 type Object struct {
 	URL *url.URL
 
-	Domain string
-	Path   string
-	Method string
-	RealIP string
+	Domain   string
+	Path     string
+	Method   string
+	RealIP   string
+	RemoteIP []string
 }
 
 // String is a string representation of the Object.
 func (o Object) String() string {
 	return o.URL.String()
+}
+
+func (o Object) ViaVPN() bool {
+	if len(o.RemoteIP) > 0 {
+		cidr := "100.64.0.0/16"
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			klog.Errorf("failed to parse CIDR %s: %v", cidr, err)
+			return false
+		}
+
+		for _, remoteIP := range o.RemoteIP {
+			if govalidator.IsIPv4(remoteIP) {
+				ip := net.ParseIP(remoteIP)
+				return ipnet.Contains(ip)
+			}
+		}
+	}
+
+	return false
 }
 
 // NewObjectRaw creates a new Object type from a URL and a method header.
