@@ -7,6 +7,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/session"
 	"github.com/authelia/authelia/v4/internal/utils"
 	"github.com/go-resty/resty/v2"
+	"k8s.io/klog/v2"
 )
 
 func ResetPassword(ctx *middlewares.AutheliaCtx) {
@@ -51,13 +52,26 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		ctx.SetJSONError(err.Error())
 		return
 	}
-	sess := ctx.Providers.SessionProvider.GetByToken(userSession.AccessToken)
+
+	var sess session.SessionProvider
+	if userSession.Username == username {
+		sess = ctx.Providers.SessionProvider.GetByToken(userSession.AccessToken)
+	} else {
+		if !info.IsEphemeral {
+			domain := info.Zone
+			klog.Infof("clear token cache for user %s in domain %s", username, domain)
+			sess, err = ctx.Providers.SessionProvider.Get(domain, domain, "", false)
+			if err != nil {
+				ctx.Logger.Errorf("failed to get session for user %s in domain %s: %v", username, domain, err)
+			}
+		}
+	}
+
 	if sess != nil {
 		sess.ClearUserTokenCache(username)
 	}
 
 	ctx.SetStatusCode(http.StatusOK)
-	return
 }
 
 const (

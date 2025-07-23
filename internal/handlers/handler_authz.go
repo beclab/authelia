@@ -42,6 +42,7 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	// get request real ip to check if the request is internal
 	ip := ctx.Request.Header.PeekBytes([]byte("X-Real-IP"))
 	object.RealIP = string(ip)
+	object.RemoteIP = ctx.GetXForwardedFor()
 
 	// if !utils.IsURISecure(object.URL) {
 	// 	ctx.Logger.Errorf("Target URL '%s' has an insecure scheme '%s', only the 'https' and 'wss' schemes are supported so session cookies can be transmitted securely", object.URL.String(), object.URL.Scheme)

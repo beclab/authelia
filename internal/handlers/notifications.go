@@ -59,23 +59,20 @@ func sendNotification(user string, data interface{}) error {
 }
 
 func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic, additionals ...map[string]interface{}) {
-	payload := &struct {
-		User string `json:"user"`
-		IP   string `json:"ip"`
-	}{
-		User: username,
-		IP:   ctx.RemoteIP().String(),
+	payload := map[string]interface{}{
+		"user": username,
+		"ip":   ctx.RemoteIP().String(),
+	}
+
+	for _, additional := range additionals {
+		for k, v := range additional {
+			payload[k] = v
+		}
 	}
 
 	data := map[string]interface{}{
 		"payload": payload,
 		"topic":   topic,
-	}
-
-	for _, additional := range additionals {
-		for k, v := range additional {
-			data[k] = v
-		}
 	}
 
 	if err := sendNotification(username, data); err != nil {
