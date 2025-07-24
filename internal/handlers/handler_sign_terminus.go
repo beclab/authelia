@@ -216,6 +216,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	userSession.SetTwoFactorTerminusPass(ctx.Clock.Now())
+	// TODO: get the 2fa token from lldap
 
 	if err = sessionProvider.SaveSession(ctx.RequestCtx, userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)
@@ -256,7 +257,9 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	TopicSignCancel.send(ctx, userSession.Username)
+	TopicSignCancel.send(ctx, userSession.Username, map[string]interface{}{
+		"id": bodyJSON.ID,
+	})
 
 	ctx.ReplyCode0()
 }
