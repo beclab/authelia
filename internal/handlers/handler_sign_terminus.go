@@ -256,7 +256,9 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	TopicSignCancel.send(ctx, userSession.Username)
+	TopicSignCancel.send(ctx, userSession.Username, map[string]interface{}{
+		"id": bodyJSON.ID,
+	})
 
 	ctx.ReplyCode0()
 }

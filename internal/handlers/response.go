@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -116,7 +117,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			zone := authorizer.GetUserZone(session.Username)
 			terminusName := session.Username + "@" + strings.Join(strings.Split(zone, ".")[1:], ".")
 			message := map[string]interface{}{
-				"id": time.Now().String(),
+				"id": strconv.FormatInt(time.Now().UnixMilli(), 16),
 				"sign": sign{
 					CallbackUrl: fmt.Sprintf("https://auth.%s/api/secondfactor/termipass", zone),
 					SignBody: TermipassSignBody{
