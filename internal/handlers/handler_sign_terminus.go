@@ -216,6 +216,7 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	userSession.SetTwoFactorTerminusPass(ctx.Clock.Now())
+	// TODO: get the 2fa token from lldap
 
 	if err = sessionProvider.SaveSession(ctx.RequestCtx, userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)

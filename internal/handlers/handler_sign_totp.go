@@ -31,6 +31,15 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
+	provider, err := ctx.GetSessionProvider()
+	if err != nil {
+		ctx.Logger.Errorf("%s", err)
+
+		respondUnauthorized(ctx, messageAuthenticationFailed)
+
+		return
+	}
+
 	if userSession, err = ctx.GetSession(); err != nil {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
@@ -73,9 +82,14 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
+	// clear the first factor session token
+	ctx.Providers.SessionProvider.RevokeByToken(userSession.AccessToken)
+
 	userSession.SetTwoFactorTOTP(ctx.Clock.Now())
 	userSession.AccessToken = isValid.Token
 	userSession.RefreshToken = isValid.RefreshToken
+
+	ctx.Providers.SessionProvider.SetByToken(userSession.AccessToken, provider)
 
 	if err = ctx.SaveSession(userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)

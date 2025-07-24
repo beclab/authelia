@@ -55,7 +55,14 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 
 	var sess session.SessionProvider
 	if userSession.Username == username {
-		sess = ctx.Providers.SessionProvider.GetByToken(userSession.AccessToken)
+		klog.Info("clear token cache for user ", username, " himself")
+		sess, err = ctx.GetSessionProvider()
+		if err != nil {
+			ctx.Logger.Errorf("failed to get session provider for user %s: %v", username, err)
+			ctx.SetStatusCode(http.StatusInternalServerError)
+			ctx.SetJSONError(err.Error())
+			return
+		}
 	} else {
 		if !info.IsEphemeral {
 			domain := info.Zone
@@ -64,11 +71,15 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 			if err != nil {
 				ctx.Logger.Errorf("failed to get session for user %s in domain %s: %v", username, domain, err)
 			}
+		} else {
+			klog.Info("do not clear token cache for ephemeral user ", username)
 		}
 	}
 
 	if sess != nil {
 		sess.ClearUserTokenCache(username)
+	} else {
+		klog.Warning("session provider not found for user ", username)
 	}
 
 	ctx.SetStatusCode(http.StatusOK)
