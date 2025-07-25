@@ -49,6 +49,7 @@ func (s *UserSession) setTwoFactor(now time.Time) {
 func (s *UserSession) SetTwoFactorTOTP(now time.Time) {
 	s.setTwoFactor(now)
 	s.AuthenticationMethodRefs.TOTP = true
+	s.Prev1FaAccessToken = s.AccessToken // Store the previous 1FA access token.
 }
 
 // SetTwoFactorDuo sets the relevant Duo AMR's and sets the factor to 2FA.
@@ -70,6 +71,7 @@ func (s *UserSession) SetTwoFactorWebauthn(now time.Time, userPresence, userVeri
 func (s *UserSession) SetTwoFactorTerminusPass(now time.Time) {
 	s.setTwoFactor(now)
 	s.AuthenticationMethodRefs.TerminusPass = true
+	s.Prev1FaAccessToken = s.AccessToken // Store the previous 1FA access token.
 }
 
 // AuthenticatedTime returns the unix timestamp this session authenticated successfully at the given level.

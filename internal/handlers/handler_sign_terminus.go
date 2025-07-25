@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/authelia/authelia/v4/internal/authorization"
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/session"
@@ -216,7 +216,33 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	}
 
 	userSession.SetTwoFactorTerminusPass(ctx.Clock.Now())
-	// TODO: get the 2fa token from lldap
+
+	if lldap, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider); ok {
+		valid, err := lldap.SignToken(userSession.AccessToken)
+		if err != nil {
+			ctx.Logger.Errorf("failed to sign token for user %s: %v", userSession.Username, err)
+			ctx.SetStatusCode(http.StatusBadRequest)
+			ctx.SetJSONError(err.Error())
+			return
+		}
+
+		if valid == nil {
+			ctx.Logger.Errorf("failed to sign token for user %s: token is nil", userSession.Username)
+			ctx.SetStatusCode(http.StatusBadRequest)
+			ctx.SetJSONError("token is nil")
+			return
+		}
+
+		klog.Infof("TermipassSignPOST: signed token from lldap for user %s", userSession.Username)
+
+		// clear the first factor session token
+		ctx.Providers.SessionProvider.RevokeByToken(userSession.AccessToken)
+
+		userSession.AccessToken = valid.AccessToken
+		userSession.RefreshToken = valid.RefreshToken
+
+		ctx.Providers.SessionProvider.SetByToken(userSession.AccessToken, sessionProvider)
+	}
 
 	if err = sessionProvider.SaveSession(ctx.RequestCtx, userSession); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthTypeTOTP, userSession.Username, err)
@@ -238,23 +264,6 @@ func TermipassSignPOST(ctx *middlewares.AutheliaCtx) {
 	if len(cookie) > 0 {
 		klog.Info("clear session cookie for termipass sign")
 		ctx.RequestCtx.Request.Header.DelCookie(session.AUTH_TOKEN)
-	}
-
-	// send notification to other termipass
-	authorizer, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
-	if !ok {
-		ctx.Logger.Errorf("Authorizer invalid , %s", userSession.Username)
-
-		ctx.ReplyError(errors.New("unable to get nonce"), "Unable to get nonce")
-		return
-	}
-
-	nonce := authorizer.GetUserBackendNonce(userSession.Username)
-	if nonce == "" {
-		ctx.Logger.Errorf("Unable to get user terminuce nonce , %s", userSession.Username)
-
-		ctx.ReplyError(errors.New("unable to get nonce"), "Unable to get nonce")
-		return
 	}
 
 	TopicSignCancel.send(ctx, userSession.Username, map[string]interface{}{
