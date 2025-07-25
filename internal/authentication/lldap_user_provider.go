@@ -300,6 +300,42 @@ func (l *LLDAPUserProvider) CheckUserPasswordWithoutLogin(username string, passw
 
 }
 
+func (l *LLDAPUserProvider) SignToken(token string) (*ValidResult, error) {
+	port := 80
+	if l.config.Port != nil && *l.config.Port != 0 {
+		port = *l.config.Port
+	}
+
+	url := fmt.Sprintf("http://%s:%d/auth/sign/token", l.config.Server, port)
+
+	resp, err := l.restClient.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Authorization", "Bearer "+token).
+		SetResult(&RefreshTokenResponse{}).
+		Post(url)
+	if err != nil {
+		klog.Errorf("Error sending POST request: %v", err)
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		klog.Errorf("Error response from server: %s", resp.Body())
+		return nil, errors.New(string(resp.Body()))
+	}
+
+	if resp.Result() == nil {
+		klog.Error("Response result is nil")
+		return nil, errors.New("response result is nil")
+	}
+
+	refreshTokenResp := resp.Result().(*RefreshTokenResponse)
+
+	return &ValidResult{
+		AccessToken:  refreshTokenResp.Token,
+		RefreshToken: refreshTokenResp.RefreshToken,
+	}, nil
+}
+
 var _ UserProvider = &LLDAPUserProvider{}
 
 func createGraphClient(base_url, token string) graphql.Client {

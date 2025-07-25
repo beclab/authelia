@@ -118,8 +118,9 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 						ttlcache.WithTTL[string, *UserSession](dconfig.Expiration),
 						ttlcache.WithCapacity[string, *UserSession](1000),
 					),
-					lldapAddr:  lldapServer,
-					parseToken: parseToken,
+					lldapAddr:     lldapServer,
+					parseToken:    parseToken,
+					revokingToken: make(map[string]string),
 				}
 
 				return provider.sessions[domain], nil

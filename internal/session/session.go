@@ -172,5 +172,8 @@ func (p *internelSession) SetTargetDomain(domain string) {
 }
 
 func (p *internelSession) ClearUserTokenCache(string) {
-	return
+}
+
+func (p *internelSession) SearchSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
+	return p.GetSession(ctx)
 }

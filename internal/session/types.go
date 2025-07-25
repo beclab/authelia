@@ -47,8 +47,9 @@ type UserSession struct {
 	RefreshTTL time.Time
 
 	// kubesphere tokens.
-	AccessToken  string
-	RefreshToken string
+	AccessToken        string
+	RefreshToken       string
+	Prev1FaAccessToken string
 
 	// terminuns pass data.
 	TPConfig *terminus.TPOTPConfig
