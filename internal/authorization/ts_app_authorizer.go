@@ -609,7 +609,7 @@ func (t *TsAuthorizer) reloadRules() {
 		info, err := utils.GetUserInfoFromBFL(t.httpClient, username)
 		if err != nil {
 			klog.Error("reload user info error, ", err, ", ", username)
-			return
+			continue
 		}
 
 		userAuth := t.newUserAuthorizer(username)
@@ -633,7 +633,7 @@ func (t *TsAuthorizer) reloadRules() {
 		rules, err := t.getRules(ctx, info, &user, userAuth)
 		if err != nil {
 			klog.Error("reload user apps auth rules error, ", err, ", ", username)
-			return
+			continue
 		}
 
 		userAuth.rules = rules
@@ -641,7 +641,7 @@ func (t *TsAuthorizer) reloadRules() {
 		nonce, err := t.getNonce(username)
 		if err != nil {
 			klog.Error("get user backend service nonce error, ", err, ", ", username)
-			return
+			continue
 		}
 
 		userAuth.UserTerminusNonce = nonce
