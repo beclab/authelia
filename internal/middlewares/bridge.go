@@ -123,10 +123,10 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			hostStr := strconv.B2S(requestCtx.Host())
 
-			parentDomain := func(host string) string {
-				hostSub := strings.Split(host, ".")
-				return strings.Join(hostSub[1:], ".")
-			}
+			// parentDomain := func(host string) string {
+			// 	hostSub := strings.Split(host, ".")
+			// 	return strings.Join(hostSub[1:], ".")
+			// }
 
 			host, err = url.Parse(strconv.B2S(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
 
@@ -137,11 +137,11 @@ func (b *BridgeBuilder) Build() Bridge {
 			}
 
 			domain = strings.Split(hostStr, ":")[0]
-			if info.Zone == "" { // admin user.
-				if info.IsEphemeral {
-					domain = parentDomain(domain)
-				}
-			} else {
+			switch {
+			case info.IsEphemeral:
+				// If the user is ephemeral, we use the host as the domain.
+
+			case info.Zone != "":
 				if strings.HasSuffix(domain, info.Zone) {
 					domain = info.Zone
 				} else {
