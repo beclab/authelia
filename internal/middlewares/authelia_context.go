@@ -271,15 +271,24 @@ func (ctx *AutheliaCtx) GetTargetURICookieDomain(targetURI *url.URL) string {
 
 	hostname := targetURI.Hostname()
 
+	// find the domain from the request URI.
+	// subdomain is in priority, then domain, then root domain.
+	lowestSubdomainLevel := 0
+	foundDomain := ""
 	for _, domain := range ctx.Configuration.Session.Cookies {
 		ctx.Logger.Debug("cookie config domain: ", domain.Domain, " match suffix with, ", hostname)
 
 		if utils.HasDomainSuffix(hostname, domain.Domain) {
-			return domain.Domain
+			level := len(strings.Split(domain.Domain, "."))
+			if level > lowestSubdomainLevel &&
+				(foundDomain == "" || utils.HasDomainSuffix(domain.Domain, foundDomain)) { // found domain is a parent domain of the current domain
+				lowestSubdomainLevel = level
+				foundDomain = domain.Domain
+			}
 		}
 	}
 
-	return ""
+	return foundDomain
 }
 
 // IsSafeRedirectionTargetURI returns true if the targetURI is within the scope of a cookie domain and secure.

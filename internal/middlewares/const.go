@@ -37,6 +37,7 @@ var (
 	headerAccessControlMaxAge           = []byte(fasthttp.HeaderAccessControlMaxAge)
 	headerAccessControlRequestHeaders   = []byte(fasthttp.HeaderAccessControlRequestHeaders)
 	headerAccessControlRequestMethod    = []byte(fasthttp.HeaderAccessControlRequestMethod)
+	headerAccessControlExposeHeaders    = []byte(fasthttp.HeaderAccessControlExposeHeaders)
 
 	headerXContentTypeOptions = []byte(fasthttp.HeaderXContentTypeOptions)
 	headerReferrerPolicy      = []byte(fasthttp.HeaderReferrerPolicy)
