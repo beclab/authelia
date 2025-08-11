@@ -35,6 +35,7 @@ type UserDetails struct {
 	DisplayName string   `json:"display_name"`
 	Emails      []string `json:"emails,omitempty"`
 	Groups      []string `json:"groups,omitempty"`
+	OwnerRole   string   `json:"ownerRole"`
 }
 
 // Addresses returns the Emails []string as []mail.Address formatted with DisplayName as the Name attribute.

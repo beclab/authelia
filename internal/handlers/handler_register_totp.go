@@ -252,7 +252,7 @@ func TOTPIdentityVerificationBindLldap(ctx *middlewares.AutheliaCtx) {
 	}
 
 	if err = ctx.SetJSONBody(r); err != nil {
-		ctx.Logger.Errorf("Unable to set TOTP key response in body: %s", err)
+		ctx.Logger.Errorf("Unable to set TOTP key response in body: %v", err)
 	}
 
 	ctxLogEvent(ctx, userSession.Username, "Second Factor Method Added", map[string]any{"Action": "Second Factor Method Added", "Category": "Time-based One Time Password"})

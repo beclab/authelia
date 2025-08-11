@@ -409,7 +409,7 @@ func handleVerifyGETAuthnCookieValidateUpdate(ctx *middlewares.AutheliaCtx, user
 		generateVerifySessionHasUpToDateProfileTraceLogs(ctx, userSession, details)
 	}
 
-	userSession.Emails, userSession.Groups, userSession.DisplayName = details.Emails, details.Groups, details.DisplayName
+	userSession.Emails, userSession.Groups, userSession.DisplayName, userSession.OwnerRole = details.Emails, details.Groups, details.DisplayName, details.OwnerRole
 
 	return false
 }

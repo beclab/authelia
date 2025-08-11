@@ -249,6 +249,17 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	r.POST("/api/revoke-token", middlewareAPI(handlers.RevokeTokenPOST))
 	r.POST("/api/reset/{user}/password", middleware1FAAndBackend(handlers.ResetPassword))
 
+	r.GET("/api/groups", middlewareAPI(handlers.GroupList))
+	r.POST("/api/groups", middlewareAPI(handlers.CreateGroup))
+	r.GET("/api/groups/{groupName}", middlewareAPI(handlers.Group))
+	r.DELETE("/api/groups/{groupName}", middlewareAPI(handlers.DeleteGroup))
+	r.POST("/api/groups/{groupName}/users", middlewareAPI(handlers.AddUserToGroup))
+	r.DELETE("/api/groups/{groupName}/users", middlewareAPI(handlers.RemoveUserFromGroup))
+	r.PUT("/api/groups/{groupName}", middlewareAPI(handlers.UpdateGroup))
+	//r.POST("/api/groups/attributes/schema", middlewareAPI(handlers.CreateGroupAttribute))
+	//r.GET("/api/groups/attributes/schema", middlewareAPI(handlers.GetGroupAttributeSchema))
+	//r.DELETE("/api/groups/attributes/schema/{name}", middlewareAPI(handlers.DeleteGroupAttributeSchema))
+
 	// Only register endpoints if forgot password is not disabled.
 	if !config.AuthenticationBackend.PasswordReset.Disable &&
 		config.AuthenticationBackend.PasswordReset.CustomURL.String() == "" {
