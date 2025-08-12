@@ -123,7 +123,7 @@ func CreateGroup(ctx *middlewares.AutheliaCtx) {
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
-	TopicGroupCreated.sendGroupTopic(ctx, bodyJSON.Name, userSession.Username)
+	TopicGroupCreated.send(ctx, bodyJSON.Name, userSession.Username)
 
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	return
@@ -260,7 +260,7 @@ func AddUserToGroup(ctx *middlewares.AutheliaCtx) {
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to add user to group %v", err))
 		return
 	}
-	TopicGroupAddUser.sendGroupTopic(ctx, groupName, userSession.Username, map[string]interface{}{
+	TopicGroupAddUser.send(ctx, groupName, userSession.Username, map[string]interface{}{
 		"user": bodyJSON.Username,
 	})
 	ctx.SetStatusCode(fasthttp.StatusOK)
@@ -323,7 +323,7 @@ func RemoveUserFromGroup(ctx *middlewares.AutheliaCtx) {
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to add user to group %v", err))
 		return
 	}
-	TopicGroupRemoveUser.sendGroupTopic(ctx, groupName, userSession.Username, map[string]interface{}{
+	TopicGroupRemoveUser.send(ctx, groupName, userSession.Username, map[string]interface{}{
 		"user": bodyJSON.Username,
 	})
 
@@ -375,7 +375,7 @@ func DeleteGroup(ctx *middlewares.AutheliaCtx) {
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to delete group %v", err))
 		return
 	}
-	TopicGroupDeleted.sendGroupTopic(ctx, groupName, userSession.Username)
+	TopicGroupDeleted.send(ctx, groupName, userSession.Username)
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	return
 }
@@ -438,7 +438,7 @@ func UpdateGroup(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	TopicGroupModify.sendGroupTopic(ctx, groupName, userSession.Username)
+	TopicGroupModify.send(ctx, groupName, userSession.Username)
 	ctx.SetStatusCode(fasthttp.StatusOK)
 	return
 }

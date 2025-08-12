@@ -11,26 +11,34 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type Topic string
+type Topic interface {
+	String() string
+}
+
+var _ Topic = UserTopic("")
+var _ Topic = GroupTopic("")
+
+type UserTopic string
+type GroupTopic string
 
 const (
-	TopicLogin           Topic = "Login"
-	TopicLogout          Topic = "Logout"
-	TopicOnFirstFactor   Topic = "OnFirstFactor"
-	TopicLoginFailed     Topic = "LoginFailed"
-	TopicSignCancel      Topic = "SignCancel"
-	TopicGroupCreated    Topic = "Create"
-	TopicGroupDeleted    Topic = "Delete"
-	TopicGroupModify     Topic = "Modify"
-	TopicGroupAddUser    Topic = "MemberAdd"
-	TopicGroupRemoveUser Topic = "MemberDeleted"
+	TopicLogin           UserTopic  = "Login"
+	TopicLogout          UserTopic  = "Logout"
+	TopicOnFirstFactor   UserTopic  = "OnFirstFactor"
+	TopicLoginFailed     UserTopic  = "LoginFailed"
+	TopicSignCancel      UserTopic  = "SignCancel"
+	TopicGroupCreated    GroupTopic = "Create"
+	TopicGroupDeleted    GroupTopic = "Delete"
+	TopicGroupModify     GroupTopic = "Modify"
+	TopicGroupAddUser    GroupTopic = "MemberAdd"
+	TopicGroupRemoveUser GroupTopic = "MemberDeleted"
 )
 
-func (t Topic) String() string {
+func (t UserTopic) String() string {
 	return string(t)
 }
 
-func (t Topic) send(ctx *middlewares.AutheliaCtx, username string, additional ...map[string]interface{}) {
+func (t UserTopic) send(ctx *middlewares.AutheliaCtx, username string, additional ...map[string]interface{}) {
 	sendWithTopic(ctx, username, t, additional...)
 }
 
@@ -63,7 +71,7 @@ func sendNotification(subject string, data interface{}) error {
 	return nil
 }
 
-func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic, additionals ...map[string]interface{}) {
+func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic UserTopic, additionals ...map[string]interface{}) {
 	payload := map[string]interface{}{
 		"user": username,
 		"ip":   ctx.RemoteIP().String(),
@@ -86,11 +94,15 @@ func sendWithTopic(ctx *middlewares.AutheliaCtx, username string, topic Topic, a
 	}
 }
 
-func (t Topic) sendGroupTopic(ctx *middlewares.AutheliaCtx, groupName, operator string, additionals ...map[string]interface{}) {
+func (t GroupTopic) String() string {
+	return string(t)
+}
+
+func (t GroupTopic) send(ctx *middlewares.AutheliaCtx, groupName, operator string, additionals ...map[string]interface{}) {
 	sendGroupTopic(ctx, groupName, operator, t, additionals...)
 }
 
-func sendGroupTopic(ctx *middlewares.AutheliaCtx, groupName, operator string, topic Topic, additionals ...map[string]interface{}) {
+func sendGroupTopic(ctx *middlewares.AutheliaCtx, groupName, operator string, topic GroupTopic, additionals ...map[string]interface{}) {
 	payload := map[string]interface{}{
 		"groupName": groupName,
 		"operator":  operator,
