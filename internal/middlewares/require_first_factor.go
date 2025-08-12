@@ -18,6 +18,7 @@ func Require1FA(next RequestHandler) RequestHandler {
 		} else if s.AuthenticationLevel < authentication.OneFactor {
 
 			ctx.Logger.Debug("get session: ", authorization.PrettyJSON(s))
+			ctx.Logger.Debug("headers: ", ctx.Request.Header.String())
 			ctx.ReplyForbidden()
 
 			return

@@ -58,6 +58,8 @@ type UserSession struct {
 	ResourceAuthenticationLevels []*ResourceAuthenticationLevel
 
 	InBlacklist bool
+
+	OwnerRole string
 }
 
 // Identity identity of the user who is being verified.

@@ -35,6 +35,7 @@ func (s *UserSession) SetOneFactor(now time.Time, details *authentication.UserDe
 	s.DisplayName = details.DisplayName
 	s.Groups = details.Groups
 	s.Emails = details.Emails
+	s.OwnerRole = details.OwnerRole
 
 	s.AuthenticationMethodRefs.UsernameAndPassword = true
 }

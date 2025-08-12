@@ -475,6 +475,16 @@ func respondInvalidToken(ctx *middlewares.AutheliaCtx) {
 	ctx.SetJSONError(authentication.ErrInvalidToken.Error())
 }
 
+func respondWithStatusCode(ctx *middlewares.AutheliaCtx, statusCode int, message string) {
+	ctx.SetStatusCode(statusCode)
+	ctx.SetJSONError(message)
+}
+
+func respondBadRequest(ctx *middlewares.AutheliaCtx, err error) {
+	ctx.SetStatusCode(fasthttp.StatusBadRequest)
+	ctx.SetJSONError(err.Error())
+}
+
 // SetStatusCodeResponse writes a response status code and an appropriate body on either a
 // *fasthttp.RequestCtx or *middlewares.AutheliaCtx.
 func SetStatusCodeResponse(ctx *fasthttp.RequestCtx, statusCode int) {

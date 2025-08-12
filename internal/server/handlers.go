@@ -246,8 +246,19 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	r.POST("/api/logout", middlewareAPI(handlers.LogoutPOST))
 	r.POST("/api/refresh", middlewareAPI(handlers.RefreshSessionAndTokenPOST))
 	r.POST("/api/validate", middlewareAPI(handlers.ValidatePOST))
-	r.POST("/api/revoke-token", middlewareAPI(handlers.RevokeTokenPOST))
+	r.POST("/api/revoke-token", middleware1FA(handlers.RevokeTokenPOST))
 	r.POST("/api/reset/{user}/password", middleware1FAAndBackend(handlers.ResetPassword))
+
+	r.GET("/api/groups", middleware1FA(handlers.GroupList))
+	r.POST("/api/groups", middleware1FA(handlers.CreateGroup))
+	r.GET("/api/groups/{groupName}", middleware1FA(handlers.GetGroup))
+	r.DELETE("/api/groups/{groupName}", middleware1FA(handlers.DeleteGroup))
+	r.POST("/api/groups/{groupName}/users", middleware1FA(handlers.AddUserToGroup))
+	r.DELETE("/api/groups/{groupName}/users", middleware1FA(handlers.RemoveUserFromGroup))
+	r.PUT("/api/groups/{groupName}", middleware1FA(handlers.UpdateGroup))
+	//r.POST("/api/groups/attributes/schema", middlewareAPI(handlers.CreateGroupAttribute))
+	//r.GET("/api/groups/attributes/schema", middlewareAPI(handlers.GetGroupAttributeSchema))
+	//r.DELETE("/api/groups/attributes/schema/{name}", middlewareAPI(handlers.DeleteGroupAttributeSchema))
 
 	// Only register endpoints if forgot password is not disabled.
 	if !config.AuthenticationBackend.PasswordReset.Disable &&

@@ -17,6 +17,7 @@ import (
 	"github.com/beclab/lldap-client/pkg/cache/memory"
 	"github.com/beclab/lldap-client/pkg/client"
 	"github.com/beclab/lldap-client/pkg/config"
+	lgenerated "github.com/beclab/lldap-client/pkg/generated"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-resty/resty/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +26,13 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+var InternalGroups = map[string]bool{
+	"lldap_admin":           true,
+	"lldap_password_manage": true,
+	"lldap_strict_readonly": true,
+	"lldap_regular":         true,
+}
 
 type LLDAPUserProvider struct {
 	*LDAPUserProvider
@@ -120,6 +128,7 @@ func (l *LLDAPUserProvider) GetDetails(username, token string) (details *UserDet
 			DisplayName: viewerResp.User.DisplayName,
 			Groups:      groups,
 			Emails:      []string{viewerResp.User.Email},
+			OwnerRole:   info.OwnerRole,
 		}
 
 		return details, nil
@@ -132,6 +141,7 @@ func (l *LLDAPUserProvider) GetDetails(username, token string) (details *UserDet
 			DisplayName: username,
 			Groups:      []string{info.OwnerRole},
 			Emails:      []string{username + "@" + domain}, // FIXME:
+			OwnerRole:   info.OwnerRole,
 		}
 
 		return details, nil
@@ -399,4 +409,215 @@ func getCredentialVal(secret *corev1.Secret, key string) (string, error) {
 		return string(value), nil
 	}
 	return "", fmt.Errorf("can not find credentialval for key %s", key)
+}
+
+type GroupListOptions struct {
+	Username  string
+	OwnerRole string
+}
+
+func (glo *GroupListOptions) filterGroup(groups []lgenerated.GetGroupListGroupsGroup) []lgenerated.GetGroupListGroupsGroup {
+	filtered := make([]lgenerated.GetGroupListGroupsGroup, 0)
+	for _, group := range groups {
+		if !InternalGroups[group.DisplayName] {
+			filtered = append(filtered, group)
+		}
+	}
+	if glo.OwnerRole == "owner" {
+		return filtered
+	}
+	if glo.Username == "" {
+		return []lgenerated.GetGroupListGroupsGroup{}
+	}
+	fGroups := make([]lgenerated.GetGroupListGroupsGroup, 0)
+	for _, group := range filtered {
+		if getCreatorFromAttributes(group.Attributes) == glo.Username {
+			fGroups = append(fGroups, group)
+			continue
+		}
+		for _, user := range group.Users {
+			if glo.Username == user.Id {
+				fGroups = append(fGroups, group)
+				break
+			}
+		}
+	}
+	return fGroups
+
+}
+
+func (l *LLDAPUserProvider) GroupList(token string, opts *GroupListOptions) ([]lgenerated.GetGroupListGroupsGroup, error) {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return nil, err
+	}
+	g, err := qClient.Groups().List(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	if opts == nil {
+		return g, nil
+	}
+	groups := opts.filterGroup(g)
+	return groups, nil
+
+}
+
+func (l *LLDAPUserProvider) CreateGroup(token, groupName, creator string) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+	_, err = qClient.Groups().Create(context.TODO(), groupName, creator)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) GetGroup(token, groupName string) (*lgenerated.GetGroupDetailsByNameGroupByNameGroup, error) {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := qClient.Groups().GetByName(context.TODO(), groupName)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (l *LLDAPUserProvider) AddUserToGroup(token, username, groupName string) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+	group, err := qClient.Groups().GetByName(context.TODO(), groupName)
+	if err != nil {
+		return err
+	}
+	err = qClient.Groups().AddUser(context.TODO(), username, group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) RemoveUserFromGroup(token, username, groupName string) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+	group, err := qClient.Groups().GetByName(context.TODO(), groupName)
+	if err != nil {
+		return err
+	}
+	err = qClient.Groups().RemoveUser(context.TODO(), username, group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) DeleteGroup(token, groupName string) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+	group, err := qClient.Groups().GetByName(context.TODO(), groupName)
+	if err != nil {
+		return err
+	}
+
+	_, err = qClient.Groups().Delete(context.TODO(), group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) UpdateGroup(token, groupName string, removeAttributes []string, insertAttributes []lgenerated.AttributeValueInput) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+	group, err := qClient.Groups().GetByName(context.TODO(), groupName)
+	if err != nil {
+		return err
+	}
+	updateInput := lgenerated.UpdateGroupInput{
+		Id:               group.Id,
+		DisplayName:      groupName,
+		RemoveAttributes: removeAttributes,
+		InsertAttributes: insertAttributes,
+	}
+	err = qClient.Groups().Update(context.TODO(), updateInput)
+	if err != nil {
+		klog.Errorf("failed to update group %v", err)
+		return err
+	}
+	return nil
+}
+func (l *LLDAPUserProvider) CreateGroupAttribute(token, name string, attributeType lgenerated.AttributeType, isList, isVisible bool) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+
+	err = qClient.Groups().CreateAttribute(context.TODO(), name, attributeType, isList, isVisible)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) GetGroupAttributeSchema(token string) (*lgenerated.GetGroupAttributesSchemaResponse, error) {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := qClient.Groups().GetAttributeSchema(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (l *LLDAPUserProvider) DeleteGroupAttributeSchema(token string, name string) error {
+	qClient, err := l.createGraphqlClient(token)
+	if err != nil {
+		return err
+	}
+
+	err = qClient.Groups().DeleteAttribute(context.TODO(), name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *LLDAPUserProvider) createGraphqlClient(token string) (*client.Client, error) {
+	if token == "" {
+		return nil, errors.New("create graphql client invalid token")
+	}
+	host := fmt.Sprintf("http://%s:%d", l.config.Server, *l.config.Port)
+	cfg := config.Config{
+		Host:        host,
+		BearerToken: token,
+	}
+	qClient, err := client.New(&cfg)
+	if err != nil {
+		return nil, err
+	}
+	return qClient, nil
+}
+
+func getCreatorFromAttributes(attributes []lgenerated.GetGroupListGroupsGroupAttributesAttributeValue) string {
+	for _, attr := range attributes {
+		if attr.Name == "creator" && len(attr.Value) > 0 {
+			return attr.Value[0]
+		}
+	}
+	return ""
 }
