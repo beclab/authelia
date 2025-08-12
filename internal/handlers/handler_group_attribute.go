@@ -52,13 +52,17 @@ func CreateGroupAttribute(ctx *middlewares.AutheliaCtx) {
 	}
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	err = lldapProvider.CreateGroupAttribute(userSession.AccessToken, bodyJSON.Name, bodyJSON.AttributeType,
 		bodyJSON.IsList, bodyJSON.IsVisible)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to create group attribute %v", err))
+		message := fmt.Sprintf("failed to create group attribute %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusOK)
@@ -80,16 +84,21 @@ func GetGroupAttributeSchema(ctx *middlewares.AutheliaCtx) {
 	}
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	resp, err := lldapProvider.GetGroupAttributeSchema(userSession.AccessToken)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to get group attribute schema %v", err))
+		message := fmt.Sprintf("failed to get group attribute schema %v", err)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	if err = ctx.SetJSONBody(resp); err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to set group attribute schema json body %v", err))
+		message := fmt.Sprintf("failed to set group attribute schema json body %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusOK)
@@ -118,12 +127,16 @@ func DeleteGroupAttributeSchema(ctx *middlewares.AutheliaCtx) {
 	}
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	err = lldapProvider.DeleteGroupAttributeSchema(userSession.AccessToken, name)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to delete group attribute schema %v", err))
+		message := fmt.Sprintf("failed to delete group attribute schema %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusOK)

@@ -30,12 +30,16 @@ func GetGroup(ctx *middlewares.AutheliaCtx) {
 
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	group, err := lldapProvider.GetGroup(userSession.AccessToken, groupName)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to list group err %v", err))
+		message := fmt.Sprintf("failed to list group err %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	creator := getCreatorFromAttributes(group.Attributes)

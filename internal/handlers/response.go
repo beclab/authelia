@@ -476,7 +476,6 @@ func respondInvalidToken(ctx *middlewares.AutheliaCtx) {
 }
 
 func respondWithStatusCode(ctx *middlewares.AutheliaCtx, statusCode int, message string) {
-	ctx.Logger.Errorf(message)
 	ctx.SetStatusCode(statusCode)
 	ctx.SetJSONError(message)
 }

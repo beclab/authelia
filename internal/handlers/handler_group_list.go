@@ -23,7 +23,9 @@ func GroupList(ctx *middlewares.AutheliaCtx) {
 
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	groups, err := lldapProvider.GroupList(userSession.AccessToken, &authentication.GroupListOptions{
@@ -31,7 +33,9 @@ func GroupList(ctx *middlewares.AutheliaCtx) {
 		Username:  userSession.Username,
 	})
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to list group err %v", err))
+		message := fmt.Sprintf("failed to list group err %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 

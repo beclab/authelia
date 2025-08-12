@@ -50,13 +50,17 @@ func CreateGroup(ctx *middlewares.AutheliaCtx) {
 
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 
 	groups, err := lldapProvider.GroupList(userSession.AccessToken, nil)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to get group list %v", err))
+		message := fmt.Sprintf("failed to get group list %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	isAlreadyExists := false
@@ -68,6 +72,7 @@ func CreateGroup(ctx *middlewares.AutheliaCtx) {
 	}
 	if isAlreadyExists {
 		message := fmt.Sprintf("group name %s already exists", bodyJSON.Name)
+		ctx.Logger.Errorf(message)
 		respondWithStatusCode(ctx, fasthttp.StatusBadRequest, message)
 		return
 	}
@@ -75,6 +80,7 @@ func CreateGroup(ctx *middlewares.AutheliaCtx) {
 	err = lldapProvider.CreateGroup(userSession.AccessToken, bodyJSON.Name, userSession.Username)
 	if err != nil {
 		message := fmt.Sprintf("failed to create group %s,err %v", bodyJSON.Name, err)
+		ctx.Logger.Errorf(message)
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}

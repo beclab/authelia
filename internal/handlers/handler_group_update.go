@@ -48,12 +48,16 @@ func UpdateGroup(ctx *middlewares.AutheliaCtx) {
 	}
 	lldapProvider, ok := ctx.Providers.UserProvider.(*authentication.LLDAPUserProvider)
 	if !ok {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, "LLDAP provider not available")
+		message := "LLDAP provider not available"
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	hasPermission, err := checkGroupModifyPermission(lldapProvider, userSession, groupName)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to check permission %v", err))
+		message := fmt.Sprintf("failed to check permission %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 	if !hasPermission {
@@ -63,7 +67,9 @@ func UpdateGroup(ctx *middlewares.AutheliaCtx) {
 
 	err = lldapProvider.UpdateGroup(userSession.AccessToken, groupName, bodyJSON.RemoveAttributes, bodyJSON.InsertAttributes)
 	if err != nil {
-		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to update group %v", err))
+		message := fmt.Sprintf("failed to update group %v", err)
+		ctx.Logger.Errorf(message)
+		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, message)
 		return
 	}
 
