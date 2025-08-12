@@ -163,9 +163,9 @@ func GroupList(ctx *middlewares.AutheliaCtx) {
 	return
 }
 
-// Group handles GET requests to retrieve details of a specific group.
+// GetGroup handles GET requests to retrieve details of a specific group.
 // GET /api/groups/{groupName}
-func Group(ctx *middlewares.AutheliaCtx) {
+func GetGroup(ctx *middlewares.AutheliaCtx) {
 	var (
 		userSession session.UserSession
 		err         error
@@ -191,6 +191,11 @@ func Group(ctx *middlewares.AutheliaCtx) {
 	group, err := lldapProvider.GetGroup(userSession.AccessToken, groupName)
 	if err != nil {
 		respondWithStatusCode(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("failed to list group err %v", err))
+		return
+	}
+	creator := getCreatorFromAttributes(group.Attributes)
+	if userSession.Username != creator && userSession.OwnerRole != RoleOwner {
+		ctx.SetStatusCode(fasthttp.StatusNotFound)
 		return
 	}
 
@@ -597,7 +602,7 @@ func checkGroupModifyPermission(lldapProvider *authentication.LLDAPUserProvider,
 
 	groupCreator := getCreatorFromAttributes(group.Attributes)
 	if !canModifyGroup(userSession.OwnerRole, userSession.Username, groupCreator) {
-		return false, errors.New("no permission to midify group")
+		return false, errors.New("no permission to modify group")
 	}
 
 	return true, nil

@@ -251,7 +251,7 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 
 	r.GET("/api/groups", middlewareAPI(handlers.GroupList))
 	r.POST("/api/groups", middlewareAPI(handlers.CreateGroup))
-	r.GET("/api/groups/{groupName}", middlewareAPI(handlers.Group))
+	r.GET("/api/groups/{groupName}", middlewareAPI(handlers.GetGroup))
 	r.DELETE("/api/groups/{groupName}", middlewareAPI(handlers.DeleteGroup))
 	r.POST("/api/groups/{groupName}/users", middlewareAPI(handlers.AddUserToGroup))
 	r.DELETE("/api/groups/{groupName}/users", middlewareAPI(handlers.RemoveUserFromGroup))
