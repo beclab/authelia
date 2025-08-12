@@ -27,6 +27,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+var InternalGroups = map[string]bool{
+	"lldap_admin":           true,
+	"lldap_password_manage": true,
+	"lldap_strict_readonly": true,
+	"lldap_regular":         true,
+}
+
 type LLDAPUserProvider struct {
 	*LDAPUserProvider
 	config     schema.LLDAPAuthenticationBackend
@@ -410,15 +417,9 @@ type GroupListOptions struct {
 }
 
 func (glo *GroupListOptions) filterGroup(groups []lgenerated.GetGroupListGroupsGroup) []lgenerated.GetGroupListGroupsGroup {
-	internalGroups := map[string]bool{
-		"lldap_admin":            true,
-		"lldap_password_manager": true,
-		"lldap_strict_readonly":  true,
-		"lldap_regular":          true,
-	}
 	filtered := make([]lgenerated.GetGroupListGroupsGroup, 0)
 	for _, group := range groups {
-		if !internalGroups[group.DisplayName] {
+		if !InternalGroups[group.DisplayName] {
 			filtered = append(filtered, group)
 		}
 	}
