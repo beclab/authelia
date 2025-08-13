@@ -29,7 +29,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/jackc/pgx/v5 v5.3.1
-	github.com/jellydator/ttlcache/v3 v3.0.1
+	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/confmap v0.1.0
@@ -59,7 +59,7 @@ require (
 	github.com/valyala/fasthttp v1.44.0
 	github.com/wneessen/go-mail v0.3.8
 	golang.org/x/net v0.33.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.15.0
 	golang.org/x/term v0.30.0
 	golang.org/x/text v0.23.0
 	gopkg.in/square/go-jose.v2 v2.6.0
