@@ -444,6 +444,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		if len(app.Spec.Entrances) > 1 {
 			entranceId += strconv.Itoa(index)
 		}
+		if app.Spec.Appid == "ui" {
+			entranceId = entrance.Name
+		}
+
 		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
 		}
