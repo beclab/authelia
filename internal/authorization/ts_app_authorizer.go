@@ -384,6 +384,13 @@ app settings:
 		}
 	}.
 */
+
+type DefaultThirdLevelDomainConfig struct {
+	AppName          string `json:"appName"`
+	EntranceName     string `json:"entranceName"`
+	ThirdLevelDomain string `json:"thirdLevelDomain"`
+}
+
 func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 	userInfo *utils.UserInfo, userAuth *userAuthorizer) (rules []*AccessControlRule, err error) {
 	policyData, policyExists := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
@@ -438,12 +445,25 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			return nil, err
 		}
 	}
+	var appDomainConfigs []DefaultThirdLevelDomainConfig
+	if len(app.Spec.Settings["defaultThirdLevelDomainConfig"]) > 0 {
+		err := json.Unmarshal([]byte(app.Spec.Settings["defaultThirdLevelDomainConfig"]), &appDomainConfigs)
+		if err != nil {
+			klog.Errorf("unmarshal defaultThirdLevelDomainConfig error %v", err)
+		}
+	}
 
 	for index, entrance := range app.Spec.Entrances {
 		entranceId := app.Spec.Appid
 		if len(app.Spec.Entrances) > 1 {
 			entranceId += strconv.Itoa(index)
 		}
+		for _, adc := range appDomainConfigs {
+			if adc.AppName == app.Spec.Name && adc.EntranceName == entrance.Name && len(adc.ThirdLevelDomain) > 0 {
+				entranceId = adc.ThirdLevelDomain
+			}
+		}
+
 		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
 		}
