@@ -65,8 +65,17 @@ func (o Object) String() string {
 }
 
 func (o Object) ViaVPN() bool {
+	cidr := "100.64.0.0/16"
+	return o.validateCidr(cidr)
+}
+
+func (o Object) FromClusterPod() bool {
+	cidr := "10.233.0.0/16"
+	return o.validateCidr(cidr)
+}
+
+func (o Object) validateCidr(cidr string) bool {
 	if len(o.RemoteIP) > 0 {
-		cidr := "100.64.0.0/16"
 		_, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
 			klog.Errorf("failed to parse CIDR %s: %v", cidr, err)
@@ -76,7 +85,9 @@ func (o Object) ViaVPN() bool {
 		for _, remoteIP := range o.RemoteIP {
 			if govalidator.IsIPv4(remoteIP) {
 				ip := net.ParseIP(remoteIP)
-				return ipnet.Contains(ip)
+				if ipnet.Contains(ip) {
+					return true
+				}
 			}
 		}
 	}

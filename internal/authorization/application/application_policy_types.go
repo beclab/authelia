@@ -45,3 +45,10 @@ type ApplicationCustomDomain struct {
 
 const ApplicationSettingsPolicyKey = "policy"
 const ApplicationSettingsCustomDomainKey = "customDomain"
+const ApplicationSettingsDefaultThirdLevelDomainConfigKey = "defaultThirdLevelDomainConfig"
+
+type DefaultThirdLevelDomainConfig struct {
+	AppName          string `json:"appName"`
+	EntranceName     string `json:"entranceName"`
+	ThirdLevelDomain string `json:"thirdLevelDomain"`
+}
