@@ -403,38 +403,22 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		}
 	}
 
-	// hardcode vault /server policy
-	if app.Spec.Name == "vault" {
-		if policy, ok := policies["vault"]; !ok {
-			policies["vault"] = &application.ApplicationSettingsPolicy{
-				DefaultPolicy: userAuth.appDefaultPolicy.String(),
-				SubPolicies: []*application.ApplicationSettingsSubPolicy{
-					{
-						URI:    "/server",
-						Policy: OneFactor.String(),
-					},
-				},
-				OneTime:  false,
-				Duration: -1,
-			}
-		} else {
-			found := false
-			for _, sp := range policy.SubPolicies {
-				if sp.URI == "/server" {
-					sp.Policy = OneFactor.String()
-					found = true
-				}
-			}
-
-			if !found {
-				policy.SubPolicies = append(policy.SubPolicies, &application.ApplicationSettingsSubPolicy{
-					URI:    "/server",
-					Policy: OneFactor.String(),
-				})
-			}
+	// default third level domain
+	defaultThirdLevelDomains := make(map[string]string)
+	if thirdLevelDomainConfig, ok := app.Spec.Settings[application.ApplicationSettingsDefaultThirdLevelDomainConfigKey]; ok {
+		var allDomainConfigs []application.DefaultThirdLevelDomainConfig
+		err = json.Unmarshal([]byte(thirdLevelDomainConfig), &allDomainConfigs)
+		if err != nil {
+			klog.Error("get default third level domain config error, ", app.Spec.Name, " ", err)
+			return nil, err
 		}
 
-	} // end if vault
+		for _, config := range allDomainConfigs {
+			if config.ThirdLevelDomain != "" {
+				defaultThirdLevelDomains[config.EntranceName] = config.ThirdLevelDomain
+			}
+		}
+	}
 
 	customDomainData, customDomainExists := app.Spec.Settings[application.ApplicationSettingsCustomDomainKey]
 	customDomain := make(map[string]*application.ApplicationCustomDomain)
@@ -467,6 +451,42 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
 		}
+		if entranceDefaultThirdDomain, ok := defaultThirdLevelDomains[entrance.Name]; ok {
+			domains = append(domains, fmt.Sprintf("%s.%s", entranceDefaultThirdDomain, userInfo.Zone))
+			// hardcode vault /server policy
+			if entranceDefaultThirdDomain == "vault" {
+				if policy, ok := policies["vault"]; !ok {
+					policies["vault"] = &application.ApplicationSettingsPolicy{
+						DefaultPolicy: userAuth.appDefaultPolicy.String(),
+						SubPolicies: []*application.ApplicationSettingsSubPolicy{
+							{
+								URI:    "/server",
+								Policy: OneFactor.String(),
+							},
+						},
+						OneTime:  false,
+						Duration: -1,
+					}
+				} else {
+					found := false
+					for _, sp := range policy.SubPolicies {
+						if sp.URI == "/server" {
+							sp.Policy = OneFactor.String()
+							found = true
+						}
+					}
+
+					// force replace policy
+					if !found {
+						policy.SubPolicies = append(policy.SubPolicies, &application.ApplicationSettingsSubPolicy{
+							URI:    "/server",
+							Policy: OneFactor.String(),
+						})
+					}
+				}
+
+			} // end if vault
+		} // end for if add default third level domain
 
 		if customDomainExists {
 			entranceCustomDomain, ok := customDomain[entrance.Name]
