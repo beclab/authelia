@@ -26,6 +26,7 @@ func NewBridgeBuilder(config schema.Configuration, providers *Providers) *Bridge
 		userCache: ttlcache.New(
 			ttlcache.WithTTL[string, *utils.UserInfo](time.Minute),
 			ttlcache.WithCapacity[string, *utils.UserInfo](1000),
+			ttlcache.WithDisableTouchOnHit[string, *utils.UserInfo](),
 		),
 	}
 
