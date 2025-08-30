@@ -68,9 +68,9 @@ type SessionCookieConfiguration struct {
 var DefaultSessionConfiguration = SessionConfiguration{
 	SessionCookieCommonConfiguration: SessionCookieCommonConfiguration{
 		Name:       "authelia_session",
-		Expiration: time.Hour * 24 * 365,
-		Inactivity: time.Hour * 24 * 365,
-		RememberMe: time.Hour * 24 * 365,
+		Expiration: time.Hour,
+		Inactivity: time.Hour,
+		RememberMe: time.Hour,
 		SameSite:   "lax",
 	},
 }

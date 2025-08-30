@@ -70,6 +70,7 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 		providerWithToken: ttlcache.New(
 			ttlcache.WithTTL[string, SessionProvider](config.Session.Expiration),
 			ttlcache.WithCapacity[string, SessionProvider](1000),
+			ttlcache.WithDisableTouchOnHit[string, SessionProvider](),
 		),
 		lldapServer: lldapServer,
 	}
@@ -117,6 +118,7 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 					tokenCache: ttlcache.New(
 						ttlcache.WithTTL[string, *UserSession](dconfig.Expiration),
 						ttlcache.WithCapacity[string, *UserSession](1000),
+						ttlcache.WithDisableTouchOnHit[string, *UserSession](),
 					),
 					lldapAddr:     lldapServer,
 					parseToken:    parseToken,

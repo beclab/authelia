@@ -115,6 +115,9 @@ func (l *LLDAPUserProvider) GetDetails(username, token string) (details *UserDet
 		viewerResp, err = generated.GetUserDetails(context.Background(), graphqlClient, username)
 		if err != nil {
 			klog.Info("get user detail from lldap error, ", err, ", ", username)
+			if strings.Contains(err.Error(), "401 Unauthorized") {
+				return nil, ErrUserTokenInvalid
+			}
 			return nil, err
 		}
 

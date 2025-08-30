@@ -381,6 +381,12 @@ func handleVerifyGETAuthnCookieValidateUpdate(ctx *middlewares.AutheliaCtx, user
 			return true
 		}
 
+		if errors.Is(err, authentication.ErrUserTokenInvalid) {
+			ctx.Logger.Errorf("Error occurred while attempting to update user details for user '%s': the user's access token is invalid", userSession.Username)
+
+			return true
+		}
+
 		ctx.Logger.Errorf("Error occurred while attempting to update user details for user '%s': %v", userSession.Username, err)
 
 		return false

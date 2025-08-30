@@ -102,6 +102,8 @@ var (
 
 	// ErrNoContent is returned when the file is empty.
 	ErrNoContent = errors.New("no file content")
+
+	ErrUserTokenInvalid = errors.New("user token is invalid")
 )
 
 const fileAuthenticationMode = 0600
