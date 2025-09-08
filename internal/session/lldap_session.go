@@ -180,7 +180,10 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 			return fmt.Errorf("failed to get expiration for token %s: %w", token, err)
 		}
 
-		l.tokenCache.Set(token, &userSession, exp)
+		if userSession.Username != "" {
+			// don't save anonymous session
+			l.tokenCache.Set(token, &userSession, exp)
+		}
 	}
 	return nil
 }
