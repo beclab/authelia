@@ -100,10 +100,6 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 		}
 
 		userSession = provider.NewDefaultUserSession()
-
-		if err = provider.SaveSession(ctx.RequestCtx, userSession); err != nil {
-			ctx.Logger.WithError(err).Error("Error occurred trying to save the new session cookie")
-		}
 	}
 
 	if invalid := handleVerifyGETAuthnCookieValidate(ctx, provider, &userSession, s.refreshEnabled, s.refreshInterval); invalid {
@@ -115,10 +111,6 @@ func (s *CookieSessionAuthnStrategy) Get(ctx *middlewares.AutheliaCtx, provider 
 
 		userSession = provider.NewDefaultUserSession()
 		userSession.LastActivity = ctx.Clock.Now().Unix()
-
-		if err = provider.SaveSession(ctx.RequestCtx, userSession); err != nil {
-			ctx.Logger.Errorf("Unable to save updated user session: %+v", err)
-		}
 
 		return authn, nil
 	}

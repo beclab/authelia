@@ -382,10 +382,6 @@ func (ctx *AutheliaCtx) GetSession() (userSession session.UserSession, err error
 		}
 
 		userSession = provider.NewDefaultUserSession()
-
-		if err = provider.SaveSession(ctx.RequestCtx, userSession); err != nil {
-			ctx.Logger.WithError(err).Error("Error occurred trying to save the new session cookie")
-		}
 	}
 
 	return userSession, nil
