@@ -1,6 +1,8 @@
 package middlewares
 
 import (
+	"sync"
+
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
@@ -78,6 +80,7 @@ type BridgeBuilder struct {
 	preMiddlewares  []Middleware
 	postMiddlewares []AutheliaMiddleware
 	userCache       *ttlcache.Cache[string, *utils.UserInfo]
+	cookieMu        sync.RWMutex
 }
 
 // Basic represents a middleware applied to a fasthttp.RequestHandler.

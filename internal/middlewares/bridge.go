@@ -161,24 +161,31 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			var cconfig *schema.SessionCookieConfiguration
 
+			b.cookieMu.RLock()
 			for i, c := range b.config.Session.Cookies {
 				if c.Domain == domain {
 					cconfig = &b.config.Session.Cookies[i]
 					break
 				}
 			}
+			b.cookieMu.RUnlock()
 
-			if cconfig == nil && len(b.config.Session.Cookies) > 0 {
+			if cconfig == nil {
+				b.cookieMu.Lock()
+				// must have a placeholder cookie config
+				klog.Info("add new cookie domain: ", domain)
 				c := b.config.Session.Cookies[0]
 				c.Domain = domain
 				c.AutheliaURL = host
 				b.config.Session.Cookies = append(b.config.Session.Cookies, c)
+				b.providers.SessionProvider.Config = b.config.Session
+				b.cookieMu.Unlock()
 			}
 
-			b.providers.SessionProvider.Config = b.config.Session
-			b.config.DefaultRedirectionURL = strconv.B2S(requestCtx.URI().Scheme()) + "://" + domain + "/"
+			ctxConfig := b.config
+			ctxConfig.DefaultRedirectionURL = strconv.B2S(requestCtx.URI().Scheme()) + "://" + domain + "/"
 			requestCtx.SetUserValueBytes(authorization.TerminusUserHeader, user)
-			ctx := NewAutheliaCtx(requestCtx, b.config, *b.providers)
+			ctx := NewAutheliaCtx(requestCtx, ctxConfig, *b.providers)
 			next(ctx)
 		}
 
