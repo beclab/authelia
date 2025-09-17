@@ -130,6 +130,12 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		handler(ctx, &authn, authz.getRedirectionURL(&object, autheliaURL))
 	case AuthzResultAuthorized:
 		authz.handleAuthorized(ctx, &authn)
+		// set header must be after handleAuthorized, because handleAuthorized will reset the response.
+		// set authelia nonce header
+		// if the required level is bypass, means it's internal or public policy.
+		if required == authorization.Bypass {
+			ctx.SetAutheliaNonce()
+		}
 	}
 }
 
