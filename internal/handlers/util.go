@@ -6,12 +6,15 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/templates"
 )
+
+var ErrUnPadding = errors.New("UnPadding error")
 
 func ctxLogEvent(ctx *middlewares.AutheliaCtx, username, description string, eventDetails map[string]any) {
 	var (
@@ -57,10 +60,16 @@ func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 	return append(ciphertext, padtext...)
 }
 
-func PKCS7UnPadding(origin []byte) []byte {
+func PKCS7UnPadding(origin []byte) ([]byte, error) {
 	length := len(origin)
+	if length == 0 {
+		return origin, ErrUnPadding
+	}
 	unpadding := int(origin[length-1])
-	return origin[:(length - unpadding)]
+	if length < unpadding {
+		return origin, ErrUnPadding
+	}
+	return origin[:(length - unpadding)], nil
 }
 
 func AesEncrypt(origin, key []byte) ([]byte, error) {
@@ -85,7 +94,10 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(block, key[:blockSize])
 	origin := make([]byte, len(crypted))
 	blockMode.CryptBlocks(origin, crypted)
-	origin = PKCS7UnPadding(origin)
+	origin, err = PKCS7UnPadding(origin)
+	if err != nil {
+		return origin, err
+	}
 	return origin, nil
 }
 
