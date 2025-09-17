@@ -14,6 +14,7 @@ var (
 	headerAccept        = []byte(fasthttp.HeaderAccept)
 	headerContentLength = []byte(fasthttp.HeaderContentLength)
 	headerLocation      = []byte(fasthttp.HeaderLocation)
+	headerAutheliaNonce = []byte("Authelia-Nonce")
 
 	headerXForwardedProto = []byte(fasthttp.HeaderXForwardedProto)
 	headerXForwardedHost  = []byte(fasthttp.HeaderXForwardedHost)

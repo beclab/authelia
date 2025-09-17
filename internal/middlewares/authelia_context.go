@@ -10,10 +10,12 @@ import (
 	"strings"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/savsgio/gotils/strconv"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/model"
@@ -665,4 +667,27 @@ func (ctx *AutheliaCtx) RecordAuthn(success, regulated bool, method string) {
 	}
 
 	ctx.Providers.Metrics.RecordAuthn(success, regulated, method)
+}
+
+func (ctx *AutheliaCtx) SetAutheliaNonce() {
+	user := ctx.Request.Header.PeekBytes(authorization.TerminusUserHeader)
+	if user == nil {
+		ctx.Logger.Error("cannot get user name from header, cannot set nonce")
+		return
+	}
+
+	var nonce string
+	switch au := ctx.Providers.Authorizer.(type) {
+	case *authorization.TsAuthorizer:
+		nonce = au.GetUserBackendNonce(string(user))
+	default:
+		ctx.Logger.Error("authorizer is not TsAuthorizer, cannot set nonce")
+		return
+	}
+
+	ctx.Logger.Debugf("set authelia nonce header: %s", nonce)
+
+	if nonce != "" {
+		ctx.Response.Header.SetBytesKV(headerAutheliaNonce, strconv.S2B(nonce))
+	}
 }
