@@ -74,7 +74,7 @@ func (b *BridgeBuilder) Build() Bridge {
 			if user == nil {
 				klog.Error("cannot get user name from header")
 
-				host := strconv.B2S(requestCtx.Host())
+				host := string(requestCtx.Host())
 				host = strings.Split(host, ":")[0]
 				if utils.IsIP(host) && authorization.AdminUser != "" {
 					// only admin user will access the os via ip and port
@@ -101,7 +101,7 @@ func (b *BridgeBuilder) Build() Bridge {
 				info *utils.UserInfo
 				err  error
 			)
-			userName := strconv.B2S(user)
+			userName := string(user)
 			item := b.userCache.Get(userName)
 			if item == nil {
 				info, err = utils.GetUserInfoFromBFL(b.httpClient, userName)
@@ -122,14 +122,14 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			var host *url.URL
 
-			hostStr := strconv.B2S(requestCtx.Host())
+			hostStr := string(requestCtx.Host())
 
 			// parentDomain := func(host string) string {
 			// 	hostSub := strings.Split(host, ".")
 			// 	return strings.Join(hostSub[1:], ".")
 			// }
 
-			host, err = url.Parse(strconv.B2S(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
+			host, err = url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
 
 			if err != nil {
 				klog.Error("cannot parse request host, ", host)
@@ -183,7 +183,7 @@ func (b *BridgeBuilder) Build() Bridge {
 			}
 
 			ctxConfig := b.config
-			ctxConfig.DefaultRedirectionURL = strconv.B2S(requestCtx.URI().Scheme()) + "://" + domain + "/"
+			ctxConfig.DefaultRedirectionURL = string(requestCtx.URI().Scheme()) + "://" + domain + "/"
 			requestCtx.SetUserValueBytes(authorization.TerminusUserHeader, user)
 			ctx := NewAutheliaCtx(requestCtx, ctxConfig, *b.providers)
 			next(ctx)
