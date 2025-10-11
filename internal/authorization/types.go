@@ -74,6 +74,13 @@ func (o Object) FromClusterPod() bool {
 	return o.validateCidr(cidr)
 }
 
+func (o Object) FromNodeInternalNetwork(internalCidr string) bool {
+	if internalCidr == "" {
+		return false
+	}
+	return o.validateCidr(internalCidr)
+}
+
 func (o Object) validateCidr(cidr string) bool {
 	if len(o.RemoteIP) > 0 {
 		_, ipnet, err := net.ParseCIDR(cidr)

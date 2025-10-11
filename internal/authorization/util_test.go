@@ -262,3 +262,19 @@ func TestAddLocal(t *testing.T) {
 	t.Log(local_redirect_uri)
 
 }
+
+func TestValidateCidr(t *testing.T) {
+	_, ipnet, err := net.ParseCIDR("192.168.50.169/24")
+	if err != nil {
+		t.Fail()
+		return
+	}
+
+	ip := net.ParseIP("192.168.51.170")
+	if ipnet.Contains(ip) {
+		t.Log("ok")
+		return
+	}
+
+	t.Log("not ok")
+}
