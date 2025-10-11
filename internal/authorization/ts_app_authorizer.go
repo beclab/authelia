@@ -701,9 +701,11 @@ func (t *TsAuthorizer) reloadRules() {
 
 	UserCustomDomain = tmpUserCustomDomain
 
-	t.masterNodeCIDR, err = t.getMasterNodeCIDR()
+	cidr, err := t.getMasterNodeCIDR()
 	if err != nil {
 		klog.Error("get master node cidr error, ", err)
+	} else {
+		t.masterNodeCIDR = cidr
 	}
 }
 
