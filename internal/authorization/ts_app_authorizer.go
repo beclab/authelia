@@ -27,6 +27,7 @@ import (
 	"time"
 
 	conf_schema "github.com/authelia/authelia/v4/internal/configuration/schema"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,6 +69,8 @@ type TsAuthorizer struct {
 
 	updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)
 	oidcConfig        *conf_schema.OpenIDConnectConfiguration
+
+	masterNodeCIDR string
 }
 
 type userAuthorizer struct {
@@ -162,7 +165,8 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 			if rule.IsMatch(subject, object) {
 				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
 
-				if rule.Internal && (object.ViaVPN() || object.FromClusterPod()) {
+				if rule.Internal &&
+					(object.ViaVPN() || object.FromClusterPod() || object.FromNodeInternalNetwork(t.masterNodeCIDR)) {
 					t.log.Debug("internal policy rule matched, set policy public")
 					return rule.HasSubjects, Bypass, rule
 				}
@@ -696,6 +700,13 @@ func (t *TsAuthorizer) reloadRules() {
 	}
 
 	UserCustomDomain = tmpUserCustomDomain
+
+	cidr, err := t.getMasterNodeCIDR()
+	if err != nil {
+		klog.Error("get master node cidr error, ", err)
+	} else {
+		t.masterNodeCIDR = cidr
+	}
 }
 
 func (t *TsAuthorizer) autoRefreshRules() {
@@ -919,4 +930,30 @@ func (t *TsAuthorizer) getOIDCClients() error {
 	t.oidcConfig.Clients = clients
 	t.updateOIDCClients(t.oidcConfig)
 	return nil
+}
+
+// get master node cidr from k8s api
+func (t *TsAuthorizer) getMasterNodeCIDR() (string, error) {
+	var nodeList corev1.NodeList
+	// node of l4 proxy
+	err := t.client.List(context.Background(), &nodeList, client.HasLabels{"node-role.kubernetes.io/master"})
+	if err != nil {
+		return "", err
+	}
+
+	if len(nodeList.Items) == 0 {
+		return "", errors.New("master node not found")
+	}
+
+	if len(nodeList.Items[0].Annotations) == 0 {
+		return "", errors.New("master node annotations not found")
+	}
+
+	// get cidr from calico network plugin
+	cidr, ok := nodeList.Items[0].Annotations["projectcalico.org/IPv4Address"]
+	if !ok {
+		return "", errors.New("master node cidr not found")
+	}
+
+	return cidr, nil
 }
