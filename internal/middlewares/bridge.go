@@ -141,6 +141,8 @@ func (b *BridgeBuilder) Build() Bridge {
 			switch {
 			case info.IsEphemeral:
 				// If the user is ephemeral, we use the host as the domain.
+			case info.LocalZone != "" && strings.HasSuffix(domain, info.LocalZone):
+				domain = info.LocalZone
 
 			case info.Zone != "":
 				if strings.HasSuffix(domain, info.Zone) {

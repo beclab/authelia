@@ -82,10 +82,12 @@ type userAuthorizer struct {
 	userIsIniting    bool
 	appDefaultPolicy Level
 
-	LoginPortal string
+	LoginPortal      string
+	LocalLoginPortal string
 
 	UserTerminusNonce string
 	UserZone          string
+	UserLocalZone     string
 
 	localDomainIpDnsRecord string
 }
@@ -253,6 +255,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 		ruleAddDomain(
 			[]string{
 				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.Zone),
+				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.LocalZone),
 			},
 			rule,
 		)
@@ -260,7 +263,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 		rules := []*AccessControlRule{rule}
 
 		// CORS rules.
-		rules = t.addCORSRules(userInfo.Zone, rules)
+		rules = t.addCORSRules(userInfo.Zone, userInfo.LocalZone, rules)
 
 		return rules, nil
 	}
@@ -273,16 +276,16 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	var rules []*AccessControlRule
 
 	// portal rule.
-	rules = t.addPortalRules(userInfo.Zone, rules)
+	rules = t.addPortalRules(userInfo.Zone, userInfo.LocalZone, rules)
 
 	// CORS rules.
-	rules = t.addCORSRules(userInfo.Zone, rules)
+	rules = t.addCORSRules(userInfo.Zone, userInfo.LocalZone, rules)
 
 	// desktop rule.
-	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, rules, userData, userAuth)
+	rules = t.addDesktopRules(ctx, userInfo.Name, userInfo.Zone, userInfo.LocalZone, rules, userData, userAuth)
 
 	// auth app rule.
-	rules = t.addAuthDomainRules(userInfo.Zone, rules)
+	rules = t.addAuthDomainRules(userInfo.Zone, userInfo.LocalZone, rules)
 
 	// applications rule.
 	for _, a := range appList.Items {
@@ -299,13 +302,14 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	return rules, nil
 }
 
-func (t *TsAuthorizer) addDomainBypassRules(subdomain, domain string, rules []*AccessControlRule) []*AccessControlRule {
-	return t.addDomainSpecialRules(subdomain, domain, Bypass, rules)
+func (t *TsAuthorizer) addDomainBypassRules(subdomain, domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
+	return t.addDomainSpecialRules(subdomain, domain, localDomain, Bypass, rules)
 }
 
-func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain string, level Level, rules []*AccessControlRule) []*AccessControlRule {
+func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain, localDomain string, level Level, rules []*AccessControlRule) []*AccessControlRule {
 	domains := []string{
 		subdomain + domain,
+		subdomain + localDomain,
 	}
 
 	rule := &AccessControlRule{
@@ -319,14 +323,15 @@ func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain string, level Lev
 	return rules
 }
 
-func (t *TsAuthorizer) addPortalRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
-	return t.addDomainBypassRules("", domain, rules)
+func (t *TsAuthorizer) addPortalRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
+	return t.addDomainBypassRules("", domain, localDomain, rules)
 }
 
-func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
+func (t *TsAuthorizer) addCORSRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
 	// apply the `bypass` policy to `OPTIONS` CORS preflight requests.
 	domains := []string{
 		"*." + domain,
+		"*." + localDomain,
 	}
 
 	rule := &AccessControlRule{
@@ -342,10 +347,11 @@ func (t *TsAuthorizer) addCORSRules(domain string, rules []*AccessControlRule) [
 	return rules
 }
 
-func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain string,
+func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain, localDomain string,
 	rules []*AccessControlRule, userData *unstructured.Unstructured, userAuth *userAuthorizer) []*AccessControlRule {
 	domains := []string{
 		"desktop." + domain,
+		"desktop." + localDomain,
 	}
 
 	if policy, err := t.getUserAccessPolicy(ctx, userData); err != nil {
@@ -370,8 +376,8 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain str
 	return rules
 }
 
-func (t *TsAuthorizer) addAuthDomainRules(domain string, rules []*AccessControlRule) []*AccessControlRule {
-	return t.addDomainBypassRules("auth.", domain, rules)
+func (t *TsAuthorizer) addAuthDomainRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
+	return t.addDomainBypassRules("auth.", domain, localDomain, rules)
 }
 
 /*
@@ -454,9 +460,13 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 		domains := []string{
 			fmt.Sprintf("%s.%s", entranceId, userInfo.Zone),
+			fmt.Sprintf("%s.%s", entranceId, userInfo.LocalZone),
 		}
 		if entranceDefaultThirdDomain, ok := defaultThirdLevelDomains[entrance.Name]; ok {
-			domains = append(domains, fmt.Sprintf("%s.%s", entranceDefaultThirdDomain, userInfo.Zone))
+			domains = append(domains,
+				fmt.Sprintf("%s.%s", entranceDefaultThirdDomain, userInfo.Zone),
+				fmt.Sprintf("%s.%s", entranceDefaultThirdDomain, userInfo.LocalZone),
+			)
 			// hardcode vault /server policy
 			if entranceDefaultThirdDomain == "vault" {
 				if policy, ok := policies["vault"]; !ok {
@@ -496,7 +506,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			entranceCustomDomain, ok := customDomain[entrance.Name]
 			if ok {
 				if entranceCustomDomain.ThirdLevelDomain != "" {
-					domains = append(domains, fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone))
+					domains = append(domains,
+						fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.Zone),
+						fmt.Sprintf("%s.%s", entranceCustomDomain.ThirdLevelDomain, userInfo.LocalZone),
+					)
 				}
 
 				if entranceCustomDomain.ThirdPartyDomain != "" {
@@ -664,8 +677,10 @@ func (t *TsAuthorizer) reloadRules() {
 
 		if info.IsEphemeral {
 			userAuth.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
+			userAuth.LocalLoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.LocalZone)
 		} else {
 			userAuth.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
+			userAuth.LocalLoginPortal = fmt.Sprintf("https://auth.%s/", info.LocalZone)
 		}
 
 		if userAuth.userIsIniting {
@@ -690,6 +705,7 @@ func (t *TsAuthorizer) reloadRules() {
 
 		userAuth.UserTerminusNonce = nonce
 		userAuth.UserZone = info.Zone
+		userAuth.UserLocalZone = info.LocalZone
 
 		t.userAuthorizers[username] = userAuth
 
@@ -833,11 +849,13 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 		user = ctx.Request.Header.PeekBytes(TerminusUserHeader)
 	}
 
+	uri := ctx.Request.URI()
+	host := string(uri.Host())
+	isLocal := strings.HasSuffix(host, ".local")
+
 	if user == nil {
 		// try to gen the user's login portal from request url
 		klog.Info("user header not found, gen login url from request")
-		uri := ctx.Request.URI()
-		host := string(uri.Host())
 		hostToken := strings.Split(host, ".")
 		hostToken[0] = "auth"
 
@@ -851,6 +869,9 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 	}
 
 	loginPortal := userAuth.LoginPortal
+	if isLocal {
+		loginPortal = userAuth.LocalLoginPortal
+	}
 
 	return loginPortal
 }

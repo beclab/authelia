@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful/v3"
@@ -45,7 +46,15 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 		return nil, errors.New(responseData.Message)
 	}
 
-	return responseData.Data.(*UserInfo), nil
+	info := responseData.Data.(*UserInfo)
+	if info.Zone != "" {
+		zoneTokens := strings.Split(info.Zone, ".")
+		if len(zoneTokens) > 2 {
+			info.LocalZone = strings.Join([]string{zoneTokens[0], "olares", "local"}, ".")
+		}
+	}
+
+	return info, nil
 }
 
 func IsIP(host string) bool {
