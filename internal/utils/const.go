@@ -130,3 +130,7 @@ const (
 	windows             = "windows"
 	errFmtLinuxNotFound = "open %s: no such file or directory"
 )
+
+const (
+	IntranetDomainSuffix = ".olares.local"
+)

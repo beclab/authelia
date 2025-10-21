@@ -295,7 +295,7 @@ func (ctx *AutheliaCtx) GetTargetURICookieDomain(targetURI *url.URL) string {
 
 // IsSafeRedirectionTargetURI returns true if the targetURI is within the scope of a cookie domain and secure.
 func (ctx *AutheliaCtx) IsSafeRedirectionTargetURI(targetURI *url.URL) bool {
-	if !utils.IsURISecure(targetURI) {
+	if !utils.IsURISecure(targetURI) && !strings.HasSuffix(targetURI.Hostname(), utils.IntranetDomainSuffix) {
 		return false
 	}
 

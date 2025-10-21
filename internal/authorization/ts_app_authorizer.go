@@ -677,10 +677,10 @@ func (t *TsAuthorizer) reloadRules() {
 
 		if info.IsEphemeral {
 			userAuth.LoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.Zone)
-			userAuth.LocalLoginPortal = fmt.Sprintf("https://auth-%s.%s/", info.Name, info.LocalZone)
+			userAuth.LocalLoginPortal = fmt.Sprintf("http://auth-%s.%s/", info.Name, info.LocalZone)
 		} else {
 			userAuth.LoginPortal = fmt.Sprintf("https://auth.%s/", info.Zone)
-			userAuth.LocalLoginPortal = fmt.Sprintf("https://auth.%s/", info.LocalZone)
+			userAuth.LocalLoginPortal = fmt.Sprintf("http://auth.%s/", info.LocalZone)
 		}
 
 		if userAuth.userIsIniting {

@@ -20,6 +20,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/oidc"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	sess "github.com/authelia/authelia/v4/internal/session"
+	"github.com/authelia/authelia/v4/internal/utils"
 )
 
 type AccessTokenCookieInfo struct {
@@ -39,14 +40,19 @@ func setTokenToCookie(ctx *middlewares.AutheliaCtx, tokenInfo *AccessTokenCookie
 		}
 
 		cookie := &fasthttp.Cookie{}
+		if strings.HasSuffix(domain, utils.IntranetDomainSuffix) {
+			domain = "." + domain
+		} else {
+			cookie.SetSecure(true)
+			cookie.SetSameSite(fasthttp.CookieSameSiteNoneMode)
+		}
+
 		cookie.SetKey(sess.AUTH_TOKEN)
 		cookie.SetValue(tokenInfo.AccessToken)
 		cookie.SetDomain(domain)
 		cookie.SetPath("/")
 		cookie.SetMaxAge(int(ctx.Providers.SessionProvider.Config.Expiration))
-		cookie.SetSecure(true)
 		// cookie.SetHTTPOnly(true)
-		cookie.SetSameSite(fasthttp.CookieSameSiteNoneMode)
 
 		ctx.Response.Header.SetCookie(cookie)
 
