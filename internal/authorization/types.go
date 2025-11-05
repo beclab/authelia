@@ -89,14 +89,19 @@ func (o Object) validateCidr(cidr string) bool {
 			return false
 		}
 
+		// in cloud environments, the X-Forwarded-For header may contain multiple IPs
 		for _, remoteIP := range o.RemoteIP {
 			if govalidator.IsIPv4(remoteIP) {
 				ip := net.ParseIP(remoteIP)
-				if ipnet.Contains(ip) {
-					return true
+				if !ipnet.Contains(ip) {
+					return false
 				}
+			} else {
+				return false
 			}
 		}
+
+		return true
 	}
 
 	return false
