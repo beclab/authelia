@@ -93,18 +93,54 @@ func (o Object) validateCidr(cidr string) bool {
 		for _, remoteIP := range o.RemoteIP {
 			if govalidator.IsIPv4(remoteIP) {
 				ip := net.ParseIP(remoteIP)
-				if !ipnet.Contains(ip) {
-					return false
+				if ipnet.Contains(ip) {
+					return true
 				}
-			} else {
-				return false
 			}
 		}
-
-		return true
 	}
 
 	return false
+}
+
+func (o Object) VaildInternalNetwork(internalCidr string) bool {
+	getIpnet := func(cidr string) *net.IPNet {
+		if cidr == "" {
+			return nil
+		}
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			klog.Errorf("failed to parse CIDR %s: %v", cidr, err)
+			return nil
+		}
+		return ipnet
+	}
+
+	vpnNet := getIpnet("100.64.0.0/16")
+	clusterNet := getIpnet("10.233.0.0/16")
+	internalNet := getIpnet(internalCidr)
+
+	validate := func(ipStr string, ipnet *net.IPNet) bool {
+		if ipnet == nil {
+			return false
+		}
+		if govalidator.IsIPv4(ipStr) {
+			ip := net.ParseIP(ipStr)
+			if ipnet.Contains(ip) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, remoteIP := range o.RemoteIP {
+		if !validate(remoteIP, vpnNet) &&
+			!validate(remoteIP, clusterNet) &&
+			!validate(remoteIP, internalNet) {
+			return false
+		}
+	}
+	return true
 }
 
 // NewObjectRaw creates a new Object type from a URL and a method header.
