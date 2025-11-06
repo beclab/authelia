@@ -235,14 +235,32 @@ func (l *lldapSession) ClearUserTokenCache(username string) {
 		return
 	}
 	klog.Infof("clearing token for user %s", username)
+	var keysToDelete []string
 	for _, key := range l.tokenCache.Keys() {
-		if item := l.tokenCache.Get(key); item != nil {
-			session := item.Value()
-			if session.Username == username {
-				l.tokenCache.Delete(key)
-			}
+		item := l.tokenCache.Get(key)
+		if item == nil {
+			continue
+		}
+		session := item.Value()
+		if session == nil {
+			continue
+		}
+		if session.Username == username {
+			keysToDelete = append(keysToDelete, key)
 		}
 	}
+
+	for _, key := range keysToDelete {
+		func(k string) {
+			defer func() {
+				if r := recover(); r != nil {
+					klog.Errorf("panic while deleting token from cache for user %s, key %s: %v", username, k, r)
+				}
+			}()
+			l.tokenCache.Delete(k)
+		}(key)
+	}
+
 }
 
 func (l *lldapSession) SearchSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error) {
