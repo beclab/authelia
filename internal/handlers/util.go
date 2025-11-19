@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -99,10 +97,4 @@ func AesDecrypt(crypted, key []byte) ([]byte, error) {
 		return origin, err
 	}
 	return origin, nil
-}
-
-func md5(str string) string {
-	h := crypto.MD5.New()
-	h.Write([]byte(str))
-	return hex.EncodeToString(h.Sum(nil))
 }

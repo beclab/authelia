@@ -144,12 +144,15 @@ func (ctx *CmdCtx) LoadProviders() (warns, errs []error) {
 	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
 		ctx.providers.Authorizer = authorization.NewFileAuthorizer(ctx.config)
 	} else {
-		ctx.providers.Authorizer = authorization.NewTsAuthorizer(func(config *schema.OpenIDConnectConfiguration) {
-			ctx.config.IdentityProviders.OIDC.Clients = config.Clients
-			if ctx.providers.OpenIDConnect, err = oidc.NewOpenIDConnectProvider(ctx.config.IdentityProviders.OIDC, ctx.providers.StorageProvider, ctx.providers.Templates); err != nil {
-				klog.Error("update oidc provider error, ", err)
-			}
-		})
+		ctx.providers.Authorizer = authorization.NewTsAuthorizer(
+			func(config *schema.OpenIDConnectConfiguration) {
+				ctx.config.IdentityProviders.OIDC.Clients = config.Clients
+				if ctx.providers.OpenIDConnect, err = oidc.NewOpenIDConnectProvider(ctx.config.IdentityProviders.OIDC, ctx.providers.StorageProvider, ctx.providers.Templates); err != nil {
+					klog.Error("update oidc provider error, ", err)
+				}
+			},
+			ctx.config.ProbeSecret,
+		)
 	}
 
 	ctx.providers.NTP = ntp.NewProvider(&ctx.config.NTP)

@@ -31,7 +31,7 @@ func handleAuthzGetObjectExtAuthz(ctx *middlewares.AutheliaCtx) (object authoriz
 		return object, fmt.Errorf("start line value 'Method' with value '%s' has invalid characters", method)
 	}
 
-	return authorization.NewObjectRaw(targetURL, method), nil
+	return authorization.NewObjectRaw(targetURL, method, ctx.UserAgent()), nil
 }
 
 func handleAuthzUnauthorizedExtAuthz(ctx *middlewares.AutheliaCtx, authn *Authn, redirectionURL *url.URL) {

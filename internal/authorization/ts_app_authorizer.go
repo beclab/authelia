@@ -71,6 +71,7 @@ type TsAuthorizer struct {
 	oidcConfig        *conf_schema.OpenIDConnectConfiguration
 
 	masterNodeCIDR string
+	probeSecret    string
 }
 
 type userAuthorizer struct {
@@ -92,7 +93,7 @@ type userAuthorizer struct {
 	localDomainIpDnsRecord string
 }
 
-func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)) Authorizer {
+func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration), probeSecret string) Authorizer {
 	kubeconfig := ctrl.GetConfigOrDie()
 	k8sClient, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
 
@@ -109,6 +110,7 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 		userAuthorizers:   make(map[string]*userAuthorizer),
 		updateOIDCClients: updateOIDCClients,
 		oidcConfig:        &conf_schema.DefaultOpenIDConnectConfiguration,
+		probeSecret:       probeSecret,
 	}
 
 	authorizer.reloadRules()
@@ -166,6 +168,12 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 		for _, rule := range auth.rules {
 			if rule.IsMatch(subject, object) {
 				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
+
+				// bypass the k8s probe UA check.
+				if object.IsProbeUA(t.probeSecret) {
+					t.log.Debug("probe UA matched, set policy bypass")
+					return rule.HasSubjects, Bypass, rule
+				}
 
 				if rule.Internal &&
 					object.VaildInternalNetwork(t.masterNodeCIDR) {
@@ -552,7 +560,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			}
 		}
 
-		if !policyExists {
+		if !policyExists && len(policies) == 0 {
 			nonPolicy(defaultPolicy, domains)
 			continue
 		}

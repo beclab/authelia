@@ -7,6 +7,7 @@ type Configuration struct {
 	JWTSecret             string `koanf:"jwt_secret"`
 	DefaultRedirectionURL string `koanf:"default_redirection_url"`
 	Default2FAMethod      string `koanf:"default_2fa_method"`
+	ProbeSecret           string `koanf:"probe_secret"`
 
 	Log                   LogConfiguration               `koanf:"log"`
 	IdentityProviders     IdentityProvidersConfiguration `koanf:"identity_providers"`

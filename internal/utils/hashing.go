@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -32,4 +33,10 @@ func HashSHA256FromPath(path string) (output string, err error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func MD5(str string) string {
+	h := crypto.MD5.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
 }

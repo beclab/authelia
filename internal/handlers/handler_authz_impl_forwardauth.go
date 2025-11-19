@@ -30,7 +30,7 @@ func handleAuthzGetObjectForwardAuth(ctx *middlewares.AutheliaCtx) (object autho
 		return object, fmt.Errorf("header 'X-Forwarded-Method' with value '%s' has invalid characters", method)
 	}
 
-	return authorization.NewObjectRaw(targetURL, method), nil
+	return authorization.NewObjectRaw(targetURL, method, ctx.UserAgent()), nil
 }
 
 func handleAuthzUnauthorizedForwardAuth(ctx *middlewares.AutheliaCtx, authn *Authn, redirectionURL *url.URL) {

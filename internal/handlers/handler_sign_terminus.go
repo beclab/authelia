@@ -27,6 +27,7 @@ import (
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/session"
 	"github.com/authelia/authelia/v4/internal/terminus"
+	"github.com/authelia/authelia/v4/internal/utils"
 	"github.com/go-resty/resty/v2"
 	"k8s.io/klog/v2"
 )
@@ -322,7 +323,7 @@ func verifyTermipassSign(jws string, name string) (token string, err error) {
 		return "", errors.New("vault cannot verified")
 	}
 
-	checksum := md5(verifyRes.Data.Payload.AuthTokenID + AuthTokenSalt)
+	checksum := utils.MD5(verifyRes.Data.Payload.AuthTokenID + AuthTokenSalt)
 	if checksum != verifyRes.Data.Payload.AuthTokenMd5 {
 		return "", errors.New("invalid token in payload")
 	}

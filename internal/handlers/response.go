@@ -129,7 +129,7 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 					SignBody: TermipassSignBody{
 						TerminusName: terminusName,
 						AuthTokenID:  session.AccessToken,
-						AuthTokenMd5: md5(session.AccessToken + AuthTokenSalt),
+						AuthTokenMd5: utils.MD5(session.AccessToken + AuthTokenSalt),
 						TargetUrl:    targetURI,
 					},
 				},
@@ -205,7 +205,8 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 			Groups:   session.Groups,
 			IP:       ctx.RemoteIP(),
 		},
-		authorization.NewObject(targetURL, requestMethod))
+		authorization.NewObject(targetURL, requestMethod, string(ctx.UserAgent())),
+	)
 
 	ctx.Logger.Debugf("Required level for the URL %s is %d", targetURI, requiredLevel)
 
@@ -549,7 +550,7 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 		Groups:   session.Groups,
 		IP:       ctx.RemoteIP(),
 	}
-	object := authorization.NewObject(parsedURI, requestMethod)
+	object := authorization.NewObject(parsedURI, requestMethod, string(ctx.UserAgent()))
 
 	matchRule := getRule(subject, object)
 

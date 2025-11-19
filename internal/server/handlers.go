@@ -202,7 +202,7 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 
 		authz := handlers.NewAuthzBuilder().WithConfig(config).WithEndpointConfig(endpoint).Build()
 
-		handler := middlewares.Wrap(metricsVRMW, bridge(authz.Handler))
+		handler := middlewares.ProbeValidate(middlewares.Wrap(metricsVRMW, bridge(authz.Handler)), config.ProbeSecret)
 
 		switch name {
 		case "legacy":
