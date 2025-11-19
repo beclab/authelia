@@ -13,7 +13,7 @@ func TestShouldAppendQueryParamToURL(t *testing.T) {
 
 	require.NoError(t, err)
 
-	object := NewObject(targetURL, "GET")
+	object := NewObject(targetURL, "GET", "")
 
 	assert.Equal(t, "https", object.URL.Scheme)
 	assert.Equal(t, "domain.example.com", object.Domain)
@@ -26,7 +26,7 @@ func TestShouldCreateNewObjectFromRaw(t *testing.T) {
 
 	require.NoError(t, err)
 
-	object := NewObjectRaw(targetURL, []byte("GET"))
+	object := NewObjectRaw(targetURL, []byte("GET"), []byte(""))
 
 	assert.Equal(t, "https", object.URL.Scheme)
 	assert.Equal(t, "domain.example.com", object.Domain)
@@ -58,7 +58,7 @@ func TestShouldCleanURL(t *testing.T) {
 			have, err := url.ParseRequestURI(tc.have + tc.havePath)
 			require.NoError(t, err)
 
-			object := NewObject(have, tc.method)
+			object := NewObject(have, tc.method, "")
 
 			assert.Equal(t, tc.expectedScheme, object.URL.Scheme)
 			assert.Equal(t, tc.expectedDomain, object.Domain)
@@ -74,7 +74,7 @@ func TestShouldCleanURL(t *testing.T) {
 
 			have.Path, have.RawQuery = path.Path, path.RawQuery
 
-			object = NewObject(have, tc.method)
+			object = NewObject(have, tc.method, "")
 
 			assert.Equal(t, tc.expectedScheme, object.URL.Scheme)
 			assert.Equal(t, tc.expectedDomain, object.Domain)

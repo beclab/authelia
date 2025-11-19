@@ -57,6 +57,7 @@ type Object struct {
 	Method   string
 	RealIP   string
 	RemoteIP []string
+	UA       string
 }
 
 // String is a string representation of the Object.
@@ -103,6 +104,23 @@ func (o Object) validateCidr(cidr string) bool {
 	return false
 }
 
+func (o Object) IsPodIp() bool {
+	_, ipnet, err := net.ParseCIDR("10.233.0.0/16")
+	if err != nil {
+		klog.Errorf("failed to parse CIDR: %v", err)
+		return false
+	}
+
+	if govalidator.IsIPv4(o.Domain) {
+		ip := net.ParseIP(o.Domain)
+		if ipnet.Contains(ip) {
+			return true
+		}
+	}
+	return false
+
+}
+
 func (o Object) VaildInternalNetwork(internalCidr string) bool {
 	getIpnet := func(cidr string) *net.IPNet {
 		if cidr == "" {
@@ -143,18 +161,30 @@ func (o Object) VaildInternalNetwork(internalCidr string) bool {
 	return true
 }
 
+func (o Object) IsProbeUA(secret string) bool {
+	uaTokens := strings.Split(o.UA, "/")
+	if len(uaTokens) != 2 {
+		return false
+	}
+
+	siginture := utils.MD5(uaTokens[0] + secret)
+	klog.Error("probe sign, ", o.UA, ", ", siginture)
+	return siginture == uaTokens[1]
+}
+
 // NewObjectRaw creates a new Object type from a URL and a method header.
-func NewObjectRaw(targetURL *url.URL, method []byte) (object Object) {
-	return NewObject(targetURL, string(method))
+func NewObjectRaw(targetURL *url.URL, method []byte, ua []byte) (object Object) {
+	return NewObject(targetURL, string(method), string(ua))
 }
 
 // NewObject creates a new Object type from a URL and a method header.
-func NewObject(targetURL *url.URL, method string) (object Object) {
+func NewObject(targetURL *url.URL, method string, ua string) (object Object) {
 	return Object{
 		URL:    targetURL,
 		Domain: targetURL.Hostname(),
 		Path:   utils.URLPathFullClean(targetURL),
 		Method: method,
+		UA:     ua,
 	}
 }
 

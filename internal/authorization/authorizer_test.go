@@ -34,7 +34,7 @@ func NewAuthorizerTester(config schema.AccessControlConfiguration) *AuthorizerTe
 func (s *AuthorizerTester) CheckAuthorizations(t *testing.T, subject Subject, requestURI, method string, expectedLevel Level) {
 	targetURL, _ := url.ParseRequestURI(requestURI)
 
-	object := NewObject(targetURL, method)
+	object := NewObject(targetURL, method, "")
 
 	_, level, _ := s.GetRequiredLevel(subject, object)
 
@@ -44,7 +44,7 @@ func (s *AuthorizerTester) CheckAuthorizations(t *testing.T, subject Subject, re
 func (s *AuthorizerTester) GetRuleMatchResults(subject Subject, requestURI, method string) (results []RuleMatchResult) {
 	targetURL, _ := url.ParseRequestURI(requestURI)
 
-	object := NewObject(targetURL, method)
+	object := NewObject(targetURL, method, "")
 
 	return s.FileAuthorizer.GetRuleMatchResults(subject, object)
 }

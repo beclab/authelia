@@ -66,7 +66,7 @@ func (ctx *CmdCtx) AccessControlCheckRunE(cmd *cobra.Command, _ []string) (err e
 	if ctx.config.AccessControl.ConfigType == accessControlTypeFile {
 		authorizer = authorization.NewFileAuthorizer(ctx.config)
 	} else {
-		authorizer = authorization.NewTsAuthorizer(func(config *schema.OpenIDConnectConfiguration) {})
+		authorizer = authorization.NewTsAuthorizer(func(config *schema.OpenIDConnectConfiguration) {}, ctx.config.ProbeSecret)
 		defer (authorizer.(*authorization.TsAuthorizer)).Stop()
 	}
 
@@ -225,7 +225,7 @@ func getSubjectAndObjectFromFlags(cmd *cobra.Command) (subject authorization.Sub
 		IP:       parsedIP,
 	}
 
-	object = authorization.NewObject(parsedURL, method)
+	object = authorization.NewObject(parsedURL, method, "")
 
 	return subject, object, nil
 }
