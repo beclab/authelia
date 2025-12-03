@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -32,7 +33,8 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err := ctx.ParseBody(&bodyJSON); err != nil {
 			ctx.Logger.Errorf(logFmtErrParseRequestBody, regulation.AuthType1FA, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			//respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondBadRequest(ctx, fmt.Errorf("parse body error %v", err))
 
 			return
 		}
@@ -51,7 +53,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 
 			ctx.Logger.Errorf(logFmtErrRegulationFail, regulation.AuthType1FA, bodyJSON.Username, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf(logFmtErrRegulationFail, regulation.AuthType1FA, bodyJSON.Username, err))
 
 			return
 		}
@@ -63,7 +65,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		ctxUser := ctx.UserValueBytes(authorization.TerminusUserHeader)
 		if ctxUser == nil {
 			ctx.Logger.Errorf("user not found in request ctx")
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf("user %s not found in request ctx", bodyJSON.Username))
 			return
 		}
 
@@ -72,7 +74,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
 
 			ctx.Logger.Errorf("login failed, %s, %s, %s", err.Error(), bodyJSON.Username, string(ctxUser.([]byte)))
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf("body username is unmatched with ctxuser"))
 
 			return
 		}
@@ -87,6 +89,9 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 				ctx.SetJSONError(err.Error())
 			case authentication.ErrTooManyRetries:
 				ctx.SetStatusCode(http.StatusTooManyRequests)
+				ctx.SetJSONError(err.Error())
+			case authentication.ErrSendRequest, authentication.ErrLLDAPAuthFailed:
+				ctx.SetStatusCode(http.StatusUnauthorized)
 				ctx.SetJSONError(err.Error())
 			default:
 				respondUnauthorized(ctx, messageAuthenticationFailed)
@@ -116,7 +121,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			if err != nil {
 				ctx.Logger.Errorf("request target url error, %s", err)
 
-				respondUnauthorized(ctx, messageAuthenticationFailed)
+				respondUnauthorized(ctx, fmt.Sprintf("request target url error %v", err))
 
 				return
 			}
@@ -129,7 +134,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err != nil {
 			ctx.Logger.Errorf("%s", err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf("get session provider failed %v", err))
 
 			return
 		}
@@ -139,9 +144,9 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 
 		// Reset all values from previous session except OIDC workflow before regenerating the cookie.
 		if err = ctx.SaveSession(userSession); err != nil {
-			ctx.Logger.Errorf(logFmtErrSessionReset, regulation.AuthType1FA, bodyJSON.Username, err)
+			ctx.Logger.Errorf(logFmtErrSessionSave, "authentication time", regulation.AuthType1FA, bodyJSON.Username, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf("save session failed %v", err))
 
 			return
 		}
@@ -149,7 +154,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err = ctx.RegenerateSession(); err != nil {
 			ctx.Logger.Errorf(logFmtErrSessionRegenerate, regulation.AuthType1FA, bodyJSON.Username, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf("regenerate session failed %v", err))
 
 			return
 		}
@@ -163,7 +168,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			if err != nil {
 				ctx.Logger.Errorf(logFmtErrSessionSave, "updated expiration", regulation.AuthType1FA, bodyJSON.Username, err)
 
-				respondUnauthorized(ctx, messageAuthenticationFailed)
+				respondUnauthorized(ctx, fmt.Sprintf("updated expiration failed %v", err))
 
 				return
 			}
@@ -174,7 +179,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err != nil {
 			ctx.Logger.Errorf(logFmtErrObtainProfileDetails, regulation.AuthType1FA, bodyJSON.Username, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf(logFmtErrObtainProfileDetails, regulation.AuthType1FA, bodyJSON.Username, err))
 
 			return
 		}
@@ -198,7 +203,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err = ctx.SaveSession(userSession); err != nil {
 			ctx.Logger.Errorf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, bodyJSON.Username, err)
 
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, fmt.Sprintf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, bodyJSON.Username, err))
 
 			return
 		}
