@@ -3,7 +3,6 @@ package authentication
 import (
 	"context"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	lgenerated "github.com/beclab/lldap-client/pkg/generated"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-resty/resty/v2"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -81,11 +81,11 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 		Post(url)
 
 	if err != nil {
-		return false, nil, err
+		return false, nil, errors.Wrapf(ErrSendRequest, "request to lldap login failed %v", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return false, nil, errors.New(string(resp.Body()))
+		return false, nil, errors.Wrapf(ErrLLDAPAuthFailed, "login failed %v", string(resp.Body()))
 	}
 
 	responseData := resp.Result().(*LoginResponse)
