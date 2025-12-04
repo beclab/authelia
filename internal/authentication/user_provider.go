@@ -12,11 +12,12 @@ type ValidResult struct {
 }
 
 var (
-	ErrInvalidUserPwd  = errors.New("invalid username / password")
-	ErrInvalidToken    = errors.New("invalid refresh token")
-	ErrTooManyRetries  = errors.New("too many failed login attempts, retry again later after 5 minutes")
-	ErrSendRequest     = errors.New("send request failed")
-	ErrLLDAPAuthFailed = errors.New("lldap auth failed")
+	ErrInvalidUserPwd    = errors.New("invalid username / password")
+	ErrInvalidToken      = errors.New("invalid refresh token")
+	ErrTooManyRetries    = errors.New("too many failed login attempts, retry again later after 5 minutes")
+	ErrSendRequest       = errors.New("send request failed")
+	ErrLLDAPAuthFailed   = errors.New("lldap auth failed")
+	ErrLLDAPUserNotFound = errors.New("lldap user not found")
 )
 
 // UserProvider is the interface for checking user password and

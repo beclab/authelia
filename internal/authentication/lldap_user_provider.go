@@ -68,7 +68,21 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 		port = *l.config.Port
 	}
 
-	url := fmt.Sprintf("http://%s:%d/auth/simple/login", l.config.Server, port)
+	url := fmt.Sprintf("http://%s:%d/auth/user/%s", l.config.Server, port, username)
+	userResp, err := l.restClient.R().
+		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
+		Get(url)
+	if err != nil {
+		return false, nil, errors.Wrapf(ErrSendRequest, "request to lldap user failed %v", err)
+	}
+	if userResp.StatusCode() != http.StatusOK {
+		if userResp.StatusCode() == http.StatusNotFound {
+			return false, nil, ErrLLDAPUserNotFound
+		}
+		return false, nil, errors.Wrapf(ErrLLDAPAuthFailed, "fetch user failed %v", string(userResp.Body()))
+	}
+
+	url = fmt.Sprintf("http://%s:%d/auth/simple/login", l.config.Server, port)
 	reqBody := LoginRequest{
 		Username: username,
 		Password: password,
