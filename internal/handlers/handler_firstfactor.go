@@ -83,16 +83,22 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		if err != nil {
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
 
-			switch err {
-			case authentication.ErrInvalidUserPwd, authentication.ErrInvalidToken:
+			switch {
+			case errors.Is(err, authentication.ErrInvalidUserPwd), errors.Is(err, authentication.ErrInvalidToken):
 				ctx.SetStatusCode(http.StatusBadRequest)
 				ctx.SetJSONError(err.Error())
-			case authentication.ErrTooManyRetries:
+			case errors.Is(err, authentication.ErrTooManyRetries):
 				ctx.SetStatusCode(http.StatusTooManyRequests)
 				ctx.SetJSONError(err.Error())
-			case authentication.ErrSendRequest, authentication.ErrLLDAPAuthFailed:
+			case errors.Is(err, authentication.ErrSendRequest):
 				ctx.SetStatusCode(http.StatusUnauthorized)
 				ctx.SetJSONError(err.Error())
+			case errors.Is(err, authentication.ErrLLDAPUserNotFound):
+				ctx.SetStatusCode(http.StatusUnauthorized)
+				ctx.SetJSONError(err.Error())
+			case errors.Is(err, authentication.ErrLLDAPAuthFailed):
+				ctx.SetStatusCode(http.StatusUnauthorized)
+				ctx.SetJSONError(messageAuthenticationFailed)
 			default:
 				respondUnauthorized(ctx, messageAuthenticationFailed)
 			}
