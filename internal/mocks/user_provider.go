@@ -96,7 +96,7 @@ func (m *MockUserProvider) Refresh(arg0, _, arg1 string) (*authentication.ValidR
 	return nil, ret0
 }
 
-func (m *MockUserProvider) ResetPassword(username, oldPassword, newPassword, token string, _ bool) (err error) {
+func (m *MockUserProvider) ResetPassword(username, oldPassword, newPassword, token string, _, _ bool) (err error) {
 	return nil
 }
 

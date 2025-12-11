@@ -532,6 +532,6 @@ func (p *LDAPUserProvider) getReferral(err error) (referral string, ok bool) {
 	return ldapGetReferral(err)
 }
 
-func (p *LDAPUserProvider) ResetPassword(_, _, _, _ string, _ bool) (err error) {
+func (p *LDAPUserProvider) ResetPassword(_, _, _, _ string, _, _ bool) (err error) {
 	return nil
 }
