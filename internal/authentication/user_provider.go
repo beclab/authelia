@@ -29,5 +29,5 @@ type UserProvider interface {
 	GetDetails(username string, token string) (details *UserDetails, err error)
 	UpdatePassword(username, accessToken string, newPassword string) (err error)
 	Refresh(username, token, refreshToken string) (*ValidResult, error)
-	ResetPassword(username, oldPassword, newPassword, token string, isAdmin bool) (err error)
+	ResetPassword(username, oldPassword, newPassword, token string, isAdmin bool, fromCli bool) (err error)
 }

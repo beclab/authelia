@@ -22,6 +22,7 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 	var (
 		userSession session.UserSession
 		err         error
+		token       string
 	)
 	if err = ctx.ParseBody(&bodyJSON); err != nil {
 		ctx.Logger.Errorf(logFmtErrParseRequestBody, "password reset request data", err)
@@ -30,11 +31,17 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if userSession, err = ctx.GetSession(); err != nil {
-		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
-		//respondInvalidToken(ctx)
-		ctx.ReplyOK()
-		return
+	if ctx.CliApiRequest {
+		token = ctx.CliServiceAccountToken
+	} else {
+		if userSession, err = ctx.GetSession(); err != nil {
+			ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
+			//respondInvalidToken(ctx)
+			ctx.ReplyOK()
+			return
+		}
+
+		token = userSession.AccessToken
 	}
 	info, err := utils.GetUserInfoFromBFL(resty.New(), username)
 	if err != nil {
@@ -43,9 +50,14 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 		ctx.SetJSONError(err.Error())
 	}
 
-	err = ctx.Providers.UserProvider.ResetPassword(username, bodyJSON.CurrentPassword, bodyJSON.Password, userSession.AccessToken, func() bool {
+	err = ctx.Providers.UserProvider.ResetPassword(username, bodyJSON.CurrentPassword, bodyJSON.Password, token, func() bool {
+		if ctx.CliApiRequest {
+			// CLI API request, allow password reset
+			return true
+		}
+
 		return CanChangePasswordWithoutCurrentPassword(userSession.Groups, info.OwnerRole)
-	}())
+	}(), ctx.CliApiRequest)
 	if err != nil {
 		ctx.Logger.Errorf(logFmtErrParseRequestBody, "password reset", err)
 		ctx.SetStatusCode(http.StatusBadRequest)
@@ -54,7 +66,8 @@ func ResetPassword(ctx *middlewares.AutheliaCtx) {
 	}
 
 	var sess session.SessionProvider
-	if userSession.Username == username {
+	// if request from olares-cli, user session if empty
+	if !ctx.CliApiRequest && userSession.Username == username {
 		klog.Info("clear token cache for user ", username, " himself")
 		sess, err = ctx.GetSessionProvider()
 		if err != nil {

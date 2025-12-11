@@ -183,6 +183,10 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
 		WithPostMiddlewares(middlewares.MarkBackend, middlewares.Require1FA).
 		Build()
+	middlewareCliApi := middlewares.NewBridgeBuilder(*config, providers).
+		WithPreMiddlewares(middlewares.MarkCliAsAdmin).
+		WithPostMiddlewares(middlewares.MarkCliApi).
+		Build()
 
 	r.HEAD("/api/health", middlewareAPI(handlers.HealthGET))
 	r.GET("/api/health", middlewareAPI(handlers.HealthGET))
@@ -259,6 +263,8 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	//r.POST("/api/groups/attributes/schema", middlewareAPI(handlers.CreateGroupAttribute))
 	//r.GET("/api/groups/attributes/schema", middlewareAPI(handlers.GetGroupAttributeSchema))
 	//r.DELETE("/api/groups/attributes/schema/{name}", middlewareAPI(handlers.DeleteGroupAttributeSchema))
+
+	r.POST("/cli/api/reset/{user}/password", middlewareCliApi(handlers.ResetPassword))
 
 	// Only register endpoints if forgot password is not disabled.
 	if !config.AuthenticationBackend.PasswordReset.Disable &&
