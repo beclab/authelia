@@ -66,12 +66,17 @@ var (
 
 const (
 	messageOperationFailed                 = "Operation failed."
-	messageAuthenticationFailed            = "Authentication failed. Check your credentials."
+	messageAuthenticationFailed            = "Authentication failed, incorrect password."
 	messageUnableToRegisterOneTimePassword = "Unable to set up one-time passwords." //nolint:gosec
 	messageUnableToRegisterSecurityKey     = "Unable to register your security key."
 	messageUnableToResetPassword           = "Unable to reset your password."
 	messageMFAValidationFailed             = "Authentication failed, please retry later."
 	messagePasswordWeak                    = "Your supplied password does not meet the password policy requirements"
+	messageCitusIsUnavailable              = "Authentication failed, citus service is unavailable."
+	messageDiskIsFull                      = "Authentication failed, disk space is full."
+	messageLLdapIsUnavailable              = "Authentication failed, lldap service is unavailable."
+	messageLLdapFetchUserFailed            = "Authentication failed, failed to query user from lldap service."
+	messageLLdapUserNotFound               = "Authentication failed, user not found."
 )
 
 const (

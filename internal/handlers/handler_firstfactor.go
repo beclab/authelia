@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
@@ -82,6 +83,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		userPasswordOk, validRes, err := ctx.Providers.UserProvider.CheckUserPassword(bodyJSON.Username, bodyJSON.Password)
 		if err != nil {
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
+			ctx.Logger.Errorf("lldap login failed, %s, %s", err.Error(), bodyJSON.Username)
 
 			switch {
 			case errors.Is(err, authentication.ErrInvalidUserPwd), errors.Is(err, authentication.ErrInvalidToken):
@@ -90,17 +92,20 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			case errors.Is(err, authentication.ErrTooManyRetries):
 				ctx.SetStatusCode(http.StatusTooManyRequests)
 				ctx.SetJSONError(err.Error())
-			case errors.Is(err, authentication.ErrSendRequest):
+			case errors.Is(err, authentication.ErrLLdapIsUnavailable):
 				ctx.SetStatusCode(http.StatusUnauthorized)
-				ctx.SetJSONError(err.Error())
+				ctx.SetJSONError(messageLLdapIsUnavailable)
 			case errors.Is(err, authentication.ErrLLDAPUserNotFound):
 				ctx.SetStatusCode(http.StatusUnauthorized)
-				ctx.SetJSONError(err.Error())
+				ctx.SetJSONError(messageLLdapUserNotFound)
+			case errors.Is(err, authentication.ErrLLdapFetchUser):
+				ctx.SetStatusCode(http.StatusUnauthorized)
+				ctx.SetJSONError(messageLLdapFetchUserFailed)
 			case errors.Is(err, authentication.ErrLLDAPAuthFailed):
 				ctx.SetStatusCode(http.StatusUnauthorized)
 				ctx.SetJSONError(messageAuthenticationFailed)
 			default:
-				respondUnauthorized(ctx, messageAuthenticationFailed)
+				respondUnauthorized(ctx, convertErrorToUserMessage(err))
 			}
 
 			return
@@ -115,7 +120,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		}
 
 		if err = markAuthenticationAttempt(ctx, true, nil, bodyJSON.Username, regulation.AuthType1FA, nil); err != nil {
-			respondUnauthorized(ctx, messageAuthenticationFailed)
+			respondUnauthorized(ctx, convertErrorToUserMessage(err))
 
 			return
 		}
@@ -249,4 +254,20 @@ func getProfileRefreshSettings(cfg schema.AuthenticationBackend) (refresh bool, 
 	}
 
 	return refresh, refreshInterval
+}
+
+func convertErrorToUserMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "No space left on device") {
+		return messageDiskIsFull
+	}
+
+	if strings.Contains(errMsg, "Database error") {
+		return messageCitusIsUnavailable
+	}
+
+	return errMsg
 }
