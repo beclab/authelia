@@ -56,7 +56,7 @@ func NewLLDAPUserProvider(conf schema.AuthenticationBackend, certPool *x509.Cert
 
 	p := &LLDAPUserProvider{config: *conf.LLDAP, LDAPUserProvider: ldap, tokenCache: memory.New()}
 
-	p.restClient = resty.New().SetTimeout(5 * time.Second).SetCookieJar(nil)
+	p.restClient = resty.New().SetTimeout(10 * time.Second).SetCookieJar(nil)
 
 	return p
 }
@@ -73,13 +73,13 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 		SetHeader(restful.HEADER_ContentType, restful.MIME_JSON).
 		Get(url)
 	if err != nil {
-		return false, nil, errors.Wrapf(ErrSendRequest, "request to lldap user failed %v", err)
+		return false, nil, errors.Wrapf(ErrLLdapIsUnavailable, "request to lldap user failed %v", err)
 	}
 	if userResp.StatusCode() != http.StatusOK {
 		if userResp.StatusCode() == http.StatusNotFound {
 			return false, nil, ErrLLDAPUserNotFound
 		}
-		return false, nil, errors.Wrapf(ErrLLDAPAuthFailed, "fetch user failed %v", string(userResp.Body()))
+		return false, nil, errors.Wrap(ErrLLdapFetchUser, string(userResp.Body()))
 	}
 
 	url = fmt.Sprintf("http://%s:%d/auth/simple/login", l.config.Server, port)
@@ -95,11 +95,14 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 		Post(url)
 
 	if err != nil {
-		return false, nil, errors.Wrapf(ErrSendRequest, "request to lldap login failed %v", err)
+		return false, nil, errors.Wrapf(ErrLLdapIsUnavailable, "request to lldap login failed %v", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return false, nil, errors.Wrapf(ErrLLDAPAuthFailed, "login failed %v", string(resp.Body()))
+		if resp.StatusCode() == http.StatusUnauthorized {
+			return false, nil, errors.Wrap(ErrLLDAPAuthFailed, resp.String())
+		}
+		return false, nil, errors.New(resp.String())
 	}
 
 	responseData := resp.Result().(*LoginResponse)
