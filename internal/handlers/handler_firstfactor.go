@@ -100,12 +100,12 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 				ctx.SetJSONError(messageLLdapUserNotFound)
 			case errors.Is(err, authentication.ErrLLdapFetchUser):
 				ctx.SetStatusCode(http.StatusUnauthorized)
-				ctx.SetJSONError(messageLLdapFetchUserFailed)
+				ctx.SetJSONError(convertErrorToUserMessage(err, messageLLdapFetchUserFailed))
 			case errors.Is(err, authentication.ErrLLDAPAuthFailed):
 				ctx.SetStatusCode(http.StatusUnauthorized)
 				ctx.SetJSONError(messageAuthenticationFailed)
 			default:
-				respondUnauthorized(ctx, convertErrorToUserMessage(err))
+				respondUnauthorized(ctx, convertErrorToUserMessage(err, ""))
 			}
 
 			return
@@ -120,14 +120,14 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 		}
 
 		if err = markAuthenticationAttempt(ctx, true, nil, bodyJSON.Username, regulation.AuthType1FA, nil); err != nil {
-			respondUnauthorized(ctx, convertErrorToUserMessage(err))
+			respondUnauthorized(ctx, convertErrorToUserMessage(err, ""))
 
 			return
 		}
 
 		// get first factor login target domain.
 		if bodyJSON.TargetURL != "" {
-			targetUrl, err := url.Parse(bodyJSON.TargetURL)
+			targetUrl, err := url.ParseRequestURI(bodyJSON.TargetURL)
 
 			if err != nil {
 				ctx.Logger.Errorf("request target url error, %s", err)
@@ -256,17 +256,21 @@ func getProfileRefreshSettings(cfg schema.AuthenticationBackend) (refresh bool, 
 	return refresh, refreshInterval
 }
 
-func convertErrorToUserMessage(err error) string {
+func convertErrorToUserMessage(err error, msg string) string {
 	if err == nil {
 		return ""
 	}
 	errMsg := err.Error()
+
 	if strings.Contains(errMsg, "No space left on device") {
 		return messageDiskIsFull
 	}
 
 	if strings.Contains(errMsg, "Database error") {
 		return messageCitusIsUnavailable
+	}
+	if msg != "" {
+		return msg
 	}
 
 	return errMsg
