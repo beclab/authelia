@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
 	"github.com/authelia/authelia/v4/internal/session"
@@ -44,6 +45,23 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
 		respondInvalidToken(ctx)
+
+		return
+	}
+
+	if bannedUntil, err := ctx.Providers.Regulator.Regulate(ctx, userSession.Username); err != nil {
+		if errors.Is(err, regulation.ErrUserIsBanned) {
+			_ = markAuthenticationAttempt(ctx, false, &bannedUntil, userSession.Username, regulation.AuthTypeTOTP, nil)
+
+			ctx.SetStatusCode(http.StatusTooManyRequests)
+			ctx.SetJSONError(authentication.ErrTooManyRetries.Error())
+
+			return
+		}
+
+		ctx.Logger.Errorf(logFmtErrRegulationFail, regulation.AuthTypeTOTP, userSession.Username, err)
+
+		respondUnauthorized(ctx, fmt.Sprintf(logFmtErrRegulationFail, regulation.AuthTypeTOTP, userSession.Username, err))
 
 		return
 	}
