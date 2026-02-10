@@ -211,7 +211,7 @@ func (mr *MockStorageMockRecorder) FindIdentityVerification(arg0, arg1 interface
 }
 
 // LoadAuthenticationLogs mocks base method.
-func (m *MockStorage) LoadAuthenticationLogs(arg0 context.Context, arg1 string, arg2 time.Time, arg3, arg4 int) ([]model.AuthenticationAttempt, error) {
+func (m *MockStorage) LoadAuthenticationLogs(arg0 context.Context, arg1, _ string, arg2 time.Time, arg3, arg4 int) ([]model.AuthenticationAttempt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadAuthenticationLogs", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].([]model.AuthenticationAttempt)

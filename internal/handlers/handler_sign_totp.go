@@ -49,7 +49,7 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if bannedUntil, err := ctx.Providers.Regulator.Regulate(ctx, userSession.Username); err != nil {
+	if bannedUntil, err := ctx.Providers.Regulator.Regulate(ctx, userSession.Username, regulation.AuthTypeTOTP); err != nil {
 		if errors.Is(err, regulation.ErrUserIsBanned) {
 			_ = markAuthenticationAttempt(ctx, false, &bannedUntil, userSession.Username, regulation.AuthTypeTOTP, nil)
 
@@ -72,6 +72,7 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		userSession.AccessToken, bodyJSON.Token)
 	if err != nil {
 		ctx.Logger.Errorf("Failed to perform TOTP verification: %+v", err)
+		_ = markAuthenticationAttempt(ctx, false, nil, userSession.Username, regulation.AuthTypeTOTP, err)
 
 		respondUnauthorized(ctx, messageMFAValidationFailed)
 

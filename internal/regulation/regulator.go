@@ -40,13 +40,13 @@ func (r *Regulator) Mark(ctx Context, successful, banned bool, username, request
 
 // Regulate the authentication attempts for a given user.
 // This method returns ErrUserIsBanned if the user is banned along with the time until when the user is banned.
-func (r *Regulator) Regulate(ctx context.Context, username string) (time.Time, error) {
+func (r *Regulator) Regulate(ctx context.Context, username, authType string) (time.Time, error) {
 	// If there is regulation configuration, no regulation applies.
 	if !r.enabled {
 		return time.Time{}, nil
 	}
 
-	attempts, err := r.storageProvider.LoadAuthenticationLogs(ctx, username, r.clock.Now().Add(-r.config.BanTime), 10, 0)
+	attempts, err := r.storageProvider.LoadAuthenticationLogs(ctx, username, authType, r.clock.Now().Add(-r.config.BanTime), 10, 0)
 	if err != nil {
 		return time.Time{}, nil
 	}

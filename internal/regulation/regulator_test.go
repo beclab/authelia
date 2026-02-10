@@ -58,7 +58,7 @@ func (s *RegulatorSuite) TestShouldNotThrowWhenUserIsLegitimate() {
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 }
 
@@ -89,7 +89,7 @@ func (s *RegulatorSuite) TestShouldNotThrowWhenFailedAuthenticationNotInFindTime
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 }
 
@@ -120,12 +120,12 @@ func (s *RegulatorSuite) TestShouldBanUserIfLatestAttemptsAreWithinFinTime() {
 	}
 
 	s.storageMock.EXPECT().
-		LoadAuthenticationLogs(s.ctx, gomock.Eq("john"), gomock.Any(), gomock.Eq(10), gomock.Eq(0)).
+		LoadAuthenticationLogs(s.ctx, gomock.Eq("john"), gomock.Eq("1FA"), gomock.Eq(10), gomock.Eq(0)).
 		Return(attemptsInDB, nil)
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.Equal(s.T(), regulation.ErrUserIsBanned, err)
 }
 
@@ -158,7 +158,7 @@ func (s *RegulatorSuite) TestShouldCheckUserIsStillBanned() {
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.Equal(s.T(), regulation.ErrUserIsBanned, err)
 }
 
@@ -182,7 +182,7 @@ func (s *RegulatorSuite) TestShouldCheckUserIsNotYetBanned() {
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 }
 
@@ -214,7 +214,7 @@ func (s *RegulatorSuite) TestShouldCheckUserWasAboutToBeBanned() {
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 }
 
@@ -250,7 +250,7 @@ func (s *RegulatorSuite) TestShouldCheckRegulationHasBeenResetOnSuccessfulAttemp
 
 	regulator := regulation.NewRegulator(s.config, s.storageMock, &s.clock)
 
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 }
 
@@ -291,7 +291,7 @@ func (s *RegulatorSuite) TestShouldHaveRegulatorDisabled() {
 	}
 
 	regulator := regulation.NewRegulator(config, s.storageMock, &s.clock)
-	_, err := regulator.Regulate(s.ctx, "john")
+	_, err := regulator.Regulate(s.ctx, "john", "1FA")
 	assert.NoError(s.T(), err)
 
 	// Check Enabled Functionality.
@@ -302,6 +302,6 @@ func (s *RegulatorSuite) TestShouldHaveRegulatorDisabled() {
 	}
 
 	regulator = regulation.NewRegulator(config, s.storageMock, &s.clock)
-	_, err = regulator.Regulate(s.ctx, "john")
+	_, err = regulator.Regulate(s.ctx, "john", "1FA")
 	assert.Equal(s.T(), regulation.ErrUserIsBanned, err)
 }

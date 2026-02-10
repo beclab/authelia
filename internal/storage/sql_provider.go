@@ -973,10 +973,10 @@ func (p *SQLProvider) AppendAuthenticationLog(ctx context.Context, attempt model
 }
 
 // LoadAuthenticationLogs retrieve the latest failed authentications from the authentication log.
-func (p *SQLProvider) LoadAuthenticationLogs(ctx context.Context, username string, fromDate time.Time, limit, page int) (attempts []model.AuthenticationAttempt, err error) {
+func (p *SQLProvider) LoadAuthenticationLogs(ctx context.Context, username, authType string, fromDate time.Time, limit, page int) (attempts []model.AuthenticationAttempt, err error) {
 	attempts = make([]model.AuthenticationAttempt, 0, limit)
 
-	if err = p.db.SelectContext(ctx, &attempts, p.sqlSelectAuthenticationAttemptsByUsername, fromDate, username, limit, limit*page); err != nil {
+	if err = p.db.SelectContext(ctx, &attempts, p.sqlSelectAuthenticationAttemptsByUsername, fromDate, username, authType, limit, limit*page); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoAuthenticationLogs
 		}

@@ -40,7 +40,7 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			return
 		}
 
-		if bannedUntil, err := ctx.Providers.Regulator.Regulate(ctx, bodyJSON.Username); err != nil {
+		if bannedUntil, err := ctx.Providers.Regulator.Regulate(ctx, bodyJSON.Username, regulation.AuthType1FA); err != nil {
 			if errors.Is(err, regulation.ErrUserIsBanned) {
 				_ = markAuthenticationAttempt(ctx, false, &bannedUntil, bodyJSON.Username, regulation.AuthType1FA, nil)
 
