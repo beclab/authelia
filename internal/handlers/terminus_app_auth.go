@@ -92,6 +92,12 @@ func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
 		mutatedResult   AuthzResult = result
 	)
 
+	if rule.Policy == authorization.TwoFactor {
+		// if the sub-policy is TwoFactor, it means the sub resource needs to re-enter the TwoFactor authentication
+		// set the mutated result to unauthorized by default
+		mutatedResult = AuthzResultUnauthorized
+	}
+
 	for i, r := range userSession.ResourceAuthenticationLevels {
 		if rule.IsMatch(r.Subject, r.Object) &&
 			rule.Policy == authorization.TwoFactor &&

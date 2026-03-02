@@ -603,6 +603,11 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 					OneTimeValid:  sp.OneTime,
 					ValidDuration: time.Duration(sp.Duration) * time.Second,
 				})
+
+				if sp.Policy != twoFactor {
+					rule.DefaultRule = true // do not need to mutate
+				}
+
 				ruleAddResources(resources, rule)
 				ruleAddDomain(domains, rule)
 
