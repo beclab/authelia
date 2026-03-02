@@ -199,13 +199,15 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 		return
 	}
 
+	obj := authorization.NewObject(targetURL, requestMethod, string(ctx.UserAgent()))
+	obj.RemoteIP = ctx.GetXForwardedFor()
 	_, requiredLevel, rule := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
 			Username: session.Username,
 			Groups:   session.Groups,
 			IP:       ctx.RemoteIP(),
 		},
-		authorization.NewObject(targetURL, requestMethod, string(ctx.UserAgent())),
+		obj,
 	)
 
 	ctx.Logger.Debugf("Required level for the URL %s is %d", targetURI, requiredLevel)
@@ -551,6 +553,7 @@ func upsertResourceAuthLevelInSession(ctx *middlewares.AutheliaCtx, parsedURI *u
 		IP:       ctx.RemoteIP(),
 	}
 	object := authorization.NewObject(parsedURI, requestMethod, string(ctx.UserAgent()))
+	object.RemoteIP = ctx.GetXForwardedFor()
 
 	matchRule := getRule(subject, object)
 

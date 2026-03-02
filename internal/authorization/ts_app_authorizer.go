@@ -177,6 +177,7 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 
 				if rule.Internal &&
 					object.VaildInternalNetwork(t.masterNodeCIDR) {
+					klog.Info("object ip: ", object.RemoteIP)
 					t.log.Debug("internal policy rule matched, set policy public")
 					return rule.HasSubjects, Bypass, rule
 				}

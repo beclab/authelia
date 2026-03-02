@@ -151,6 +151,10 @@ func (o Object) VaildInternalNetwork(internalCidr string) bool {
 		return false
 	}
 
+	if len(o.RemoteIP) == 0 {
+		return false
+	}
+
 	for _, remoteIP := range o.RemoteIP {
 		if !validate(remoteIP, vpnNet) &&
 			!validate(remoteIP, clusterNet) &&
