@@ -112,7 +112,7 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	// handlerPublicHTML := newPublicHTMLEmbeddedHandler()
 	// handlerLocales := newLocalesEmbeddedHandler()
 
-	bridge := middlewares.NewBridgeBuilder(*config, providers).
+	bridge := middlewares.NewBridgeBuilder(config, providers).
 		WithPreMiddlewares(middlewares.SecurityHeaders).Build()
 
 	policyCORSPublicGET := middlewares.NewCORSPolicyBuilder().
@@ -165,11 +165,11 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	// 	r.GET("/api/"+file, handlerPublicHTML)
 	// }
 
-	middlewareAPI := middlewares.NewBridgeBuilder(*config, providers).
+	middlewareAPI := middlewares.NewBridgeBuilder(config, providers).
 		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
 		Build()
 
-	middleware1FA := middlewares.NewBridgeBuilder(*config, providers).
+	middleware1FA := middlewares.NewBridgeBuilder(config, providers).
 		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
 		WithPostMiddlewares(middlewares.Require1FA).
 		Build()
@@ -179,11 +179,11 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	// 	WithPostMiddlewares(middlewares.Require2FA).
 	// 	Build()
 
-	middleware1FAAndBackend := middlewares.NewBridgeBuilder(*config, providers).
+	middleware1FAAndBackend := middlewares.NewBridgeBuilder(config, providers).
 		WithPreMiddlewares(middlewares.SecurityHeaders, middlewares.SecurityHeadersNoStore, middlewares.SecurityHeadersCSPNone).
 		WithPostMiddlewares(middlewares.MarkBackend, middlewares.Require1FA).
 		Build()
-	middlewareCliApi := middlewares.NewBridgeBuilder(*config, providers).
+	middlewareCliApi := middlewares.NewBridgeBuilder(config, providers).
 		WithPreMiddlewares(middlewares.MarkCliAsAdmin).
 		WithPostMiddlewares(middlewares.MarkCliApi).
 		Build()
@@ -339,7 +339,7 @@ func handleRouter(config *schema.Configuration, providers *middlewares.Providers
 	}
 
 	if providers.OpenIDConnect != nil {
-		bridgeOIDC := middlewares.NewBridgeBuilder(*config, providers).WithPreMiddlewares(
+		bridgeOIDC := middlewares.NewBridgeBuilder(config, providers).WithPreMiddlewares(
 			middlewares.SecurityHeaders, middlewares.SecurityHeadersCSPNoneOpenIDConnect, middlewares.SecurityHeadersNoStore,
 		).Build()
 
