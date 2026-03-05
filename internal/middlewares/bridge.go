@@ -18,7 +18,7 @@ import (
 )
 
 // NewBridgeBuilder creates a new BridgeBuilder.
-func NewBridgeBuilder(config schema.Configuration, providers *Providers) *BridgeBuilder {
+func NewBridgeBuilder(config *schema.Configuration, providers *Providers) *BridgeBuilder {
 	b := &BridgeBuilder{
 		config:     config,
 		providers:  providers,
@@ -34,7 +34,7 @@ func NewBridgeBuilder(config schema.Configuration, providers *Providers) *Bridge
 }
 
 // WithConfig sets the schema.Configuration used with this BridgeBuilder.
-func (b *BridgeBuilder) WithConfig(config schema.Configuration) *BridgeBuilder {
+func (b *BridgeBuilder) WithConfig(config *schema.Configuration) *BridgeBuilder {
 	b.config = config
 
 	return b
@@ -184,7 +184,7 @@ func (b *BridgeBuilder) Build() Bridge {
 				b.cookieMu.Unlock()
 			}
 
-			ctxConfig := b.config
+			ctxConfig := *b.config
 			ctxConfig.DefaultRedirectionURL = string(requestCtx.URI().Scheme()) + "://" + domain + "/"
 			requestCtx.SetUserValueBytes(authorization.TerminusUserHeader, user)
 			ctx := NewAutheliaCtx(requestCtx, ctxConfig, *b.providers)

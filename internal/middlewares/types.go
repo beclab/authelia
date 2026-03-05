@@ -77,7 +77,7 @@ type Bridge = func(RequestHandler) fasthttp.RequestHandler
 type BridgeBuilder struct {
 	httpClient *resty.Client
 
-	config          schema.Configuration
+	config          *schema.Configuration
 	providers       *Providers
 	preMiddlewares  []Middleware
 	postMiddlewares []AutheliaMiddleware
