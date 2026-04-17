@@ -375,8 +375,9 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain, lo
 	position := len(rules)
 
 	desktopRule := &AccessControlRule{
-		Position: position,
-		Policy:   userAuth.desktopPolicy,
+		Position:    position,
+		Policy:      userAuth.desktopPolicy,
+		DefaultRule: true,
 	}
 	ruleAddDomain(domains, desktopRule)
 
@@ -607,6 +608,10 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 				if sp.Policy != twoFactor {
 					rule.DefaultRule = true // do not need to mutate
+				}
+
+				if !rule.OneTimeValid && rule.ValidDuration <= 0 {
+					rule.DefaultRule = true // it's a default subpolicy, do not need to mutate
 				}
 
 				ruleAddResources(resources, rule)
