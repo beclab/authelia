@@ -148,7 +148,7 @@ func (p *Provider) Get(domain, targetDomain, token string, backend bool) (Sessio
 		return nil, fmt.Errorf("can not get session from an undefined domain")
 	}
 
-	log.Debugf("find session provider by token %s, current domain %s, and target domain %s", token, domain, targetDomain)
+	log.Debugf("find session provider by token, current domain %s, and target domain %s", domain, targetDomain)
 
 	var (
 		s     SessionProvider
@@ -235,20 +235,20 @@ func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
 	var infos []*SessionTokenInfo
 	for _, data := range dataList {
 		if data.IsBlacklisted {
-			klog.Warning("token is blacklisted, ", data.AccessToken)
+			klog.Warning("token is blacklisted")
 			continue
 		}
 
 		claims, err := parseToken(data.AccessToken)
 		if err != nil {
-			klog.Error("parse token error, ", err, ", token: ", data.AccessToken)
+			klog.Error("parse token error, ", err)
 			continue
 		}
 
 		if claims.Username == user {
 			token := strings.Split(data.AccessToken, ".")
 			if len(token) != 3 {
-				klog.Error("invalid access token in session data, ", data.AccessToken)
+				klog.Error("invalid access token in session data")
 				continue
 			}
 
@@ -301,7 +301,7 @@ func (p *Provider) reloadTokenToCache(server string) {
 	for _, data := range dataList {
 		claims, err := parseToken(data.AccessToken)
 		if err != nil {
-			klog.Error("parse token error, ", err, ", token: ", data.AccessToken)
+			klog.Error("parse token error, ", err)
 			continue
 		}
 
@@ -404,7 +404,6 @@ func (p *Provider) tokenList(baseURL string) ([]tokenInfo, error) {
 		klog.Infof("unmarshal failed: %v", err)
 		return nil, err
 	}
-	klog.Infof("tokenList res: %v", response)
 	return response, nil
 }
 

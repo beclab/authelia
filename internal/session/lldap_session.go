@@ -39,12 +39,10 @@ func (l *lldapSession) DestroySession(ctx *fasthttp.RequestCtx) error {
 		return nil
 	}
 
-	klog.Infof("destroying session with token %s", token)
-
 	// Delete the token from the lldap
 	err := TokenInvalidate(l.lldapAddr, token, token)
 	if err != nil {
-		klog.Errorf("failed to invalidate token %s: %v", token, err)
+		klog.Errorf("failed to invalidate token: %v", err)
 		return fmt.Errorf("failed to invalidate token: %w", err)
 	}
 
@@ -93,7 +91,7 @@ func (l *lldapSession) GetSession(ctx *fasthttp.RequestCtx) (userSession UserSes
 		return *session, nil
 	}
 
-	klog.Infof("session not found in cache for token %s, verifing token", token)
+	klog.Infof("session not found in cache for token, verifing token")
 	return l.verifingToken(token)
 }
 
@@ -124,7 +122,7 @@ func (l *lldapSession) RegenerateSession(ctx *fasthttp.RequestCtx) error {
 // RemoveSessionID implements SessionProvider.
 func (l *lldapSession) RemoveSessionID(token string) {
 	l.tokenCache.Delete(token)
-	klog.Infof("removed session ID for token %s", token)
+	klog.Infof("removed session ID for token")
 }
 
 // SaveSession implements SessionProvider.
@@ -158,7 +156,6 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 
 	if token != "" && l.tokenCache != nil {
 		if userSession.AccessToken != "" && userSession.AccessToken != token {
-			klog.Infof("updating session token from %s to %s", token, userSession.AccessToken)
 			if err := regenerateNewSession(); err != nil {
 				return err
 			}
@@ -176,8 +173,8 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 
 		exp, err := l.getExpiration(token)
 		if err != nil {
-			klog.Errorf("failed to get expiration for token %s: %v", token, err)
-			return fmt.Errorf("failed to get expiration for token %s: %w", token, err)
+			klog.Errorf("failed to get expiration for token: %v", err)
+			return fmt.Errorf("failed to get expiration for token: %w", err)
 		}
 
 		if userSession.Username != "" {
@@ -254,7 +251,7 @@ func (l *lldapSession) ClearUserTokenCache(username string) {
 		func(k string) {
 			defer func() {
 				if r := recover(); r != nil {
-					klog.Errorf("panic while deleting token from cache for user %s, key %s: %v", username, k, r)
+					klog.Errorf("panic while deleting token from cache for user %s, %v", username, r)
 				}
 			}()
 			l.tokenCache.Delete(k)
@@ -275,7 +272,6 @@ func (l *lldapSession) SearchSession(ctx *fasthttp.RequestCtx) (userSession User
 
 	klog.Info("session not found in cache, searching if the token is a prev 1fa access token")
 	if newToken, ok := l.revokingToken[token]; ok {
-		klog.Infof("found new 2fa access token %s for token %s", newToken, token)
 		// If the token is a previous 1FA access token, we can return the session.
 		if item := l.tokenCache.Get(newToken); item != nil {
 			session := item.Value()
@@ -285,7 +281,7 @@ func (l *lldapSession) SearchSession(ctx *fasthttp.RequestCtx) (userSession User
 		}
 	}
 
-	klog.Infof("session not found in cache or prev tokens for token %s, verifying token", token)
+	klog.Infof("session not found in cache or prev tokens for token, verifying token")
 	return l.verifingToken(token)
 }
 
@@ -325,10 +321,10 @@ func (l *lldapSession) getSessionFromCache(ctx *fasthttp.RequestCtx) (token stri
 	}
 
 	if item := l.tokenCache.Get(token); item != nil {
-		klog.Infof("session found in cache for token %s", token)
+		klog.Infof("session found in cache for token")
 		session := item.Value()
 		if session.InBlacklist {
-			klog.Infof("session for token %s is blacklisted, returning default session", token)
+			klog.Infof("session for token is blacklisted, returning default session")
 			return token, ptr.To(l.NewDefaultUserSession()), nil
 		}
 
@@ -346,7 +342,7 @@ func (l *lldapSession) verifingToken(token string) (userSession UserSession, err
 
 	_, err = TokenVerify(l.lldapAddr, token, token)
 	if err != nil {
-		klog.Errorf("failed to verify token %s: %v", token, err)
+		klog.Errorf("failed to verify token: %v", err)
 		return l.NewDefaultUserSession(), nil
 	}
 
