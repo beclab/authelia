@@ -106,7 +106,6 @@ func (l *LLDAPUserProvider) CheckUserPassword(username string, password string) 
 	}
 
 	responseData := resp.Result().(*LoginResponse)
-	klog.Infof("responseData: %#v", responseData)
 
 	result = &ValidResult{
 		AccessToken:  responseData.Token,
