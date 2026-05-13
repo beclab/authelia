@@ -56,6 +56,17 @@ var (
 	UserCustomDomain    map[string]map[string]string
 )
 
+// Shared-scope applications get ACL rules merged into every user's authorizer;
+// domains are built under the visiting user's zone (see appendSharedApplicationRules).
+const (
+	applicationLabelScopeKey         = "app.bytetrade.io/scope"
+	applicationLabelScopeSharedValue = "shared"
+)
+
+func applicationHasSharedScopeLabel(a *application.Application) bool {
+	return a.Labels != nil && a.Labels[applicationLabelScopeKey] == applicationLabelScopeSharedValue
+}
+
 // Terminus app service access control.
 type TsAuthorizer struct {
 	client     client.Client
@@ -253,6 +264,7 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 
 func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	userData *unstructured.Unstructured, userAuth *userAuthorizer) ([]*AccessControlRule, error) {
+
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
 		klog.Info("new user: ", userInfo.Name, " just bypass launcher ")
@@ -298,7 +310,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 
 	// applications rule.
 	for _, a := range appList.Items {
-		if a.Spec.Owner == userInfo.Name {
+		if a.Spec.Owner == userInfo.Name || applicationHasSharedScopeLabel(&a) {
 			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo, userAuth)
 			if err != nil {
 				return nil, err
