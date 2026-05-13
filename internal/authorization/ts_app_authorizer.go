@@ -56,15 +56,15 @@ var (
 	UserCustomDomain    map[string]map[string]string
 )
 
-// Shared-scope applications get ACL rules merged into every user's authorizer;
+// v3 applications get ACL rules merged into every user's authorizer;
 // domains are built under the visiting user's zone (see appendSharedApplicationRules).
 const (
-	applicationLabelScopeKey         = "app.bytetrade.io/scope"
-	applicationLabelScopeSharedValue = "shared"
+	AppApiVersionLabel = "app.bytetrade.io/api-version"
+	AppVersionV3       = "v3"
 )
 
-func applicationHasSharedScopeLabel(a *application.Application) bool {
-	return a.Labels != nil && a.Labels[applicationLabelScopeKey] == applicationLabelScopeSharedValue
+func isV3(a *application.Application) bool {
+	return a.Labels != nil && a.Labels[AppApiVersionLabel] == AppVersionV3
 }
 
 // Terminus app service access control.
@@ -264,7 +264,6 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 
 func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	userData *unstructured.Unstructured, userAuth *userAuthorizer) ([]*AccessControlRule, error) {
-
 	if userInfo.IsEphemeral {
 		// Found the new user without DID binding, set the default policy to all.
 		klog.Info("new user: ", userInfo.Name, " just bypass launcher ")
@@ -310,7 +309,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 
 	// applications rule.
 	for _, a := range appList.Items {
-		if a.Spec.Owner == userInfo.Name || applicationHasSharedScopeLabel(&a) {
+		if a.Spec.Owner == userInfo.Name || isV3(&a) {
 			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo, userAuth)
 			if err != nil {
 				return nil, err
