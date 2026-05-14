@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package application
+package authorization
+
 
 type ApplicationSettingsSubPolicy struct {
 	URI      string `json:"uri"`
@@ -43,12 +44,9 @@ type ApplicationCustomDomain struct {
 	ThirdPartyDomain string `json:"third_party_domain,omitempty"`
 }
 
-const ApplicationSettingsPolicyKey = "policy"
-const ApplicationSettingsCustomDomainKey = "customDomain"
-const ApplicationSettingsDefaultThirdLevelDomainConfigKey = "defaultThirdLevelDomainConfig"
 
-type DefaultThirdLevelDomainConfig struct {
-	AppName          string `json:"appName"`
-	EntranceName     string `json:"entranceName"`
-	ThirdLevelDomain string `json:"thirdLevelDomain"`
-}
+const (
+	ApplicationSettingsPolicyKey                        = "policy"
+	ApplicationSettingsCustomDomainKey                  = "customDomain"
+	ApplicationSettingsDefaultThirdLevelDomainConfigKey = "defaultThirdLevelDomainConfig"
+)

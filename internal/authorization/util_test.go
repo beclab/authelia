@@ -13,7 +13,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
-	"github.com/authelia/authelia/v4/internal/authorization/application"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 )
 
@@ -226,7 +225,7 @@ func TestIsAuthLevelSufficient(t *testing.T) {
 
 func TestPolicy(t *testing.T) {
 	p := []byte(`{"vault":{"default_policy":"one_factor","sub_policies":null,"one_time":false,"valid_duration":0}}`)
-	policies := make(map[string]*application.ApplicationSettingsPolicy)
+	policies := make(map[string]*ApplicationSettingsPolicy)
 	err := json.Unmarshal(p, &policies)
 
 	if err != nil {

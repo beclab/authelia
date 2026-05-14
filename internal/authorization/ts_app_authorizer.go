@@ -27,6 +27,7 @@ import (
 	"time"
 
 	conf_schema "github.com/authelia/authelia/v4/internal/configuration/schema"
+	appv1alpha1 "github.com/beclab/api/api/app.bytetrade.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,7 +43,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/authelia/authelia/v4/internal/authorization/application"
 	"github.com/authelia/authelia/v4/internal/logging"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
@@ -57,15 +57,8 @@ var (
 )
 
 // v3 applications get ACL rules merged into every user's authorizer;
-// domains are built under the visiting user's zone (see appendSharedApplicationRules).
-const (
-	AppApiVersionLabel = "app.bytetrade.io/api-version"
-	AppVersionV3       = "v3"
-)
-
-func isV3(a *application.Application) bool {
-	return a.Labels != nil && a.Labels[AppApiVersionLabel] == AppVersionV3
-}
+// domains are built under the visiting user's zone, and per-user overrides
+// from Spec.UserSettings[user] (customDomain / policy / authLevel) are
 
 // Terminus app service access control.
 type TsAuthorizer struct {
@@ -288,7 +281,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 		return rules, nil
 	}
 
-	var appList application.ApplicationList
+	var appList appv1alpha1.ApplicationList
 	if err := t.client.List(context.Background(), &appList, client.InNamespace("")); err != nil {
 		return nil, err
 	}
@@ -309,7 +302,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 
 	// applications rule.
 	for _, a := range appList.Items {
-		if a.Spec.Owner == userInfo.Name || isV3(&a) {
+		if a.Spec.Owner == userInfo.Name || appv1alpha1.IsV3(&a) {
 			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo, userAuth)
 			if err != nil {
 				return nil, err
@@ -416,16 +409,17 @@ app settings:
 	}.
 */
 
-type DefaultThirdLevelDomainConfig struct {
-	AppName          string `json:"appName"`
-	EntranceName     string `json:"entranceName"`
-	ThirdLevelDomain string `json:"thirdLevelDomain"`
-}
-
-func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
+func (t *TsAuthorizer) getAppRules(position int, app *appv1alpha1.Application,
 	userInfo *utils.UserInfo, userAuth *userAuthorizer) (rules []*AccessControlRule, err error) {
-	policyData, policyExists := app.Spec.Settings[application.ApplicationSettingsPolicyKey]
-	policies := make(map[string]*application.ApplicationSettingsPolicy)
+	// For v3 apps each user owns its own customDomain / policy /
+	// authLevel under Spec.UserSettings[user]; the effective view overlays
+	// those on top of Spec.Settings / Spec.Entrances. For v1/v2 apps the
+	// effective view is just a copy of the globals.
+	effSettings := app.EffectiveSettings(userInfo.Name)
+	effEntrances := app.EffectiveEntrances(userInfo.Name)
+
+	policyData, policyExists := effSettings[ApplicationSettingsPolicyKey]
+	policies := make(map[string]*ApplicationSettingsPolicy)
 	if policyExists {
 		err = json.Unmarshal([]byte(policyData), &policies)
 
@@ -436,8 +430,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 	// default third level domain
 	defaultThirdLevelDomains := make(map[string]string)
-	if thirdLevelDomainConfig, ok := app.Spec.Settings[application.ApplicationSettingsDefaultThirdLevelDomainConfigKey]; ok {
-		var allDomainConfigs []application.DefaultThirdLevelDomainConfig
+	if thirdLevelDomainConfig, ok := effSettings[ApplicationSettingsDefaultThirdLevelDomainConfigKey]; ok {
+		var allDomainConfigs []appv1alpha1.DefaultThirdLevelDomainConfig
 		err = json.Unmarshal([]byte(thirdLevelDomainConfig), &allDomainConfigs)
 		if err != nil {
 			klog.Error("get default third level domain config error, ", app.Spec.Name, " ", err)
@@ -451,8 +445,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 		}
 	}
 
-	customDomainData, customDomainExists := app.Spec.Settings[application.ApplicationSettingsCustomDomainKey]
-	customDomain := make(map[string]*application.ApplicationCustomDomain)
+	customDomainData, customDomainExists := effSettings[ApplicationSettingsCustomDomainKey]
+	customDomain := make(map[string]*ApplicationCustomDomain)
 	if customDomainExists {
 		err = json.Unmarshal([]byte(customDomainData), &customDomain)
 
@@ -460,17 +454,17 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			return nil, err
 		}
 	}
-	var appDomainConfigs []DefaultThirdLevelDomainConfig
-	if len(app.Spec.Settings["defaultThirdLevelDomainConfig"]) > 0 {
-		err := json.Unmarshal([]byte(app.Spec.Settings["defaultThirdLevelDomainConfig"]), &appDomainConfigs)
+	var appDomainConfigs []appv1alpha1.DefaultThirdLevelDomainConfig
+	if len(effSettings["defaultThirdLevelDomainConfig"]) > 0 {
+		err := json.Unmarshal([]byte(effSettings["defaultThirdLevelDomainConfig"]), &appDomainConfigs)
 		if err != nil {
 			klog.Errorf("unmarshal defaultThirdLevelDomainConfig error %v", err)
 		}
 	}
 
-	for index, entrance := range app.Spec.Entrances {
+	for index, entrance := range effEntrances {
 		entranceId := app.Spec.Appid
-		if len(app.Spec.Entrances) > 1 {
+		if len(effEntrances) > 1 {
 			entranceId += strconv.Itoa(index)
 		}
 		for _, adc := range appDomainConfigs {
@@ -491,9 +485,9 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 			// hardcode vault /server policy
 			if entranceDefaultThirdDomain == "vault" {
 				if policy, ok := policies["vault"]; !ok {
-					policies["vault"] = &application.ApplicationSettingsPolicy{
+					policies["vault"] = &ApplicationSettingsPolicy{
 						DefaultPolicy: userAuth.appDefaultPolicy.String(),
-						SubPolicies: []*application.ApplicationSettingsSubPolicy{
+						SubPolicies: []*ApplicationSettingsSubPolicy{
 							{
 								URI:    "/server",
 								Policy: OneFactor.String(),
@@ -513,7 +507,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *application.Application,
 
 					// force replace policy
 					if !found {
-						policy.SubPolicies = append(policy.SubPolicies, &application.ApplicationSettingsSubPolicy{
+						policy.SubPolicies = append(policy.SubPolicies, &ApplicationSettingsSubPolicy{
 							URI:    "/server",
 							Policy: OneFactor.String(),
 						})
@@ -929,7 +923,7 @@ func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 func (t *TsAuthorizer) getOIDCClients() error {
 	var clients []conf_schema.OpenIDConnectClientConfiguration
 
-	var appList application.ApplicationList
+	var appList appv1alpha1.ApplicationList
 	if err := t.client.List(context.Background(), &appList, client.InNamespace("")); err != nil {
 		return err
 	}
