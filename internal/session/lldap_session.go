@@ -133,13 +133,13 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 	token := l.getToken(ctx)
 
 	regenerateNewSession := func() error {
-		c, err := l.parseToken(userSession.AccessToken)
+		c, g, err := l.parseTokenAndGroups(userSession.AccessToken)
 		if err != nil {
 			klog.Errorf("failed to parse user session access token: %v", err)
 			return fmt.Errorf("failed to parse user session access token: %w", err)
 		}
 
-		userSession = l.createSessionFromTokenClaims(userSession.AccessToken, c, &userSession)
+		userSession = l.createSessionFromTokenClaims(userSession.AccessToken, c, &userSession, g)
 
 		return nil
 	}
@@ -188,13 +188,13 @@ func (l *lldapSession) SaveSession(ctx *fasthttp.RequestCtx, userSession UserSes
 // SaveSessionID implements SessionProvider.
 func (l *lldapSession) SaveSessionID(token string, InBlacklist any) {
 	if token != "" {
-		claims, err := l.parseToken(token)
+		claims, groups, err := l.parseTokenAndGroups(token)
 		if err != nil {
 			klog.Errorf("failed to parse token: %v", err)
 			return
 		}
 
-		session := l.createSessionFromTokenClaims(token, claims, nil)
+		session := l.createSessionFromTokenClaims(token, claims, nil, groups)
 
 		session.InBlacklist = InBlacklist.(bool)
 
@@ -285,7 +285,7 @@ func (l *lldapSession) SearchSession(ctx *fasthttp.RequestCtx) (userSession User
 	return l.verifingToken(token)
 }
 
-func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims, oldSession *UserSession) UserSession {
+func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims, oldSession *UserSession, groups []string) UserSession {
 	userSession := l.NewDefaultUserSession()
 	if oldSession != nil {
 		userSession = *oldSession
@@ -295,7 +295,7 @@ func (l *lldapSession) createSessionFromTokenClaims(token string, claims *Claims
 	userSession.Emails = []string{claims.Username + "@olares.com"}
 	userSession.CookieDomain = l.Config.Domain
 	userSession.AuthenticationLevel = authentication.OneFactor
-	userSession.Groups = claims.Groups
+	userSession.Groups = groups
 	userSession.AccessToken = token
 	userSession.KeepMeLoggedIn = true // Assuming we want to keep the session alive
 	userSession.LastActivity = time.Now().Unix()
@@ -347,19 +347,40 @@ func (l *lldapSession) verifingToken(token string) (userSession UserSession, err
 	}
 
 	// Token not found in cache, parse and validate the JWT token
-	claims, err := l.parseToken(token)
+	claims, groups, err := l.parseTokenAndGroups(token)
 	if err != nil {
 		klog.Errorf("failed to parse token: %v", err)
 		return l.NewDefaultUserSession(), err
 	}
 
 	// Create user session from claims
-	userSession = l.createSessionFromTokenClaims(token, claims, nil)
+	userSession = l.createSessionFromTokenClaims(token, claims, nil, groups)
 
 	// Store in cache for future requests
 	l.tokenCache.Set(token, &userSession, time.Until(time.Unix(claims.ExpiresAt, 0))) // Cache for 1 hour
 
 	return userSession, nil
+}
+
+func (l *lldapSession) parseTokenAndGroups(token string) (*Claims, []string, error) {
+	if l.parseToken == nil {
+		return nil, nil, errors.New("parseToken function is not defined")
+	}
+
+	claims, err := l.parseToken(token)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	groups := []string{}
+	info, err := utils.GetUserInfoFromBFL(resty.New().SetTimeout(2*time.Second), claims.Username)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user info: %w", err)
+	}
+	if info != nil {
+		groups = []string{info.OwnerRole}
+	}
+	return claims, groups, nil
 }
 
 func TokenVerify(baseURL, accessToken, validToken string) (map[string]interface{}, error) {
