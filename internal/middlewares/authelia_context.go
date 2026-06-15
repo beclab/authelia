@@ -529,7 +529,13 @@ func (ctx *AutheliaCtx) RemoteIP() net.IP {
 func (ctx *AutheliaCtx) GetXForwardedFor() []string {
 	XForwardedFor := ctx.Request.Header.PeekBytes(headerXForwardedFor)
 	if XForwardedFor != nil {
-		return strings.Split(string(XForwardedFor), ",")
+		l := strings.Split(string(XForwardedFor), ",")
+		var ips []string
+		for _, ip := range l {
+			ips = append(ips, strings.TrimSpace(ip))
+		}
+
+		return ips
 	}
 
 	return nil
