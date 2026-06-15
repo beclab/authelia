@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -302,7 +301,7 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 
 	// applications rule.
 	for _, a := range appList.Items {
-		if a.Spec.Owner == userInfo.Name || appv1alpha1.IsV3(&a) {
+		if a.Spec.Owner == userInfo.Name || appv1alpha1.IsShared(&a) {
 			appRules, err := t.getAppRules(len(rules), a.DeepCopy(), userInfo, userAuth)
 			if err != nil {
 				return nil, err
@@ -463,10 +462,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *appv1alpha1.Application,
 	}
 
 	for index, entrance := range effEntrances {
-		entranceId := app.Spec.Appid
-		if len(effEntrances) > 1 {
-			entranceId += strconv.Itoa(index)
-		}
+		entranceId := appv1alpha1.EntranceID(app.Spec.Appid, index, len(effEntrances))
 		for _, adc := range appDomainConfigs {
 			if adc.AppName == app.Spec.Name && adc.EntranceName == entrance.Name && len(adc.ThirdLevelDomain) > 0 {
 				entranceId = adc.ThirdLevelDomain
