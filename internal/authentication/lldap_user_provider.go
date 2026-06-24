@@ -217,7 +217,7 @@ func (l *LLDAPUserProvider) ResetPassword(username, oldPassword, newPassword, to
 			return err
 		}
 		if !valid {
-			return fmt.Errorf("reset password: verfiy password hash err %v", err)
+			return ErrIncorrectPassword
 		}
 	}
 
