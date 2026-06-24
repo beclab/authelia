@@ -104,6 +104,11 @@ var (
 	ErrNoContent = errors.New("no file content")
 
 	ErrUserTokenInvalid = errors.New("user token is invalid")
+
+	// ErrIncorrectPassword indicates the supplied current password is incorrect.
+	// The error message is intentionally user-facing and is forwarded verbatim
+	// to API clients (e.g. the password reset endpoint).
+	ErrIncorrectPassword = errors.New("Current password is incorrect. Try again.")
 )
 
 const fileAuthenticationMode = 0600
