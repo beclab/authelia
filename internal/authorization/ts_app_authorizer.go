@@ -27,8 +27,6 @@ import (
 
 	conf_schema "github.com/authelia/authelia/v4/internal/configuration/schema"
 	appv1alpha1 "github.com/beclab/api/api/app.bytetrade.io/v1alpha1"
-	"github.com/beclab/api/pkg/generated/clientset/versioned"
-	"github.com/beclab/api/pkg/generated/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,7 +34,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -78,9 +75,6 @@ type TsAuthorizer struct {
 
 	masterNodeCIDR string
 	probeSecret    string
-
-	// reloadCh coalesces event-driven ACL reloads (e.g. ProxyListener watch).
-	reloadCh chan struct{}
 }
 
 type userAuthorizer struct {
@@ -116,7 +110,6 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 		httpClient:        resty.New().SetTimeout(2 * time.Second),
 		log:               logging.Logger(),
 		exitCh:            make(chan struct{}),
-		reloadCh:          make(chan struct{}, 1),
 		userAuthorizers:   make(map[string]*userAuthorizer),
 		updateOIDCClients: updateOIDCClients,
 		oidcConfig:        &conf_schema.DefaultOpenIDConnectConfiguration,
@@ -125,7 +118,6 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 
 	authorizer.reloadRules()
 	go authorizer.autoRefreshRules()
-	go authorizer.watchProxyListeners()
 
 	return authorizer
 }
@@ -307,13 +299,6 @@ func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	// auth app rule.
 	rules = t.addAuthDomainRules(userInfo.Zone, userInfo.LocalZone, rules)
 
-	// appid-port bypass from ProxyListener CRs
-	var err error
-	rules, err = t.addAppidPortBypassRules(ctx, userInfo.Name, userInfo.Zone, userInfo.LocalZone, rules)
-	if err != nil {
-		return nil, err
-	}
-
 	// applications rule.
 	for _, a := range appList.Items {
 		if a.Spec.Owner == userInfo.Name || appv1alpha1.IsShared(&a) {
@@ -406,42 +391,6 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain, lo
 
 func (t *TsAuthorizer) addAuthDomainRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
 	return t.addDomainBypassRules("auth.", domain, localDomain, rules)
-}
-
-func (t *TsAuthorizer) addAppidPortBypassRules(ctx context.Context, username, domain, localDomain string, rules []*AccessControlRule) ([]*AccessControlRule, error) {
-	var proxyListenerList appv1alpha1.ProxyListenerList
-	if err := t.client.List(ctx, &proxyListenerList, client.InNamespace("")); err != nil {
-		return rules, err
-	}
-
-	domains := make([]string, 0, len(proxyListenerList.Items)*2)
-	for _, pl := range proxyListenerList.Items {
-		if pl.Spec.Owner != username {
-			continue
-		}
-
-		if pl.Spec.Appid == "" || pl.Spec.Port <= 0 {
-			continue
-		}
-
-		subdomain := fmt.Sprintf("%s-%d", pl.Spec.Appid, pl.Spec.Port)
-		domains = append(domains,
-			fmt.Sprintf("%s.%s", subdomain, domain),
-			fmt.Sprintf("%s.%s", subdomain, localDomain),
-		)
-	}
-
-	if len(domains) == 0 {
-		return rules, nil
-	}
-
-	rule := &AccessControlRule{
-		Position: len(rules),
-		Policy:   Bypass,
-	}
-	ruleAddDomain(domains, rule)
-
-	return append(rules, rule), nil
 }
 
 /*
@@ -796,103 +745,18 @@ func (t *TsAuthorizer) reloadRules() {
 	}
 }
 
-func (t *TsAuthorizer) requestReload() {
-	select {
-	case t.reloadCh <- struct{}{}:
-	default:
-		// A reload is already pending.
-	}
-}
-
 func (t *TsAuthorizer) autoRefreshRules() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := *time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
 			t.reloadRules()
-		case <-t.reloadCh:
-			// Brief debounce so burst create/update/delete coalesce into one reload.
-			timer := time.NewTimer(200 * time.Millisecond)
-			drain:
-			for {
-				select {
-				case <-t.reloadCh:
-				case <-timer.C:
-					break drain
-				case <-t.exitCh:
-					timer.Stop()
-					return
-				}
-			}
-			t.reloadRules()
 		case <-t.exitCh:
 			return
 		}
 	}
-}
-
-func (t *TsAuthorizer) watchProxyListeners() {
-	appClient, err := versioned.NewForConfig(t.kubeConfig)
-	if err != nil {
-		klog.Error("create app clientset for ProxyListener watch error, ", err)
-		return
-	}
-
-	factory := externalversions.NewSharedInformerFactory(appClient, 0)
-	informer := factory.App().V1alpha1().ProxyListeners().Informer()
-
-	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			klog.Info("ProxyListener added, request ACL reload")
-			t.requestReload()
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldPL, ok1 := oldObj.(*appv1alpha1.ProxyListener)
-			newPL, ok2 := newObj.(*appv1alpha1.ProxyListener)
-			if ok1 && ok2 &&
-				oldPL.Spec.Appid == newPL.Spec.Appid &&
-				oldPL.Spec.Port == newPL.Spec.Port &&
-				oldPL.Spec.Owner == newPL.Spec.Owner {
-				// Status-only update; ACL domains unchanged.
-				return
-			}
-
-			klog.Info("ProxyListener updated, request ACL reload")
-			t.requestReload()
-		},
-		DeleteFunc: func(obj interface{}) {
-			if _, ok := obj.(*appv1alpha1.ProxyListener); !ok {
-				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					if _, ok = tombstone.Obj.(*appv1alpha1.ProxyListener); !ok {
-						klog.Error("ProxyListener delete event: unexpected tombstone type")
-						return
-					}
-				} else {
-					klog.Error("ProxyListener delete event: unexpected object type")
-					return
-				}
-			}
-
-			klog.Info("ProxyListener deleted, request ACL reload")
-			t.requestReload()
-		},
-	})
-	if err != nil {
-		klog.Error("add ProxyListener event handler error, ", err)
-		return
-	}
-
-	factory.Start(t.exitCh)
-
-	if !cache.WaitForCacheSync(t.exitCh, informer.HasSynced) {
-		klog.Error("ProxyListener informer cache sync failed")
-		return
-	}
-
-	klog.Info("ProxyListener informer started")
-	<-t.exitCh
 }
 
 func (t *TsAuthorizer) getUserAccessPolicy(_ context.Context, userData *unstructured.Unstructured) (string, error) {
