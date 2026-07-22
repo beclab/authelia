@@ -6,7 +6,7 @@ require (
 	github.com/Gurpartap/logrus-stack v0.0.0-20170710170904-89c00d8a28f4
 	github.com/Khan/genqlient v0.7.0
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
-	github.com/beclab/api v0.0.18
+	github.com/beclab/api v0.0.24-0.20260722052928-2f50a7686961
 	github.com/beclab/lldap-client v0.0.10
 	github.com/deckarep/golang-set/v2 v2.1.0
 	github.com/duosecurity/duo_api_golang v0.0.0-20230203160531-b221c950c2b0

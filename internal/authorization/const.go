@@ -39,6 +39,10 @@ const (
 	internal  = "internal"
 )
 
+// devEntranceType marks a development entrance, which additionally answers on a
+// `<appid>-<port>.<zone>` alias routed to the same rules as its primary hostname.
+const devEntranceType = "dev"
+
 const (
 	operatorPresent    = "present"
 	operatorAbsent     = "absent"

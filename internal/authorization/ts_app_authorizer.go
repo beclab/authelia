@@ -536,6 +536,17 @@ func (t *TsAuthorizer) getAppRules(position int, app *appv1alpha1.Application,
 			}
 		}
 
+		// A "dev" entrance additionally answers on `<appid>-<port>.<zone>` (and
+		// the local-zone variant), sharing the same ACL rules as the entrance's
+		// primary hostname.
+		if entrance.Type == devEntranceType {
+			devSubdomain := fmt.Sprintf("%s-%d", app.Spec.Appid, entrance.Port)
+			domains = append(domains,
+				fmt.Sprintf("%s.%s", devSubdomain, userInfo.Zone),
+				fmt.Sprintf("%s.%s", devSubdomain, userInfo.LocalZone),
+			)
+		}
+
 		newRule := func(r *AccessControlRule) *AccessControlRule {
 			return r
 		}
