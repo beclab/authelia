@@ -40,7 +40,29 @@ func (l *lldapSession) DestroySession(ctx *fasthttp.RequestCtx) error {
 	}
 
 	// Delete the token from the lldap
-	err := TokenInvalidate(l.lldapAddr, token, token)
+	err := TokenInvalidate(l.lldapAddr, token, token, true)
+	if err != nil {
+		klog.Errorf("failed to invalidate token: %v", err)
+		return fmt.Errorf("failed to invalidate token: %w", err)
+	}
+
+	// Remove the session from the cache.
+	if l.tokenCache != nil {
+		l.tokenCache.Delete(token)
+	}
+
+	return nil
+}
+
+func (l *lldapSession) ForceDestroyByAccessToken(ctx *fasthttp.RequestCtx, accesstoken string) error {
+	token := l.getToken(ctx)
+	if len(token) == 0 {
+		klog.Error("no session token found in request context, nothing to destroy")
+		return nil
+	}
+
+	// Delete the token from the lldap
+	err := TokenInvalidate(l.lldapAddr, accesstoken, token, true)
 	if err != nil {
 		klog.Errorf("failed to invalidate token: %v", err)
 		return fmt.Errorf("failed to invalidate token: %w", err)
@@ -415,14 +437,15 @@ func TokenVerify(baseURL, accessToken, validToken string) (map[string]interface{
 	return response, nil
 }
 
-func TokenInvalidate(baseURL, accessToken, revokeToken string) error {
+func TokenInvalidate(baseURL, accessToken, revokeToken string, revokeRefreshToken bool) error {
 	url := fmt.Sprintf("%s/auth/token/invalidate", baseURL)
 	client := resty.New()
 
 	resp, err := client.SetTimeout(10*time.Second).R().
 		SetHeader("Content-Type", "application/json").SetAuthToken(accessToken).
-		SetBody(map[string]string{
-			"access_token": revokeToken,
+		SetBody(map[string]interface{}{
+			"access_token":         revokeToken,
+			"revoke_refresh_token": revokeRefreshToken,
 		}).Post(url)
 	if err != nil {
 		klog.Infof("send request failed: %v", err)

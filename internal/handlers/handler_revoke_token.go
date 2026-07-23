@@ -57,12 +57,12 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if revokeSession := ctx.Providers.SessionProvider.GetByToken(body.RevokeToken); revokeSession != nil {
-		if sessionId := revokeSession.GetSessionID(body.RevokeToken); sessionId != "" {
+	if revokeSessionProvider := ctx.Providers.SessionProvider.GetByToken(body.RevokeToken); revokeSessionProvider != nil {
+		if accessToken := revokeSessionProvider.GetSessionID(body.RevokeToken); accessToken != "" {
 			// change context session to signed session
-			ctx.RequestCtx.Request.Header.SetCookie(session.AUTH_TOKEN, sessionId)
+			ctx.RequestCtx.Request.Header.SetCookie(session.AUTH_TOKEN, accessToken)
 
-			revokeUserSession, err := revokeSession.GetSession(ctx.RequestCtx)
+			revokeUserSession, err := revokeSessionProvider.GetSession(ctx.RequestCtx)
 			if err != nil {
 				ctx.Logger.WithError(err).Error("Error occurred retrieving user session")
 
@@ -72,7 +72,33 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 				return
 			}
 
+			if revokeUserSession.IsAnonymous() {
+				// revoked token invalid or expired, try to parse the token to get the username
+				switch ctx.Providers.UserProvider.(type) {
+				case *authentication.LLDAPUserProvider:
+					claims, err := session.ParseToken(accessToken)
+					if err != nil {
+						ctx.Logger.WithError(err).Error("Error occurred parsing token")
+
+						ctx.SetStatusCode(fasthttp.StatusNotFound)
+						ctx.SetJSONError("token invalid")
+
+						return
+					}
+
+					if claims != nil && claims.Username != "" {
+						revokeUserSession.Username = claims.Username
+						revokeUserSession.AccessToken = accessToken
+					}
+				}
+			}
+
 			if revokeUserSession.Username == userInfo.Username || userInfo.Groups[0] == "owner" || userInfo.Groups[0] == "admin" {
+				destroyFn := func() {
+					if err = revokeSessionProvider.ForceDestroyByAccessToken(ctx.RequestCtx, userSession.AccessToken); err != nil {
+						ctx.Logger.WithError(err).Error("Error occurred force destroying user session")
+					}
+				}
 				switch p := ctx.Providers.UserProvider.(type) {
 				case *authentication.KubesphereUserProvider:
 					err = p.Logout(revokeUserSession.Username, revokeUserSession.AccessToken)
@@ -85,9 +111,9 @@ func RevokeTokenPOST(ctx *middlewares.AutheliaCtx) {
 
 				ctx.Logger.Infof("session destroyed, clear token, %s", revokeUserSession.AccessToken)
 
-				revokeSession.RemoveSessionID(revokeUserSession.AccessToken)
+				revokeSessionProvider.RemoveSessionID(revokeUserSession.AccessToken)
 
-				revokeSession.DestroySession(ctx.RequestCtx)
+				destroyFn()
 			} else {
 				ctx.SetJSONError("token belongs to anther user")
 				ctx.ReplyForbidden()

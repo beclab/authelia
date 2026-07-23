@@ -113,6 +113,10 @@ func (p *internelSession) DestroySession(ctx *fasthttp.RequestCtx) error {
 	return p.sessionHolder.Destroy(ctx)
 }
 
+func (p *internelSession) ForceDestroyByAccessToken(ctx *fasthttp.RequestCtx, _ string) error {
+	return p.sessionHolder.Destroy(ctx)
+}
+
 // UpdateExpiration update the expiration of the cookie and session.
 func (p *internelSession) UpdateExpiration(ctx *fasthttp.RequestCtx, expiration time.Duration) (err error) {
 	var store *session.Store

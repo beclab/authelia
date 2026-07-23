@@ -99,6 +99,7 @@ func handleAuthzUnauthorizedLegacy(ctx *middlewares.AutheliaCtx, authn *Authn, r
 			}
 
 		default:
+			ctx.Logger.Infof("redirect with user session info, name [%s], auth level [%d]", userSession.Username, userSession.AuthenticationLevel)
 			if err == nil {
 				qry := redirectionURL.Query()
 				qry.Set("fa2", strconv.FormatBool(userSession.AuthenticationLevel >= authentication.OneFactor))
