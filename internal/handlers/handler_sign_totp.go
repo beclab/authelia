@@ -79,7 +79,7 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 		return
 	}
 
-	if isValid == nil || isValid.Token == "" || isValid.RefreshToken == "" {
+	if isValid == nil || isValid.Token == "" {
 		ctx.Logger.Errorf("Invalid TOTP verification response: is nil or missing tokens")
 		_ = markAuthenticationAttempt(ctx, false, nil, userSession.Username, regulation.AuthTypeTOTP, nil)
 
