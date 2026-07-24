@@ -96,22 +96,6 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 			// }
 
 			if dconfig.Domain == domain {
-				// _, holder, err := NewProviderConfigAndSession(dconfig, name, s, p)
-
-				// if err != nil {
-				// 	return nil, err
-				// }
-				//
-				// provider.sessions[domain] = &internelSession{
-				// 	Config:        dconfig,
-				// 	sessionHolder: holder,
-				// 	sessionWithToken: ttlcache.New(
-				// 		ttlcache.WithTTL[string, string](dconfig.Expiration),
-				// 		ttlcache.WithCapacity[string, string](1000),
-				// 	),
-				// 	TargetDomain: targetDomain,
-				// }
-
 				provider.sessions[domain] = &lldapSession{
 					TargetDomain: targetDomain,
 					Config:       &dconfig,
@@ -121,7 +105,7 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 						ttlcache.WithDisableTouchOnHit[string, *UserSession](),
 					),
 					lldapAddr:     lldapServer,
-					parseToken:    parseToken,
+					parseToken:    ParseToken,
 					revokingToken: make(map[string]string),
 				}
 
@@ -239,7 +223,7 @@ func (p *Provider) GetUserTokens(user string) ([]*SessionTokenInfo, error) {
 			continue
 		}
 
-		claims, err := parseToken(data.AccessToken)
+		claims, err := ParseToken(data.AccessToken)
 		if err != nil {
 			klog.Error("parse token error, ", err)
 			continue
@@ -299,7 +283,7 @@ func (p *Provider) reloadTokenToCache(server string) {
 	}
 
 	for _, data := range dataList {
-		claims, err := parseToken(data.AccessToken)
+		claims, err := ParseToken(data.AccessToken)
 		if err != nil {
 			klog.Error("parse token error, ", err)
 			continue
@@ -407,7 +391,7 @@ func (p *Provider) tokenList(baseURL string) ([]tokenInfo, error) {
 	return response, nil
 }
 
-func parseToken(token string) (*Claims, error) {
+func ParseToken(token string) (*Claims, error) {
 	if len(token) == 0 {
 		return nil, errors.New("token is empty")
 	}

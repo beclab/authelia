@@ -24,6 +24,7 @@ type SessionProvider interface {
 	ClearUserTokenCache(username string)
 	// SearchSession searches for a session by token, if not found, it will search the revoking token.
 	SearchSession(ctx *fasthttp.RequestCtx) (userSession UserSession, err error)
+	ForceDestroyByAccessToken(ctx *fasthttp.RequestCtx, accesstoken string) error
 }
 
 const AUTH_TOKEN = "auth_token"
