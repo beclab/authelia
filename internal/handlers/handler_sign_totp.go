@@ -106,7 +106,9 @@ func TimeBasedOneTimePasswordPOST(ctx *middlewares.AutheliaCtx) {
 
 	userSession.SetTwoFactorTOTP(ctx.Clock.Now())
 	userSession.AccessToken = isValid.Token
-	userSession.RefreshToken = isValid.RefreshToken
+
+	// keep the refresh token of the first factor session, so that we can use it to refresh the access token when it expires.
+	// userSession.RefreshToken = isValid.RefreshToken
 
 	ctx.Providers.SessionProvider.SetByToken(userSession.AccessToken, provider)
 
