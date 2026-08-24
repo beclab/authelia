@@ -61,8 +61,7 @@ func TestHandleAuthzAuthorizedStandardIdentityHeaders(t *testing.T) {
 	})
 
 	// Internal LAN / probe may force required==Bypass while rule.Policy stays
-	// OneFactor (or stronger). Omit must key off rule.Policy, not required, so
-	// a session on a non-public ACL still emits identity headers.
+	// OneFactor (or stronger). Session identity must still be written.
 	t.Run("NonBypassRulePolicyWithSessionWritesIdentity", func(t *testing.T) {
 		ctx := bareAuthzCtx()
 		rule := &authorization.AccessControlRule{Policy: authorization.OneFactor}
@@ -78,20 +77,33 @@ func TestHandleAuthzAuthorizedStandardIdentityHeaders(t *testing.T) {
 		assert.Equal(t, "carol", string(ctx.Response.Header.PeekBytes(headerXBFLUser)))
 	})
 
-	t.Run("PublicPolicyOmitsIdentityEvenWithSession", func(t *testing.T) {
+	// SESSHDR: public (Policy Bypass) with a session must still emit identity.
+	// Empty AccessToken avoids setTokenToCookie SessionProvider dependency.
+	t.Run("PublicPolicyWithSessionWritesIdentity", func(t *testing.T) {
 		ctx := bareAuthzCtx()
 		rule := &authorization.AccessControlRule{Policy: authorization.Bypass}
-		// Non-empty AccessToken proves omit skips setTokenToCookie (would panic
-		// without SessionProvider if the write path ran).
-		handleAuthzAuthorizedStandard(ctx, mkAuthn("alice", "tok-alice"), rule)
+		handleAuthzAuthorizedStandard(ctx, mkAuthn("alice", ""), rule)
 
 		assert.Equal(t, 200, ctx.Response.StatusCode())
-		assertOutboundIdentityEmpty(t, ctx)
+		assert.Equal(t, "alice", string(ctx.Response.Header.PeekBytes(headerRemoteUser)))
+		assert.Equal(t, "owner", string(ctx.Response.Header.PeekBytes(headerRemoteGroups)))
+		assert.Equal(t, "Display", string(ctx.Response.Header.PeekBytes(headerRemoteName)))
+		assert.Equal(t, "u@example.com", string(ctx.Response.Header.PeekBytes(headerRemoteEmail)))
+		assert.Equal(t, "alice", string(ctx.Response.Header.PeekBytes(headerXBFLUser)))
 	})
 
 	t.Run("EmptyUsernameOmitsIdentity", func(t *testing.T) {
 		ctx := bareAuthzCtx()
 		rule := &authorization.AccessControlRule{Policy: authorization.OneFactor}
+		handleAuthzAuthorizedStandard(ctx, mkAuthn("", "tok-anon"), rule)
+
+		require.Equal(t, 200, ctx.Response.StatusCode())
+		assertOutboundIdentityEmpty(t, ctx)
+	})
+
+	t.Run("EmptyUsernameOnPublicOmitsIdentity", func(t *testing.T) {
+		ctx := bareAuthzCtx()
+		rule := &authorization.AccessControlRule{Policy: authorization.Bypass}
 		handleAuthzAuthorizedStandard(ctx, mkAuthn("", "tok-anon"), rule)
 
 		require.Equal(t, 200, ctx.Response.StatusCode())
