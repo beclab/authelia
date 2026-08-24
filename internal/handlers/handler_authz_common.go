@@ -62,11 +62,12 @@ func handleAuthzPortalURLFromQueryLegacy(ctx *middlewares.AutheliaCtx) (portalUR
 func handleAuthzAuthorizedStandard(ctx *middlewares.AutheliaCtx, authn *Authn, rule *authorization.AccessControlRule) {
 	ctx.ReplyStatusCode(fasthttp.StatusOK)
 
-	// Omit outbound identity when there is no session user, or the matched
-	// rule is a true public entrance (rule.Policy == Bypass). Do not use
-	// required==Bypass here: internal LAN and probes also force required Bypass.
-	omitIdentity := authn.Details.Username == "" ||
-		(rule != nil && rule.Policy == authorization.Bypass)
+	// Omit outbound identity only when there is no session user. A session on
+	// any authLevel (including public / Policy Bypass) must emit session
+	// identity headers for the upstream business pod. rule remains for the
+	// Authorized handler signature; do not key omit off required==Bypass
+	// (internal LAN / probes also force required Bypass).
+	omitIdentity := authn.Details.Username == ""
 
 	if omitIdentity {
 		return
