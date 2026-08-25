@@ -305,7 +305,7 @@ func (s *AuthzSuite) TestShouldNotFailOnMissingEmail() {
 
 	mock.Ctx.Providers.SessionProvider = session.NewProvider(&mock.Ctx.Configuration, nil)
 
-	targetURI := s.RequireParseRequestURI("https://bypass.example.com")
+	targetURI := s.RequireParseRequestURI("https://one-factor.example.com")
 
 	s.setRequest(mock.Ctx, fasthttp.MethodGet, targetURI, true, false)
 
@@ -327,6 +327,7 @@ func (s *AuthzSuite) TestShouldNotFailOnMissingEmail() {
 	s.Equal(testUsername, string(mock.Ctx.Response.Header.PeekBytes(headerRemoteUser)))
 	s.Equal("John Smith", string(mock.Ctx.Response.Header.PeekBytes(headerRemoteName)))
 	s.Equal("abc,123", string(mock.Ctx.Response.Header.PeekBytes(headerRemoteGroups)))
+	s.Equal(testUsername, string(mock.Ctx.Response.Header.PeekBytes(headerXBFLUser)))
 }
 
 func (s *AuthzSuite) TestShouldApplyPolicyOfOneFactorDomain() {

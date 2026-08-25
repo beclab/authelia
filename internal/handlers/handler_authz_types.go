@@ -34,7 +34,8 @@ type AuthzResultMutate func(ctx *middlewares.AutheliaCtx, result AuthzResult, au
 type HandlerAuthzUnauthorized func(ctx *middlewares.AutheliaCtx, authn *Authn, redirectionURL *url.URL)
 
 // HandlerAuthzAuthorized is a Authz handler func that handles authorized responses.
-type HandlerAuthzAuthorized func(ctx *middlewares.AutheliaCtx, authn *Authn)
+// rule is the matched ACL rule (may be nil); Policy==Bypass means a true public entrance.
+type HandlerAuthzAuthorized func(ctx *middlewares.AutheliaCtx, authn *Authn, rule *authorization.AccessControlRule)
 
 // HandlerAuthzGetAutheliaURL is a Authz handler func that handles retrieval of the Portal URL.
 type HandlerAuthzGetAutheliaURL func(ctx *middlewares.AutheliaCtx) (portalURL *url.URL, err error)

@@ -39,6 +39,7 @@ var (
 	headerRemoteEmail        = []byte("Remote-Email")
 	headerRemoteAccessToken  = []byte("Remote-Accesstoken")
 	headerRemoteRefreshToken = []byte("Remote-Refreshtoken")
+	headerXBFLUser           = []byte("X-BFL-USER")
 	headerUnauthError        = []byte("X-Unauth-Error")
 )
 

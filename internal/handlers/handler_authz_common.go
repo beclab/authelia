@@ -7,6 +7,7 @@ import (
 
 	"github.com/valyala/fasthttp"
 
+	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/utils"
 )
@@ -58,27 +59,38 @@ func handleAuthzPortalURLFromQueryLegacy(ctx *middlewares.AutheliaCtx) (portalUR
 	return portalURL, nil
 }
 
-func handleAuthzAuthorizedStandard(ctx *middlewares.AutheliaCtx, authn *Authn) {
+func handleAuthzAuthorizedStandard(ctx *middlewares.AutheliaCtx, authn *Authn, rule *authorization.AccessControlRule) {
 	ctx.ReplyStatusCode(fasthttp.StatusOK)
 
-	if authn.Details.Username != "" {
-		ctx.Response.Header.SetBytesK(headerRemoteUser, authn.Details.Username)
-		ctx.Response.Header.SetBytesK(headerRemoteGroups, strings.Join(authn.Details.Groups, ","))
-		ctx.Response.Header.SetBytesK(headerRemoteName, authn.Details.DisplayName)
+	// Omit outbound identity only when there is no session user. A session on
+	// any authLevel (including public / Policy Bypass) must emit session
+	// identity headers for the upstream business pod. rule remains for the
+	// Authorized handler signature; do not key omit off required==Bypass
+	// (internal LAN / probes also force required Bypass).
+	omitIdentity := authn.Details.Username == ""
 
-		switch len(authn.Details.Emails) {
-		case 0:
-			ctx.Response.Header.SetBytesK(headerRemoteEmail, "")
-		default:
-			ctx.Response.Header.SetBytesK(headerRemoteEmail, authn.Details.Emails[0])
-		}
-
-		setTokenToCookie(ctx, &AccessTokenCookieInfo{
-			AccessToken:  authn.Token.AccessToken,
-			RefreshToken: authn.Token.RefreshToken,
-			Username:     authn.Username,
-		})
+	if omitIdentity {
+		return
 	}
+
+	ctx.Response.Header.SetBytesK(headerRemoteUser, authn.Details.Username)
+	ctx.Response.Header.SetBytesK(headerRemoteGroups, strings.Join(authn.Details.Groups, ","))
+	ctx.Response.Header.SetBytesK(headerRemoteName, authn.Details.DisplayName)
+
+	switch len(authn.Details.Emails) {
+	case 0:
+		ctx.Response.Header.SetBytesK(headerRemoteEmail, "")
+	default:
+		ctx.Response.Header.SetBytesK(headerRemoteEmail, authn.Details.Emails[0])
+	}
+
+	ctx.Response.Header.SetBytesK(headerXBFLUser, authn.Details.Username)
+
+	setTokenToCookie(ctx, &AccessTokenCookieInfo{
+		AccessToken:  authn.Token.AccessToken,
+		RefreshToken: authn.Token.RefreshToken,
+		Username:     authn.Username,
+	})
 }
 
 func handleAuthzUnauthorizedAuthorizationBasic(ctx *middlewares.AutheliaCtx, authn *Authn) {
