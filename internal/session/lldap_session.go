@@ -12,7 +12,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/utils"
 	"github.com/go-resty/resty/v2"
 	"github.com/jellydator/ttlcache/v3"
-	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
@@ -239,11 +238,11 @@ func (l *lldapSession) UpdateExpiration(ctx *fasthttp.RequestCtx, expiration tim
 func (l *lldapSession) getToken(ctx *fasthttp.RequestCtx) string {
 	val := ctx.Request.Header.Cookie(AUTH_TOKEN)
 	if len(val) > 0 {
-		return strconv.B2S(val)
+		return string(val)
 	}
 
 	if token := ctx.Request.Header.PeekBytes(utils.TerminusAuthTokenHeader); len(token) > 0 {
-		return strconv.B2S(token)
+		return string(token)
 	}
 
 	return ""
