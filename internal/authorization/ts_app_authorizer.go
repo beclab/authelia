@@ -684,6 +684,10 @@ func (t *TsAuthorizer) reloadRules() {
 		return
 	}
 
+	if len(users) == 0 {
+		return
+	}
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
