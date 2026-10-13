@@ -52,6 +52,9 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 		if len(zoneTokens) > 2 {
 			info.LocalZone = strings.Join([]string{zoneTokens[0], "olares", "local"}, ".")
 		}
+	} else if info.Name != "" {
+		// No public zone yet. Local names are still <user>.olares.local.
+		info.LocalZone = info.Name + ".olares.local"
 	}
 
 	return info, nil
