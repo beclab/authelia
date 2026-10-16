@@ -53,8 +53,12 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 			info.LocalZone = strings.Join([]string{zoneTokens[0], "olares", "local"}, ".")
 		}
 	} else if info.Name != "" {
-		// No public zone yet. Local names are still <user>.olares.local.
-		info.LocalZone = info.Name + ".olares.local"
+		// No public zone yet. Local names are <terminus.spec.localName>.olares.local.
+		localName := GetTerminusLocalName()
+		if localName == "" {
+			localName = info.Name
+		}
+		info.LocalZone = localName + ".olares.local"
 	}
 
 	return info, nil

@@ -32,8 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -53,6 +55,12 @@ var (
 
 	tmpUserCustomDomain map[string]map[string]string
 	UserCustomDomain    map[string]map[string]string
+
+	userGVR = schema.GroupVersionResource{
+		Group:    "iam.kubesphere.io",
+		Version:  "v1alpha2",
+		Resource: "users",
+	}
 )
 
 // v3 applications get ACL rules merged into every user's authorizer;
@@ -67,6 +75,7 @@ type TsAuthorizer struct {
 	mutex      sync.Mutex
 	log        *logrus.Logger
 	exitCh     chan struct{}
+	reloadCh   chan struct{}
 
 	userAuthorizers map[string]*userAuthorizer
 
@@ -110,6 +119,7 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 		httpClient:        resty.New().SetTimeout(2 * time.Second),
 		log:               logging.Logger(),
 		exitCh:            make(chan struct{}),
+		reloadCh:          make(chan struct{}, 1),
 		userAuthorizers:   make(map[string]*userAuthorizer),
 		updateOIDCClients: updateOIDCClients,
 		oidcConfig:        &conf_schema.DefaultOpenIDConnectConfiguration,
@@ -118,6 +128,10 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 
 	authorizer.reloadRules()
 	go authorizer.autoRefreshRules()
+
+	if err := authorizer.watchUsers(); err != nil {
+		klog.Error("start user watcher error, ", err)
+	}
 
 	return authorizer
 }
@@ -768,10 +782,54 @@ func (t *TsAuthorizer) autoRefreshRules() {
 		select {
 		case <-ticker.C:
 			t.reloadRules()
+		case <-t.reloadCh:
+			t.reloadRules()
 		case <-t.exitCh:
 			return
 		}
 	}
+}
+
+// triggerReload never blocks; pending triggers are coalesced into a single reload.
+func (t *TsAuthorizer) triggerReload() {
+	select {
+	case t.reloadCh <- struct{}{}:
+	default:
+	}
+}
+
+func (t *TsAuthorizer) watchUsers() error {
+	dynClient, err := dynamic.NewForConfig(t.kubeConfig)
+	if err != nil {
+		return err
+	}
+
+	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, 0)
+	informer := factory.ForResource(userGVR).Informer()
+
+	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(_ interface{}) {
+			t.triggerReload()
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldUser, okOld := oldObj.(*unstructured.Unstructured)
+			newUser, okNew := newObj.(*unstructured.Unstructured)
+			if okOld && okNew && oldUser.GetResourceVersion() == newUser.GetResourceVersion() {
+				return
+			}
+			t.triggerReload()
+		},
+		DeleteFunc: func(_ interface{}) {
+			t.triggerReload()
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	factory.Start(t.exitCh)
+
+	return nil
 }
 
 func (t *TsAuthorizer) getUserAccessPolicy(_ context.Context, userData *unstructured.Unstructured) (string, error) {
@@ -785,18 +843,13 @@ func (t *TsAuthorizer) getUserAccessPolicy(_ context.Context, userData *unstruct
 }
 
 func (t *TsAuthorizer) listUserData(ctx context.Context) ([]unstructured.Unstructured, error) {
-	gvr := schema.GroupVersionResource{
-		Group:    "iam.kubesphere.io",
-		Version:  "v1alpha2",
-		Resource: "users",
-	}
 	client, err := dynamic.NewForConfig(t.kubeConfig)
 
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := client.Resource(gvr).List(ctx, metav1.ListOptions{})
+	data, err := client.Resource(userGVR).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return nil, err
