@@ -806,6 +806,7 @@ func (t *TsAuthorizer) autoRefreshRules() {
 
 // triggerReload never blocks; pending triggers are coalesced into a single reload.
 func (t *TsAuthorizer) triggerReload() {
+	klog.Info("trigger user rules reload")
 	select {
 	case t.reloadCh <- struct{}{}:
 	default:
