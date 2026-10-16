@@ -702,8 +702,19 @@ func (t *TsAuthorizer) reloadRules() {
 		return
 	}
 
+	retryReload := false
+
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	defer func() {
+		t.mutex.Unlock()
+		if retryReload {
+			klog.Info("reload user rules failed, retrying...")
+			go func() {
+				time.Sleep(2 * time.Second)
+				t.reloadRules()
+			}()
+		}
+	}()
 
 	// FIXME: check the user's role
 	AdminUser = users[0].GetName()
@@ -715,6 +726,7 @@ func (t *TsAuthorizer) reloadRules() {
 		info, err := utils.GetUserInfoFromBFL(t.httpClient, username)
 		if err != nil {
 			klog.Error("reload user info error, ", err, ", ", username)
+			retryReload = true
 			continue
 		}
 
@@ -741,6 +753,7 @@ func (t *TsAuthorizer) reloadRules() {
 		rules, err := t.getRules(ctx, info, &user, userAuth)
 		if err != nil {
 			klog.Error("reload user apps auth rules error, ", err, ", ", username)
+			retryReload = true
 			continue
 		}
 
@@ -749,6 +762,7 @@ func (t *TsAuthorizer) reloadRules() {
 		nonce, err := t.getNonce(username)
 		if err != nil {
 			klog.Error("get user backend service nonce error, ", err, ", ", username)
+			retryReload = true
 			continue
 		}
 
