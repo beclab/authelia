@@ -63,6 +63,10 @@ var (
 	}
 )
 
+// userStateCreated is the iam User status.state set after the user
+// controller finishes provisioning. Earlier states are not ready to authorize.
+const userStateCreated = "Created"
+
 // v3 applications get ACL rules merged into every user's authorizer;
 // domains are built under the visiting user's zone, and per-user overrides
 // from Spec.UserSettings[user] (customDomain / policy / authLevel) are
@@ -722,6 +726,10 @@ func (t *TsAuthorizer) reloadRules() {
 	tmpUserCustomDomain = make(map[string]map[string]string)
 	for _, user := range users {
 		username := user.GetName()
+		if state, ok := createdUserState(&user); !ok {
+			klog.Info("skip reload user, status is not Created, ", username, ", ", state)
+			continue
+		}
 
 		info, err := utils.GetUserInfoFromBFL(t.httpClient, username)
 		if err != nil {
@@ -813,6 +821,46 @@ func (t *TsAuthorizer) triggerReload() {
 	}
 }
 
+// isCreatedUser reports whether a watch event is for a user whose
+// status.state is Created. Other states are logged and ignored.
+func isCreatedUser(obj interface{}) bool {
+	user, ok := userFromEvent(obj)
+	if !ok {
+		klog.Info("skip user event, object is not a user")
+		return false
+	}
+
+	if state, ok := createdUserState(user); !ok {
+		klog.Info("skip user event, status is not Created, ", user.GetName(), ", ", state)
+		return false
+	}
+
+	return true
+}
+
+func createdUserState(user *unstructured.Unstructured) (string, bool) {
+	if user == nil {
+		return "", false
+	}
+	state, _, err := unstructured.NestedString(user.Object, "status", "state")
+	if err != nil {
+		return "", false
+	}
+	return state, state == userStateCreated
+}
+
+func userFromEvent(obj interface{}) (*unstructured.Unstructured, bool) {
+	switch o := obj.(type) {
+	case *unstructured.Unstructured:
+		return o, o != nil
+	case cache.DeletedFinalStateUnknown:
+		user, ok := o.Obj.(*unstructured.Unstructured)
+		return user, ok && user != nil
+	default:
+		return nil, false
+	}
+}
+
 func (t *TsAuthorizer) watchUsers() error {
 	dynClient, err := dynamic.NewForConfig(t.kubeConfig)
 	if err != nil {
@@ -823,13 +871,19 @@ func (t *TsAuthorizer) watchUsers() error {
 	informer := factory.ForResource(userGVR).Informer()
 
 	_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(_ interface{}) {
+		AddFunc: func(obj interface{}) {
+			if !isCreatedUser(obj) {
+				return
+			}
 			t.triggerReload()
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldUser, okOld := oldObj.(*unstructured.Unstructured)
 			newUser, okNew := newObj.(*unstructured.Unstructured)
 			if okOld && okNew && oldUser.GetResourceVersion() == newUser.GetResourceVersion() {
+				return
+			}
+			if !isCreatedUser(newObj) {
 				return
 			}
 			t.triggerReload()
