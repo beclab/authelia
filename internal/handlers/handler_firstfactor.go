@@ -70,7 +70,14 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 			return
 		}
 
-		if string(ctxUser.([]byte)) != bodyJSON.Username {
+		// The bridge user selects the device's cookie domain; local members
+		// authenticate with their own credentials on the same Auth entrance.
+		if string(ctxUser.([]byte)) != bodyJSON.Username && !allowSharedLocalLogin(
+			string(ctx.Host()), bodyJSON.Username, utils.GetTerminusLocalName(),
+			func(username string) (*utils.UserInfo, error) {
+				return utils.GetUserInfoFromBFL(sharedLocalLoginClient, username)
+			},
+		) {
 			err := errors.New("login user mismatch")
 			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
 
