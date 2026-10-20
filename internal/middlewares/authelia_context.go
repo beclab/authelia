@@ -675,17 +675,16 @@ func (ctx *AutheliaCtx) RecordAuthn(success, regulated bool, method string) {
 	ctx.Providers.Metrics.RecordAuthn(success, regulated, method)
 }
 
-func (ctx *AutheliaCtx) SetAutheliaNonce() {
-	user := ctx.Request.Header.PeekBytes(authorization.TerminusUserHeader)
-	if user == nil {
-		ctx.Logger.Error("cannot get user name from header, cannot set nonce")
+func (ctx *AutheliaCtx) SetAutheliaNonce(user string) {
+	if user == "" {
+		ctx.Logger.Error("cannot get user name from authn, cannot set nonce")
 		return
 	}
 
 	var nonce string
 	switch au := ctx.Providers.Authorizer.(type) {
 	case *authorization.TsAuthorizer:
-		nonce = au.GetUserBackendNonce(string(user))
+		nonce = au.GetUserBackendNonce(user)
 	default:
 		ctx.Logger.Error("authorizer is not TsAuthorizer, cannot set nonce")
 		return

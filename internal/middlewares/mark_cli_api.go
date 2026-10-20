@@ -26,6 +26,7 @@ import (
 )
 
 const OLARES_CLI_SERVICE_ACCOUNT = "system:serviceaccount:os-framework:olares-cli-sa"
+const terminusUserHeader = "X-BFL-USER"
 
 func MarkCliApi(next RequestHandler) RequestHandler {
 	return func(ctx *AutheliaCtx) {
@@ -92,9 +93,9 @@ func MarkCliApi(next RequestHandler) RequestHandler {
 
 func MarkCliAsAdmin(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
-		sa := ctx.Request.Header.Peek(string(authorization.TerminusUserHeader))
+		sa := ctx.Request.Header.Peek(terminusUserHeader)
 		if len(sa) != 0 && string(sa) == OLARES_CLI_SERVICE_ACCOUNT {
-			ctx.Request.Header.Set(string(authorization.TerminusUserHeader), authorization.AdminUser)
+			ctx.Request.Header.Set(terminusUserHeader, authorization.AdminUser)
 		}
 
 		next(ctx)

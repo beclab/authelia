@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/savsgio/gotils/strconv"
 	"github.com/valyala/fasthttp"
 	"k8s.io/klog/v2"
 
@@ -70,67 +69,13 @@ func (b *BridgeBuilder) Build() Bridge {
 		}
 
 		bridge := func(requestCtx *fasthttp.RequestCtx) {
-			user := requestCtx.Request.Header.PeekBytes(authorization.TerminusUserHeader)
-			if user == nil {
-				klog.Error("cannot get user name from header")
-
-				host := string(requestCtx.Host())
-				host = strings.Split(host, ":")[0]
-				if utils.IsIP(host) && authorization.AdminUser != "" {
-					// only admin user will access the os via ip and port
-					user = strconv.S2B(authorization.AdminUser)
-					klog.Info("set the default admin user, ", authorization.AdminUser)
-				} else {
-					// FIXME:
-					hostToken := strings.Split(host, ".")
-					for _, t := range hostToken {
-						klog.Info("try to find user space")
-						if strings.HasPrefix(t, "user-space-") {
-							user = strconv.S2B(strings.Replace(t, "user-space-", "", 1))
-						}
-					}
-
-					if user == nil {
-						requestCtx.Error("cannot get user name from header", http.StatusBadRequest)
-						return
-					}
-				}
-			}
-
-			var (
-				info *utils.UserInfo
-				err  error
-			)
-			userName := string(user)
-			item := b.userCache.Get(userName)
-			if item == nil {
-				info, err = utils.GetUserInfoFromBFL(b.httpClient, userName)
-				if err != nil {
-					klog.Error("reload user info error, ", err)
-					requestCtx.Error(err.Error(), http.StatusBadRequest)
-					return
-				}
-
-				if !info.IsEphemeral && info.Zone != "" {
-					b.userCache.Set(userName, info, time.Minute)
-				}
-			} else {
-				info = item.Value()
-			}
-
 			var domain string
 
 			var host *url.URL
 
 			hostStr := string(requestCtx.Host())
 
-			// parentDomain := func(host string) string {
-			// 	hostSub := strings.Split(host, ".")
-			// 	return strings.Join(hostSub[1:], ".")
-			// }
-
-			host, err = url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
-
+			host, err := url.Parse(string(requestCtx.URI().Scheme()) + "://" + hostStr + "/")
 			if err != nil {
 				klog.Error("cannot parse request host, ", host)
 				requestCtx.Error("cannot parse request host", http.StatusBadRequest)
@@ -138,23 +83,17 @@ func (b *BridgeBuilder) Build() Bridge {
 			}
 
 			domain = strings.Split(hostStr, ":")[0]
-			switch {
-			case info.IsEphemeral:
-				// If the user is ephemeral, we use the host as the domain.
-			case info.LocalZone != "" && strings.HasSuffix(domain, info.LocalZone):
-				domain = info.LocalZone
-
-			case info.Zone != "":
-				if strings.HasSuffix(domain, info.Zone) {
-					domain = info.Zone
-				} else {
-					customDomain, ok := authorization.UserCustomDomain[info.Name]
-					if !ok {
-						domain = info.Zone
-					} else {
-						if _, ok = customDomain[domain]; !ok {
-							domain = info.Zone
-						}
+			// validate domain, if not valid, check if it's a custom domain from user
+			if zone, ok := authorization.ValidDomain[domain]; ok {
+				domain = zone
+			} else {
+				_, ok := authorization.UserCustomDomain[domain]
+				if !ok {
+					// FIXME: request from a local ip, should be validated too
+					if !utils.IsIP(domain) {
+						klog.Error("cannot find domain from user and request: ", domain)
+						requestCtx.Error("cannot find domain from user and request", http.StatusBadRequest)
+						return
 					}
 				}
 			}
@@ -186,7 +125,6 @@ func (b *BridgeBuilder) Build() Bridge {
 
 			ctxConfig := *b.config
 			ctxConfig.DefaultRedirectionURL = string(requestCtx.URI().Scheme()) + "://" + domain + "/"
-			requestCtx.SetUserValueBytes(authorization.TerminusUserHeader, user)
 			ctx := NewAutheliaCtx(requestCtx, ctxConfig, *b.providers)
 			next(ctx)
 		}

@@ -46,6 +46,8 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 		return nil, errors.New(responseData.Message)
 	}
 
+	// FIXME: The local zone with the cluster local name should always be valid.
+	localName := GetTerminusLocalName()
 	info := responseData.Data.(*UserInfo)
 	if info.Zone != "" {
 		zoneTokens := strings.Split(info.Zone, ".")
@@ -54,7 +56,6 @@ func GetUserInfoFromBFL(client *resty.Client, user string) (*UserInfo, error) {
 		}
 	} else if info.Name != "" {
 		// No public zone yet. Local names are <terminus.spec.localName>.olares.local.
-		localName := GetTerminusLocalName()
 		if localName == "" {
 			localName = info.Name
 		}

@@ -92,10 +92,6 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	authn.Method = friendlyMethod(authn.Object.Method)
 
 	username := authn.Details.Username
-	if username == "" {
-		username = string(ctx.RequestCtx.UserValueBytes(authorization.TerminusUserHeader).([]byte))
-	}
-
 	ruleHasSubject, required, rule := ctx.Providers.Authorizer.GetRequiredLevel(
 		authorization.Subject{
 			Username: username,
@@ -134,7 +130,7 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		// set authelia nonce header
 		// if the required level is bypass, means it's internal or public policy.
 		if required == authorization.Bypass {
-			ctx.SetAutheliaNonce()
+			ctx.SetAutheliaNonce(authn.Username)
 		}
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/authelia/authelia/v4/internal/authentication"
-	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/configuration/schema"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/regulation"
@@ -61,23 +60,6 @@ func FirstFactorPOST(delayFunc middlewares.TimingAttackDelayFunc) middlewares.Re
 
 		if bodyJSON.AcceptCookie != nil {
 			ctx.SetUserValueBytes(authentication.AuthnAcceptCookeKey, bodyJSON.AcceptCookie)
-		}
-
-		ctxUser := ctx.UserValueBytes(authorization.TerminusUserHeader)
-		if ctxUser == nil {
-			ctx.Logger.Errorf("user not found in request ctx")
-			respondUnauthorized(ctx, fmt.Sprintf("user %s not found in request ctx", bodyJSON.Username))
-			return
-		}
-
-		if string(ctxUser.([]byte)) != bodyJSON.Username {
-			err := errors.New("login user mismatch")
-			_ = markAuthenticationAttempt(ctx, false, nil, bodyJSON.Username, regulation.AuthType1FA, err)
-
-			ctx.Logger.Errorf("login failed, %s, %s, %s", err.Error(), bodyJSON.Username, string(ctxUser.([]byte)))
-			respondUnauthorized(ctx, fmt.Sprintf("body username is unmatched with ctxuser"))
-
-			return
 		}
 
 		userPasswordOk, validRes, err := ctx.Providers.UserProvider.CheckUserPassword(bodyJSON.Username, bodyJSON.Password)

@@ -75,25 +75,9 @@ func NewProvider(config *schema.Configuration, certPool *x509.CertPool) *Provide
 		lldapServer: lldapServer,
 	}
 
-	// if config.Session.Redis != nil {
-	// 	// reload token from redis.
-	// 	lister, err := NewLister(provider.Config, certPool)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-
-	// 	provider.reloadLister = lister
-	// }
-
 	creator := func(domain, targetDomain string) (SessionProvider, error) {
 		for _, dconfig := range provider.Config.Cookies {
 			klog.Info("try to create session holder for domain, ", dconfig.Domain, " ", domain)
-
-			// name, p, s, err := NewSessionProvider(provider.Config, certPool)
-
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
 
 			if dconfig.Domain == domain {
 				provider.sessions[domain] = &lldapSession{
@@ -268,7 +252,7 @@ func (p *Provider) findDomain(hostname string) string {
 }
 
 func (p *Provider) reloadTokenToCache(server string) {
-	klog.Info("start to reload token from session redis storage")
+	klog.Info("start to reload token from session lldap")
 
 	users, err := p.listUserData()
 	if err != nil {

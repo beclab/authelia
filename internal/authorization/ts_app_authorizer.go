@@ -49,12 +49,14 @@ import (
 )
 
 var (
-	TerminusUserHeader                 = []byte("X-BFL-USER")
+	terminusUserHeader                 = []byte("X-BFL-USER")
 	AdminUser                          = ""
 	UserAnnotationLocalDomainDNSRecord = "bytetrade.io/local-domain-dns-record"
 
-	tmpUserCustomDomain map[string]map[string]string
-	UserCustomDomain    map[string]map[string]string
+	tmpUserCustomDomain map[string]string
+	UserCustomDomain    map[string]string
+	tmpValidDomain      map[string]string
+	ValidDomain         map[string]string
 
 	userGVR = schema.GroupVersionResource{
 		Group:    "iam.kubesphere.io",
@@ -82,6 +84,7 @@ type TsAuthorizer struct {
 	reloadCh   chan struct{}
 
 	userAuthorizers map[string]*userAuthorizer
+	allPublicRules  []*AccessControlRule
 
 	updateOIDCClients func(config *conf_schema.OpenIDConnectConfiguration)
 	oidcConfig        *conf_schema.OpenIDConnectConfiguration
@@ -145,6 +148,8 @@ func (t *TsAuthorizer) Stop() {
 }
 
 func (t *TsAuthorizer) GetUserBackendNonce(user string) string {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	a, ok := t.userAuthorizers[user]
 	if !ok {
 		return ""
@@ -154,6 +159,8 @@ func (t *TsAuthorizer) GetUserBackendNonce(user string) string {
 }
 
 func (t *TsAuthorizer) GetUserZone(user string) string {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	a, ok := t.userAuthorizers[user]
 	if !ok {
 		return ""
@@ -173,6 +180,30 @@ func (t *TsAuthorizer) IsSecondFactorEnabled() bool {
 	return true
 }
 
+func (t *TsAuthorizer) matchRule(subject Subject, object Object,
+	rule *AccessControlRule) (decision bool, hasSubjects bool, level Level, r *AccessControlRule) {
+	if rule.IsMatch(subject, object) {
+		t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
+
+		// bypass the k8s probe UA check.
+		if object.IsProbeUA(t.probeSecret) {
+			t.log.Debug("probe UA matched, set policy bypass")
+			return true, rule.HasSubjects, Bypass, rule
+		}
+
+		if rule.Internal &&
+			object.VaildInternalNetwork(t.masterNodeCIDR) {
+			klog.Info("object ip: ", object.RemoteIP)
+			t.log.Debug("internal policy rule matched, set policy public")
+			return true, rule.HasSubjects, Bypass, rule
+		}
+
+		return true, rule.HasSubjects, rule.Policy, rule
+	}
+
+	return false, rule.HasSubjects, rule.Policy, rule
+}
+
 func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubjects bool, level Level, r *AccessControlRule) {
 	t.log.Debugf("Check user app process authorization of subject %s and object %s (method %s).",
 		subject.String(), object.String(), object.Method)
@@ -180,36 +211,42 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	auth, ok := t.userAuthorizers[subject.Username]
-	if ok {
-		if !auth.initialized {
-			return false, auth.defaultPolicy, nil
-		}
+	_, hasSubjects = ValidDomain[object.Domain]
+	if !hasSubjects {
+		_, hasSubjects = UserCustomDomain[object.Domain]
+	}
 
-		for _, rule := range auth.rules {
-			if rule.IsMatch(subject, object) {
-				t.log.Debugf(traceFmtACLHitMiss, "HIT", rule.Position, subject, object, (object.Method + " " + rule.Policy.String()))
-
-				// bypass the k8s probe UA check.
-				if object.IsProbeUA(t.probeSecret) {
-					t.log.Debug("probe UA matched, set policy bypass")
-					return rule.HasSubjects, Bypass, rule
-				}
-
-				if rule.Internal &&
-					object.VaildInternalNetwork(t.masterNodeCIDR) {
-					klog.Info("object ip: ", object.RemoteIP)
-					t.log.Debug("internal policy rule matched, set policy public")
-					return rule.HasSubjects, Bypass, rule
-				}
-
-				return rule.HasSubjects, rule.Policy, rule
+	if subject.Username != "" {
+		auth, ok := t.userAuthorizers[subject.Username]
+		if ok {
+			if !auth.initialized {
+				return hasSubjects, auth.defaultPolicy, nil
 			}
 
-			t.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
+			for _, rule := range auth.rules {
+				decision, hasSubjects, level, r := t.matchRule(subject, object, rule)
+				if decision {
+					return hasSubjects, level, r
+				}
+
+				t.log.Tracef(traceFmtACLHitMiss, "MISS", rule.Position, subject, object, object.Method)
+			}
+		} else {
+			klog.Error("user not found in terminus authorizer, ", subject.Username)
+		}
+
+		if ok {
+			return hasSubjects, auth.defaultPolicy, nil
 		}
 	} else {
-		klog.Error("user not found in terminus authorizer, ", subject.Username)
+		klog.Info("anonymous request, check public rules")
+		for _, rule := range t.allPublicRules {
+			decision, hasSubjects, level, r := t.matchRule(subject, object, rule)
+			if decision {
+				return hasSubjects, level, r
+			}
+			t.log.Tracef(traceFmtACLHitMiss, "MISS in public", rule.Position, subject, object, object.Method)
+		}
 	}
 
 	t.log.Debugf("No matching rule for subject %s and url %s (method %s) applying default policy", subject, object, object.Method)
@@ -220,19 +257,15 @@ func (t *TsAuthorizer) GetRequiredLevel(subject Subject, object Object) (hasSubj
 	if utils.IsIP(object.Domain) {
 		switch {
 		case pathToken[len(pathToken)-1] == "task-state":
-			return false, OneFactor, nil
+			return hasSubjects, OneFactor, nil
 		case len(object.String()) == 0:
-			return false, OneFactor, nil
+			return hasSubjects, OneFactor, nil
 		default:
-			return false, TwoFactor, nil
+			return hasSubjects, TwoFactor, nil
 		}
 	}
 
-	if ok {
-		return false, auth.defaultPolicy, nil
-	} else {
-		return false, Denied, nil
-	}
+	return hasSubjects, Denied, nil
 }
 
 func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (results []RuleMatchResult) {
@@ -272,32 +305,17 @@ func (t *TsAuthorizer) GetRuleMatchResults(subject Subject, object Object) (resu
 	return results
 }
 
+func (t *TsAuthorizer) addValidDomain(domains ...string) {
+	for _, d := range domains {
+		dtokens := strings.Split(d, ".")
+		if len(dtokens) > 1 {
+			tmpValidDomain[d] = strings.Join(dtokens[1:], ".")
+		}
+	}
+}
+
 func (t *TsAuthorizer) getRules(ctx context.Context, userInfo *utils.UserInfo,
 	userData *unstructured.Unstructured, userAuth *userAuthorizer) ([]*AccessControlRule, error) {
-	if userInfo.IsEphemeral {
-		// Found the new user without DID binding, set the default policy to all.
-		klog.Info("new user: ", userInfo.Name, " just bypass launcher ")
-
-		rule := &AccessControlRule{
-			Position: 0,
-			Policy:   Bypass,
-		}
-		ruleAddDomain(
-			[]string{
-				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.Zone),
-				fmt.Sprintf("wizard-%s.%s", userInfo.Name, userInfo.LocalZone),
-			},
-			rule,
-		)
-
-		rules := []*AccessControlRule{rule}
-
-		// CORS rules.
-		rules = t.addCORSRules(userInfo.Zone, userInfo.LocalZone, rules)
-
-		return rules, nil
-	}
-
 	var appList appv1alpha1.ApplicationList
 	if err := t.client.List(context.Background(), &appList, client.InNamespace("")); err != nil {
 		return nil, err
@@ -354,6 +372,9 @@ func (t *TsAuthorizer) addDomainSpecialRules(subdomain, domain, localDomain stri
 }
 
 func (t *TsAuthorizer) addPortalRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
+	// special case for portal
+	tmpValidDomain[domain] = domain
+	tmpValidDomain[localDomain] = localDomain
 	return t.addDomainBypassRules("", domain, localDomain, rules)
 }
 
@@ -383,6 +404,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain, lo
 		"desktop." + domain,
 		"desktop." + localDomain,
 	}
+	t.addValidDomain(domains...)
 
 	if policy, err := t.getUserAccessPolicy(ctx, userData); err != nil {
 		klog.Error("get user access policy error, ", username, " ", err)
@@ -408,6 +430,7 @@ func (t *TsAuthorizer) addDesktopRules(ctx context.Context, username, domain, lo
 }
 
 func (t *TsAuthorizer) addAuthDomainRules(domain, localDomain string, rules []*AccessControlRule) []*AccessControlRule {
+	t.addValidDomain("auth."+domain, "auth."+localDomain)
 	return t.addDomainBypassRules("auth.", domain, localDomain, rules)
 }
 
@@ -545,11 +568,7 @@ func (t *TsAuthorizer) getAppRules(position int, app *appv1alpha1.Application,
 					domains = append(domains, entranceCustomDomain.ThirdPartyDomain)
 
 					// add domain to user domain, for session bridge
-					if _, ok = tmpUserCustomDomain[userInfo.Name]; !ok {
-						tmpUserCustomDomain[userInfo.Name] = make(map[string]string)
-					}
-
-					tmpUserCustomDomain[userInfo.Name][entranceCustomDomain.ThirdPartyDomain] = entrance.Name
+					tmpUserCustomDomain[entranceCustomDomain.ThirdPartyDomain] = entrance.Name
 				}
 			}
 		}
@@ -564,6 +583,8 @@ func (t *TsAuthorizer) getAppRules(position int, app *appv1alpha1.Application,
 				fmt.Sprintf("%s.%s", devSubdomain, userInfo.LocalZone),
 			)
 		}
+
+		t.addValidDomain(domains...)
 
 		newRule := func(r *AccessControlRule) *AccessControlRule {
 			return r
@@ -708,22 +729,10 @@ func (t *TsAuthorizer) reloadRules() {
 
 	retryReload := false
 
-	t.mutex.Lock()
-	defer func() {
-		t.mutex.Unlock()
-		if retryReload {
-			klog.Info("reload user rules failed, retrying...")
-			go func() {
-				time.Sleep(2 * time.Second)
-				t.reloadRules()
-			}()
-		}
-	}()
-
-	// FIXME: check the user's role
-	AdminUser = users[0].GetName()
-
-	tmpUserCustomDomain = make(map[string]map[string]string)
+	tmpUserCustomDomain = make(map[string]string)
+	tmpValidDomain = make(map[string]string)
+	tmpPublicRules := make([]*AccessControlRule, 0)
+	tmpUserAuthorizers := make(map[string]*userAuthorizer)
 	for _, user := range users {
 		username := user.GetName()
 		if state, ok := createdUserState(&user); !ok {
@@ -778,15 +787,39 @@ func (t *TsAuthorizer) reloadRules() {
 		userAuth.UserZone = info.Zone
 		userAuth.UserLocalZone = info.LocalZone
 
-		t.userAuthorizers[username] = userAuth
+		tmpUserAuthorizers[username] = userAuth
+
+		for _, rule := range rules {
+			if rule.Policy == Bypass || rule.Internal {
+				tmpPublicRules = append(tmpPublicRules, rule)
+			}
+		}
 
 	}
+
+	t.mutex.Lock()
+	defer func() {
+		t.mutex.Unlock()
+		if retryReload {
+			klog.Info("reload user rules failed, retrying...")
+			go func() {
+				time.Sleep(2 * time.Second)
+				t.reloadRules()
+			}()
+		}
+	}()
+
+	// FIXME: check the user's role
+	AdminUser = users[0].GetName()
 
 	if err = t.getOIDCClients(); err != nil {
 		klog.Error("get oidc clients error, ", err)
 	}
 
 	UserCustomDomain = tmpUserCustomDomain
+	ValidDomain = tmpValidDomain
+	t.allPublicRules = tmpPublicRules
+	t.userAuthorizers = tmpUserAuthorizers
 
 	cidr, err := t.getMasterNodeCIDR()
 	if err != nil {
@@ -980,7 +1013,9 @@ func (t *TsAuthorizer) getNonce(user string) (string, error) {
 }
 
 func (t *TsAuthorizer) ValidBackendRequest(ctx *fasthttp.RequestCtx, nonce string) bool {
-	user := ctx.Request.Header.PeekBytes(TerminusUserHeader)
+	user := ctx.Request.Header.PeekBytes(terminusUserHeader)
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	if user == nil {
 		for _, u := range t.userAuthorizers {
 			if u.UserTerminusNonce == nonce {
@@ -1000,37 +1035,34 @@ func (t *TsAuthorizer) ValidBackendRequest(ctx *fasthttp.RequestCtx, nonce strin
 }
 
 func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
-	user := ctx.UserValueBytes(TerminusUserHeader)
-
-	if user == nil {
-		user = ctx.Request.Header.PeekBytes(TerminusUserHeader)
-	}
-
 	uri := ctx.Request.URI()
 	host := string(uri.Host())
 	isLocal := strings.HasSuffix(host, ".local")
 
-	if user == nil {
-		// try to gen the user's login portal from request url
-		klog.Info("user header not found, gen login url from request")
-		hostToken := strings.Split(host, ".")
-		hostToken[0] = "auth"
+	// try to gen the user's login portal from request url
+	klog.Info("user header not found, gen login url from request")
+	hostToken := strings.Split(host, ".")
+	hostToken[0] = "auth"
 
-		return "https://" + strings.Join(hostToken, ".") + "/"
-	}
-
-	userAuth, ok := t.userAuthorizers[string(user.([]byte))]
-	if !ok {
-		klog.Error("user not found in authorizer, ", string(user.([]byte)))
-		return ""
-	}
-
-	loginPortal := userAuth.LoginPortal
+	schema := "https"
 	if isLocal {
-		loginPortal = userAuth.LocalLoginPortal
+		schema = "http"
 	}
 
-	return loginPortal
+	return schema + "://" + strings.Join(hostToken, ".") + "/"
+
+	// userAuth, ok := t.userAuthorizers[string(user.([]byte))]
+	// if !ok {
+	// 	klog.Error("user not found in authorizer, ", string(user.([]byte)))
+	// 	return ""
+	// }
+
+	// loginPortal := userAuth.LoginPortal
+	// if isLocal {
+	// 	loginPortal = userAuth.LocalLoginPortal
+	// }
+
+	// return loginPortal
 }
 
 // clients config example
