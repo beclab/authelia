@@ -21,7 +21,6 @@ import (
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
 	"github.com/authelia/authelia/v4/internal/session"
-	"github.com/authelia/authelia/v4/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -130,17 +129,4 @@ func mutatingAuthzResult(ctx *middlewares.AutheliaCtx,
 	}
 
 	return mutatedResult, nil
-}
-
-func isValidBackendRequest(ctx *middlewares.AutheliaCtx) bool {
-	backendToken := ctx.RequestCtx.Request.Header.PeekBytes(utils.TerminusAccessTokenHeader)
-
-	return len(backendToken) > 0 && func() bool {
-		auth, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
-		if !ok {
-			return false
-		}
-
-		return auth.ValidBackendRequest(ctx.RequestCtx, string(backendToken))
-	}()
 }

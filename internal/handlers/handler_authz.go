@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/valyala/fasthttp"
-
 	"github.com/authelia/authelia/v4/internal/authentication"
 	"github.com/authelia/authelia/v4/internal/authorization"
 	"github.com/authelia/authelia/v4/internal/middlewares"
@@ -22,14 +20,6 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 	)
 
 	ctx.Logger.Debug("******************* start to auth ******************")
-
-	if isValidBackendRequest(ctx) {
-		ctx.Logger.Debug("backend provider request, pass through")
-
-		ctx.ReplyStatusCode(fasthttp.StatusOK)
-
-		return
-	}
 
 	if object, err = authz.handleGetObject(ctx); err != nil {
 		ctx.Logger.Errorf("Error getting original request object: %v", err)
@@ -126,12 +116,6 @@ func (authz *Authz) Handler(ctx *middlewares.AutheliaCtx) {
 		handler(ctx, &authn, authz.getRedirectionURL(&object, autheliaURL))
 	case AuthzResultAuthorized:
 		authz.handleAuthorized(ctx, &authn, rule)
-		// set header must be after handleAuthorized, because handleAuthorized will reset the response.
-		// set authelia nonce header
-		// if the required level is bypass, means it's internal or public policy.
-		if required == authorization.Bypass {
-			ctx.SetAutheliaNonce(authn.Username)
-		}
 	}
 }
 

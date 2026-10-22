@@ -105,9 +105,8 @@ type userAuthorizer struct {
 	LoginPortal      string
 	LocalLoginPortal string
 
-	UserTerminusNonce string
-	UserZone          string
-	UserLocalZone     string
+	UserZone      string
+	UserLocalZone string
 
 	localDomainIpDnsRecord string
 }
@@ -145,17 +144,6 @@ func NewTsAuthorizer(updateOIDCClients func(config *conf_schema.OpenIDConnectCon
 
 func (t *TsAuthorizer) Stop() {
 	close(t.exitCh)
-}
-
-func (t *TsAuthorizer) GetUserBackendNonce(user string) string {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	a, ok := t.userAuthorizers[user]
-	if !ok {
-		return ""
-	}
-
-	return a.UserTerminusNonce
 }
 
 func (t *TsAuthorizer) GetUserZone(user string) string {
@@ -776,14 +764,6 @@ func (t *TsAuthorizer) reloadRules() {
 
 		userAuth.rules = rules
 
-		nonce, err := t.getNonce(username)
-		if err != nil {
-			klog.Error("get user backend service nonce error, ", err, ", ", username)
-			retryReload = true
-			continue
-		}
-
-		userAuth.UserTerminusNonce = nonce
 		userAuth.UserZone = info.Zone
 		userAuth.UserLocalZone = info.LocalZone
 
@@ -990,49 +970,6 @@ func (t *TsAuthorizer) listUserData(ctx context.Context) ([]unstructured.Unstruc
 
 // 	return ret
 // }
-
-func (t *TsAuthorizer) getNonce(user string) (string, error) {
-	nonceUrl := fmt.Sprintf("http://%s.user-system-%s/permission/v1alpha1/nonce", utils.SYSTEM_SERVER_NAME, user)
-
-	resp, err := t.httpClient.R().Get(nonceUrl)
-
-	if err != nil {
-		klog.Error("get nonce error, ", err)
-		return "", err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		klog.Error("response error, code: ", resp.StatusCode(), " ", string(resp.Body()))
-		return "", err
-	}
-
-	nonce := string(resp.Body())
-	// klog.Info("get terminus backend nonce with prefix: ", nonce[:8])
-
-	return nonce, nil
-}
-
-func (t *TsAuthorizer) ValidBackendRequest(ctx *fasthttp.RequestCtx, nonce string) bool {
-	user := ctx.Request.Header.PeekBytes(terminusUserHeader)
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	if user == nil {
-		for _, u := range t.userAuthorizers {
-			if u.UserTerminusNonce == nonce {
-				return true
-			}
-		}
-		return false
-	}
-
-	userAuth, ok := t.userAuthorizers[string(user)]
-	if !ok {
-		klog.Error("user not found in authorizer, ", string(user))
-		return false
-	}
-
-	return userAuth.UserTerminusNonce == nonce
-}
 
 func (t *TsAuthorizer) LoginPortal(ctx *fasthttp.RequestCtx) string {
 	uri := ctx.Request.URI()

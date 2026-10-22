@@ -103,14 +103,6 @@ func Handle1FAResponse(ctx *middlewares.AutheliaCtx,
 				return
 			}
 
-			nonce := authorizer.GetUserBackendNonce(session.Username)
-			if nonce == "" {
-				ctx.Logger.Errorf("Unable to get user terminuce nonce , %s", session.Username)
-
-				ctx.ReplyError(errors.New("unable to get nonce"), "Unable to get nonce")
-				return
-			}
-
 			type sign struct {
 				CallbackUrl string            `json:"callback_url"`
 				SignBody    TermipassSignBody `json:"sign_body"`
@@ -521,18 +513,6 @@ func updateSession2FaLevel(ctx *middlewares.AutheliaCtx, parsedURI *url.URL, ses
 	if err := ctx.SaveSession(*session); err != nil {
 		ctx.Logger.Errorf(logFmtErrSessionSave, "updated profile", regulation.AuthType1FA, session.Username, err)
 		return err
-	}
-
-	authorizer, ok := ctx.Providers.Authorizer.(*authorization.TsAuthorizer)
-	if !ok {
-		ctx.Logger.Errorf("Authorizer invalid , %s", session.Username)
-		return nil
-	}
-
-	nonce := authorizer.GetUserBackendNonce(session.Username)
-	if nonce == "" {
-		ctx.Logger.Errorf("Unable to get user terminuce nonce , %s", session.Username)
-		return nil
 	}
 
 	// send login notification
